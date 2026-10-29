@@ -1,0 +1,376 @@
+{
+ "quelle": "Spengler-Digital-CAD kern/geometrie.js (Branch claude/tauri-windows-github-action-ltlved)",
+ "faelle": [
+  {
+   "start": 0,
+   "ops": [
+    {
+     "typ": "schenkel",
+     "L": 100
+    },
+    {
+     "typ": "biegung",
+     "winkel": 90,
+     "ri": null,
+     "modus": "sharp"
+    },
+    {
+     "typ": "schenkel",
+     "L": 25
+    }
+   ],
+   "t": 0.7,
+   "ri": 1,
+   "k": 0.4,
+   "erg": {
+    "zuschnitt": 124.31061929829747,
+    "biegungen": [
+     {
+      "pos": 99.65530964914873,
+      "von": 98.65,
+      "bis": 100.66061929829748
+     }
+    ],
+    "endpunkt": [
+     100,
+     25
+    ],
+    "konturPunkte": 52,
+    "beschriftungen": [
+     {
+      "x": 49.325,
+      "y": 0,
+      "richtung": 0,
+      "mass": 100,
+      "nr": 1
+     },
+     {
+      "x": 100,
+      "y": 13.175,
+      "richtung": 1.5707963267948966,
+      "mass": 25,
+      "nr": 2
+     }
+    ],
+    "konturErster": [
+     0,
+     0.35
+    ],
+    "konturLetzter": [
+     0,
+     -0.35
+    ]
+   }
+  },
+  {
+   "start": 0,
+   "ops": [
+    {
+     "typ": "schenkel",
+     "L": 100
+    },
+    {
+     "typ": "biegung",
+     "winkel": 90,
+     "ri": null,
+     "modus": "sharp"
+    },
+    {
+     "typ": "schenkel",
+     "L": 25
+    },
+    {
+     "typ": "biegung",
+     "winkel": 180,
+     "ri": null,
+     "modus": "hem"
+    },
+    {
+     "typ": "schenkel",
+     "L": 7
+    }
+   ],
+   "t": 0.7,
+   "ri": 1,
+   "k": 0.4,
+   "erg": {
+    "zuschnitt": 131.93185789489243,
+    "biegungen": [
+     {
+      "pos": 99.65530964914873,
+      "von": 98.65,
+      "bis": 100.66061929829748
+     },
+     {
+      "pos": 124.62123859659495,
+      "von": 122.61061929829748,
+      "bis": 126.63185789489242
+     }
+    ],
+    "endpunkt": [
+     97.30000000000001,
+     18
+    ],
+    "konturPunkte": 144,
+    "beschriftungen": [
+     {
+      "x": 49.325,
+      "y": 0,
+      "richtung": 0,
+      "mass": 100,
+      "nr": 1
+     },
+     {
+      "x": 100,
+      "y": 12.325000000000001,
+      "richtung": 1.5707963267948966,
+      "mass": 25,
+      "nr": 2
+     },
+     {
+      "x": 97.30000000000001,
+      "y": 20.65,
+      "richtung": 4.71238898038469,
+      "mass": 7,
+      "nr": 3
+     }
+    ],
+    "konturErster": [
+     0,
+     0.35
+    ],
+    "konturLetzter": [
+     0,
+     -0.35
+    ]
+   }
+  },
+  {
+   "start": 30,
+   "ops": [
+    {
+     "typ": "schenkel",
+     "L": 150
+    },
+    {
+     "typ": "biegung",
+     "winkel": -90,
+     "ri": 3,
+     "modus": "sharp"
+    },
+    {
+     "typ": "schenkel",
+     "L": 40
+    },
+    {
+     "typ": "biegung",
+     "winkel": 45,
+     "ri": null,
+     "modus": "sharp"
+    },
+    {
+     "typ": "schenkel",
+     "L": 10
+    }
+   ],
+   "t": 1,
+   "ri": 1.5,
+   "k": 0.38,
+   "erg": {
+    "zuschnitt": 198.1289858822616,
+    "biegungen": [
+     {
+      "pos": 149.15464579228336,
+      "von": 146.5,
+      "bis": 151.80929158456675
+     },
+     {
+      "pos": 188.21913873341416,
+      "von": 187.48086445982057,
+      "bis": 188.95741300700777
+     }
+    ],
+    "endpunkt": [
+     159.5630688305565,
+     37.770793397597224
+    ],
+    "konturPunkte": 78,
+    "beschriftungen": [
+     {
+      "x": 63.43636082721014,
+      "y": 36.62499999999999,
+      "richtung": 0.5235987755982988,
+      "mass": 150,
+      "nr": 1
+     },
+     {
+      "x": 140.57170378647925,
+      "y": 56.52266693529559,
+      "richtung": -1.0471975511965979,
+      "mass": 40,
+      "nr": 2
+     },
+     {
+      "x": 155.1335392766065,
+      "y": 38.95768226442791,
+      "richtung": -0.2617993877991496,
+      "mass": 10,
+      "nr": 3
+     }
+    ],
+    "konturErster": [
+     -0.24999999999999994,
+     0.43301270189221935
+    ],
+    "konturLetzter": [
+     0.24999999999999994,
+     -0.43301270189221935
+    ]
+   }
+  },
+  {
+   "start": 0,
+   "ops": [
+    {
+     "typ": "schenkel",
+     "L": 60
+    },
+    {
+     "typ": "biegung",
+     "winkel": -180,
+     "ri": 1.4,
+     "modus": "hem"
+    },
+    {
+     "typ": "schenkel",
+     "L": 40
+    }
+   ],
+   "t": 0.6,
+   "ri": 0.8,
+   "k": 0.4,
+   "erg": {
+    "zuschnitt": 101.15221195188727,
+    "biegungen": [
+     {
+      "pos": 60.57610597594363,
+      "von": 58,
+      "bis": 63.15221195188726
+     }
+    ],
+    "endpunkt": [
+     20,
+     -3.4000000000000044
+    ],
+    "konturPunkte": 96,
+    "beschriftungen": [
+     {
+      "x": 29,
+      "y": 0,
+      "richtung": 0,
+      "mass": 60,
+      "nr": 1
+     },
+     {
+      "x": 39,
+      "y": -3.400000000000002,
+      "richtung": -3.141592653589793,
+      "mass": 40,
+      "nr": 2
+     }
+    ],
+    "konturErster": [
+     0,
+     0.3
+    ],
+    "konturLetzter": [
+     0,
+     -0.3
+    ]
+   }
+  },
+  {
+   "start": 0,
+   "ops": [
+    {
+     "typ": "schenkel",
+     "L": 80
+    },
+    {
+     "typ": "biegung",
+     "winkel": 120,
+     "ri": 10,
+     "modus": "tangent"
+    },
+    {
+     "typ": "schenkel",
+     "L": 30
+    }
+   ],
+   "t": 0.8,
+   "ri": 1.2,
+   "k": 0.38,
+   "erg": {
+    "zuschnitt": 131.58064713505948,
+    "biegungen": [
+     {
+      "pos": 90.79032356752974,
+      "von": 80,
+      "bis": 101.58064713505948
+     }
+    ],
+    "endpunkt": [
+     74.00666419935817,
+     41.580762113533154
+    ],
+    "konturPunkte": 66,
+    "beschriftungen": [
+     {
+      "x": 40,
+      "y": 0,
+      "richtung": 0,
+      "mass": 80,
+      "nr": 1
+     },
+     {
+      "x": 81.50666419935817,
+      "y": 28.590381056766574,
+      "richtung": 2.0943951023931953,
+      "mass": 30,
+      "nr": 2
+     }
+    ],
+    "konturErster": [
+     0,
+     0.4
+    ],
+    "konturLetzter": [
+     0,
+     -0.4
+    ]
+   }
+  }
+ ],
+ "fehlerFall": {
+  "ops": [
+   {
+    "typ": "schenkel",
+    "L": 1
+   },
+   {
+    "typ": "biegung",
+    "winkel": 90,
+    "ri": 5,
+    "modus": "sharp"
+   },
+   {
+    "typ": "schenkel",
+    "L": 1
+   }
+  ],
+  "t": 1,
+  "ri": 1,
+  "k": 0.4,
+  "meldung": "Schenkel 1 (1 mm) ist zu kurz für die Biegeradien"
+ }
+}

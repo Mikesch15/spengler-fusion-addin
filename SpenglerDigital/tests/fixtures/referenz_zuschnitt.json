@@ -1,0 +1,442 @@
+{
+ "quelle": "Spengler-Digital-V1 js/29-einlaufblech-aufnahme.js (Stand v3.416)",
+ "faelle": [
+  {
+   "art": "packe",
+   "fuge": 0,
+   "L": 2000,
+   "laengen": [
+    1200,
+    800,
+    700,
+    600,
+    500,
+    300,
+    200
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": [
+     {
+      "nr": [
+       1,
+       2
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       3,
+       4,
+       5,
+       7
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       6
+      ],
+      "rest": 1700
+     }
+    ],
+    "zuLang": []
+   }
+  },
+  {
+   "art": "packe",
+   "fuge": 3,
+   "L": 2000,
+   "laengen": [
+    1200,
+    800,
+    700,
+    600,
+    500,
+    300,
+    200
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": [
+     {
+      "nr": [
+       1,
+       3
+      ],
+      "rest": 97
+     },
+     {
+      "nr": [
+       2,
+       4,
+       5
+      ],
+      "rest": 94
+     },
+     {
+      "nr": [
+       6,
+       7
+      ],
+      "rest": 1497
+     }
+    ],
+    "zuLang": []
+   }
+  },
+  {
+   "art": "packe",
+   "fuge": 0,
+   "L": 3000,
+   "laengen": [
+    2900,
+    2500,
+    1500,
+    1500,
+    1000,
+    600,
+    500,
+    400,
+    100
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": [
+     {
+      "nr": [
+       1,
+       9
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       2,
+       7
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       3,
+       4
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       5,
+       6,
+       8
+      ],
+      "rest": 1000
+     }
+    ],
+    "zuLang": []
+   }
+  },
+  {
+   "art": "packe",
+   "fuge": 2,
+   "L": 2070,
+   "laengen": [
+    2070,
+    1035,
+    1034,
+    1000,
+    1000,
+    70
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": [
+     {
+      "nr": [
+       1
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       2,
+       4
+      ],
+      "rest": 33
+     },
+     {
+      "nr": [
+       3,
+       5
+      ],
+      "rest": 34
+     },
+     {
+      "nr": [
+       6
+      ],
+      "rest": 2000
+     }
+    ],
+    "zuLang": []
+   }
+  },
+  {
+   "art": "packe",
+   "fuge": 0,
+   "L": 1000,
+   "laengen": [
+    400,
+    400,
+    300,
+    300,
+    300,
+    300
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": [
+     {
+      "nr": [
+       1,
+       3,
+       4
+      ],
+      "rest": 0
+     },
+     {
+      "nr": [
+       2,
+       5,
+       6
+      ],
+      "rest": 0
+     }
+    ],
+    "zuLang": []
+   }
+  },
+  {
+   "art": "packe",
+   "fuge": 0,
+   "L": 500,
+   "laengen": [
+    600,
+    200
+   ],
+   "erg": {
+    "optimal": true,
+    "streifen": null,
+    "zuLang": [
+     1
+    ]
+   }
+  },
+  {
+   "art": "mehrfach",
+   "fuge": 0,
+   "je": 2,
+   "laengen": [
+    4020,
+    4020,
+    4020,
+    4020,
+    2510,
+    2510,
+    2510,
+    2510
+   ],
+   "erg": {
+    "optimal": true,
+    "abschnitte": [
+     {
+      "laenge": 4020,
+      "streifen": [
+       {
+        "nr": [
+         1
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         2
+        ],
+        "rest": 0
+       }
+      ]
+     },
+     {
+      "laenge": 4020,
+      "streifen": [
+       {
+        "nr": [
+         3
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         4
+        ],
+        "rest": 0
+       }
+      ]
+     },
+     {
+      "laenge": 2510,
+      "streifen": [
+       {
+        "nr": [
+         5
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         6
+        ],
+        "rest": 0
+       }
+      ]
+     },
+     {
+      "laenge": 2510,
+      "streifen": [
+       {
+        "nr": [
+         7
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         8
+        ],
+        "rest": 0
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "art": "mehrfach",
+   "fuge": 3,
+   "je": 3,
+   "laengen": [
+    3000,
+    2500,
+    2500,
+    2000,
+    1500,
+    1000,
+    800,
+    500
+   ],
+   "erg": {
+    "optimal": true,
+    "abschnitte": [
+     {
+      "laenge": 3000,
+      "streifen": [
+       {
+        "nr": [
+         1
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         2
+        ],
+        "rest": 500
+       },
+       {
+        "nr": [
+         3
+        ],
+        "rest": 500
+       }
+      ]
+     },
+     {
+      "laenge": 2000,
+      "streifen": [
+       {
+        "nr": [
+         4
+        ],
+        "rest": 0
+       },
+       {
+        "nr": [
+         5
+        ],
+        "rest": 500
+       },
+       {
+        "nr": [
+         6,
+         7
+        ],
+        "rest": 197
+       }
+      ]
+     },
+     {
+      "laenge": 500,
+      "streifen": [
+       {
+        "nr": [
+         8
+        ],
+        "rest": 0
+       }
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "art": "quer",
+   "B": 1000,
+   "A": 250,
+   "fuge": 0,
+   "n": 4,
+   "rest": 0
+  },
+  {
+   "art": "quer",
+   "B": 1000,
+   "A": 250,
+   "fuge": 3,
+   "n": 3,
+   "rest": 244
+  },
+  {
+   "art": "quer",
+   "B": 1250,
+   "A": 333,
+   "fuge": 2,
+   "n": 3,
+   "rest": 247
+  },
+  {
+   "art": "quer",
+   "B": 200,
+   "A": 250,
+   "fuge": 0,
+   "n": 0,
+   "rest": 0
+  },
+  {
+   "art": "quer",
+   "B": 670,
+   "A": 330,
+   "fuge": 5,
+   "n": 2,
+   "rest": 5
+  }
+ ]
+}

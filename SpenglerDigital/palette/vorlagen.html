@@ -1,0 +1,191 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<title>Spengler Digital CAD – Vorlagen</title>
+<style>
+:root{--rand:#c8ced6;--akzent:#1d4f7a;--grau:#5b6672;--fehler:#a3221b;--ok:#2d6a2d;--hg:#f7f8fa}
+*{box-sizing:border-box}
+body{font:13px "Segoe UI",Arial,sans-serif;margin:0;color:#1b1f24;background:#fff}
+header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--rand);background:var(--hg)}
+header img{height:28px}
+header b{font-size:14px}
+nav{display:flex;gap:2px;padding:4px 8px 0;border-bottom:1px solid var(--rand)}
+nav button{border:1px solid var(--rand);border-bottom:none;background:var(--hg);padding:5px 10px;cursor:pointer}
+nav button.aktiv{background:#fff;font-weight:600}
+main{padding:10px}
+section{display:none}section.aktiv{display:block}
+.zeile{display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap}
+label{color:var(--grau);min-width:110px}
+input,select,textarea{font:inherit;padding:3px 5px;border:1px solid var(--rand);border-radius:3px}
+input[type=number]{width:80px}
+button{font:inherit;padding:3px 9px;border:1px solid var(--rand);border-radius:3px;background:#fff;cursor:pointer}
+button.haupt{background:var(--akzent);color:#fff;border-color:var(--akzent)}
+button.gefahr{color:var(--fehler)}
+table{border-collapse:collapse;width:100%;margin:6px 0}
+td,th{border-bottom:1px solid #e3e6ea;padding:3px 4px;text-align:left;vertical-align:middle}
+th{color:var(--grau);font-weight:600}
+.liste tr{cursor:pointer}.liste tr.gewaehlt{background:#e6eef6}
+.meldung{padding:6px 8px;margin:6px 0;border-radius:3px;white-space:pre-wrap}
+.meldung.fehler{background:#fbeaea;color:var(--fehler)}.meldung.ok{background:#eaf5ea;color:var(--ok)}.meldung.info{background:#eef2f6}
+.leer{color:var(--grau);padding:16px;text-align:center;border:1px dashed var(--rand);margin:8px 0}
+.hilfe{border:1px solid var(--rand);border-radius:50%;width:20px;height:20px;padding:0;font-weight:700;color:var(--akzent)}
+.klein{font-size:11px;color:var(--grau)}
+main .experte{display:none}body.experte main .experte{display:block}
+.vorschau{color:#1b1f24;min-height:40px}.vorschau svg{max-width:100%;height:auto;border:1px solid #e3e6ea;background:#fff}.mini svg{width:90px;height:auto}
+fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:var(--akzent);font-weight:600}
+</style>
+</head>
+<body>
+<header><img src="../assets/logo/logo_64.png" alt="" onerror="this.remove()"><b>Spengler Digital CAD</b><span class="klein" id="version"></span>
+  <span style="flex:1"></span>
+  <span class="klein" id="syncStatus"></span>
+  <label style="min-width:0"><input type="checkbox" id="experte"> Expertenmodus</label></header>
+<nav>
+  <button data-tab="vorlagen" class="aktiv">Kantenvorlagen</button>
+  <button data-tab="details">3D-Details</button>
+  <button data-tab="materialien">Materialien</button>
+  <button data-tab="einstellungen">Einstellungen</button>
+  <button data-tab="sicherung">Sicherung</button>
+  <button data-tab="konto">Konto</button>
+</nav>
+<main>
+<div id="meldung"></div>
+
+<section id="vorlagen" class="aktiv">
+  <div class="zeile"><button class="haupt" id="vNeu">Neue Vorlage erstellen</button>
+    <select id="vFilter"><option value="">Alle Kategorien</option></select>
+    <button id="vImport">Importieren…</button><button id="vExport">Gewählte exportieren…</button>
+    <button class="hilfe" data-hilfe="vorlagen">?</button></div>
+  <div id="vLeer" class="leer">Die Vorlagenbibliothek ist leer. Es gibt bewusst keine mitgelieferten Profile –<br>legen Sie mit «Neue Vorlage erstellen» Ihre eigenen Vorlagen an.</div>
+  <table class="liste" id="vListe"><thead><tr><th></th><th>★</th><th>Name</th><th>Kategorie</th><th>Version</th><th>Folge</th><th>Vorschau</th></tr></thead><tbody></tbody></table>
+  <div id="editor" style="display:none">
+    <fieldset><legend>Vorlage</legend>
+      <div class="zeile"><label>Name</label><input id="eName" size="34"></div>
+      <div class="zeile"><label>Beschreibung</label><input id="eBeschr" size="50"></div>
+      <div class="zeile"><label>Kategorie</label><input id="eKat" list="katListe"><datalist id="katListe"></datalist>
+        <label style="min-width:0"><input type="checkbox" id="eFav"> Favorit</label>
+        <span class="klein" id="eVersion"></span></div>
+    </fieldset>
+    <fieldset><legend>Parameter <button class="hilfe" data-hilfe="kurzschrift">?</button></legend>
+      <table id="pTab"><thead><tr><th>Name</th><th>Bezeichnung</th><th>Einheit</th><th>Standard</th><th>Min</th><th>Max</th><th>variabel</th><th></th></tr></thead><tbody></tbody></table>
+      <button id="pNeu">Parameter hinzufügen</button>
+      <span class="klein">In Ausdrücken zusätzlich verfügbar: t (Dicke), ri (Innenradius), k (K-Faktor) aus dem Materialprofil.</span>
+    </fieldset>
+    <fieldset><legend>Operationen</legend>
+      <div class="zeile"><label>Kurzschrift</label><input id="eKurz" size="40" placeholder="z. B. 90 H U+ u"><button id="eKurzUeb">übernehmen</button></div>
+      <div class="zeile"><label>Vorschau</label><div id="eVorschau" class="vorschau"></div></div>
+      <div class="experte">
+        <table id="oTab"><thead><tr><th>#</th><th>Art</th><th>Winkel °</th><th>Länge mm</th><th>Radius mm</th><th></th></tr></thead><tbody></tbody></table>
+        <button id="oNeu">Operation hinzufügen</button>
+      </div>
+    </fieldset>
+    <fieldset class="experte"><legend>Anschluss, Grenzen, Fertigung</legend>
+      <div class="zeile"><label>Kantentyp</label><select id="eKante"><option value="gerade">gerade</option><option value="gekruemmt">gekrümmt</option><option value="beliebig">beliebig</option></select></div>
+      <div class="zeile"><label>Dicke min/max</label><input type="number" step="0.01" id="eTmin"> – <input type="number" step="0.01" id="eTmax"> mm</div>
+      <div class="zeile"><label>Kante mind.</label><input type="number" id="eLmin"> mm</div>
+      <div class="zeile"><label>Einschnitte</label><label style="min-width:0"><input type="checkbox" id="eCuts"> Einschnitte/Freistellungen ausdrücklich erlauben</label></div>
+      <div class="zeile"><label>Notizen</label><input id="eNotiz" size="50"></div>
+    </fieldset>
+    <fieldset><legend>Prüfen</legend>
+      <div class="zeile"><label>Testmaterial</label><select id="eMat"></select><button id="ePruef">Prüfen &amp; Trockenlauf</button></div>
+      <div id="ePruefErg"></div>
+    </fieldset>
+    <div class="zeile"><button class="haupt" id="eSpeichern">Speichern</button><button id="eAbbrechen">Schliessen</button>
+      <span style="flex:1"></span>
+      <button id="eKopie">Duplizieren</button><button id="eUmben">Umbenennen</button><button id="eVers">Versionen</button><button class="gefahr" id="eLoeschen">Löschen…</button></div>
+  </div>
+</section>
+
+<section id="details">
+  <div class="zeile"><span>3D-Detailvorlagen werden in Fusion mit dem Befehl «3D-Detail erfassen» angelegt und mit «3D-Detail anwenden» eingesetzt.</span>
+    <button class="hilfe" data-hilfe="details">?</button></div>
+  <div id="dLeer" class="leer">Noch keine 3D-Detailvorlagen.</div>
+  <table class="liste" id="dListe"><thead><tr><th>Name</th><th>Kategorie</th><th>Version</th><th>Parameter</th><th></th></tr></thead><tbody></tbody></table>
+</section>
+
+<section id="materialien">
+  <div class="zeile"><button class="haupt" id="mNeu">Neues Materialprofil</button><button class="hilfe" data-hilfe="material">?</button></div>
+  <div id="mLeer" class="leer">Noch keine Materialprofile. Es werden keine Fertigungswerte vorgegeben.</div>
+  <table class="liste" id="mListe"><thead><tr><th>Name</th><th>Dicke</th><th>Ri</th><th>K</th><th>Dichte</th><th>Tafeln</th><th>Rollen</th></tr></thead><tbody></tbody></table>
+  <fieldset id="mEditor" style="display:none"><legend>Materialprofil</legend>
+    <div class="zeile"><label>Name</label><input id="mName" size="30"> <label style="min-width:0">Werkstoff</label><input id="mWerk"></div>
+    <div class="zeile"><label>Dicke *</label><input type="number" step="0.01" id="mT"> mm
+      <label style="min-width:0">Dichte</label><input type="number" step="0.01" id="mD"> kg/dm³</div>
+    <div class="zeile"><label>Innenradius</label><input type="number" step="0.01" id="mRi"> mm <label style="min-width:0">K-Faktor</label><input type="number" step="0.01" id="mK">
+      <span class="klein">optional, nur für theoretische Abwicklung</span></div>
+    <div class="zeile"><label>Probebiegung</label>Zuschnitt <input type="number" step="0.01" id="mPz"> mm, 90° gebogen, aussen gemessen
+      a <input type="number" step="0.01" id="mPa"> b <input type="number" step="0.01" id="mPb"> mm <button id="mPrech">K-Faktor berechnen</button>
+      <button class="hilfe" data-hilfe="kfaktor">?</button></div>
+    <div id="mPErg"></div>
+    <div class="zeile"><label>Fusion-Blechregel</label><input id="mRegel"></div>
+    <div class="zeile"><label>Tafeln</label><input id="mTafeln" size="40" placeholder="1000x2000; 1250x2500"></div>
+    <div class="zeile"><label>Rollenbreiten</label><input id="mRollen" size="40" placeholder="500; 670; 1000"></div>
+    <div class="zeile"><label>Umformgrenzen</label>Stauchen max <input type="number" id="mStau"> %  Strecken max <input type="number" id="mStr"> %
+      Quelle <input id="mQuelle" placeholder="eigene Probe …"></div>
+    <div class="zeile"><label>Hinweise</label><input id="mHinw" size="50"></div>
+    <div class="zeile"><button class="haupt" id="mSpeichern">Speichern</button><button id="mSchliessen">Schliessen</button><span style="flex:1"></span><button class="gefahr" id="mLoeschen">Löschen…</button></div>
+  </fieldset>
+</section>
+
+<section id="einstellungen">
+  <fieldset><legend>Allgemein <button class="hilfe" data-hilfe="einstellungen">?</button></legend>
+    <div class="zeile"><label>Standardmaterial</label><select id="sMat"></select></div>
+    <div class="zeile"><label>Projektbibliothek</label><input id="sProj" size="50" placeholder="optional: Ordner einer projektbezogenen Bibliothek"></div>
+  </fieldset>
+  <fieldset><legend>Zuschnitt <button class="hilfe" data-hilfe="zuschnitt">?</button></legend>
+    <div class="zeile"><label>Schnittfuge</label><input type="number" step="0.1" id="sFuge"> mm <label style="min-width:0">Randabstand</label><input type="number" step="0.1" id="sRand"> mm</div>
+    <div class="zeile"><label>Drehen</label><label style="min-width:0"><input type="checkbox" id="sDreh"> Teile dürfen gedreht werden (Walzrichtung egal)</label></div>
+  </fieldset>
+  <fieldset><legend>Etikettenbogen (A4) <button class="hilfe" data-hilfe="stueckliste">?</button></legend>
+    <div class="klein">Masse vom Etikettenbogen ablesen (Packung des Herstellers).</div>
+    <div class="zeile"><label>Spalten × Zeilen</label><input type="number" step="1" min="1" id="sEsp"> × <input type="number" step="1" min="1" id="sEze"></div>
+    <div class="zeile"><label>Etikett</label><input type="number" step="0.1" id="sEbr"> × <input type="number" step="0.1" id="sEho"> mm (breit × hoch)</div>
+    <div class="zeile"><label>Rand oben/links</label><input type="number" step="0.1" id="sEob"> / <input type="number" step="0.1" id="sEli"> mm</div>
+    <div class="zeile"><label>Abstand waagr./senkr.</label><input type="number" step="0.1" id="sEax"> / <input type="number" step="0.1" id="sEay"> mm</div>
+    <div class="klein" id="sEpruef"></div>
+  </fieldset>
+  <fieldset><legend>Export</legend>
+    <div class="zeile"><label>Layer Kontur</label><input id="sLK"> <label style="min-width:0">Layer Text</label><input id="sLT"></div>
+    <div class="zeile"><label>Dateiname</label><input id="sDN" size="40"> <span class="klein">{bauteil} {material} {dicke}</span></div>
+    <div class="zeile"><label>Exportordner</label><input id="sOrd" size="50"></div>
+  </fieldset>
+  <fieldset><legend>Umformung</legend>
+    <div class="zeile"><label>Standardverfahren</label><select id="sVerf"><option value="manuell">Manuelle Werkstattumformung</option><option value="auto">Automatische Empfehlung</option><option value="stauchen">Stauchen/Schweifen</option><option value="strecken">Strecken/Schweifen</option></select></div>
+  </fieldset>
+  <button class="haupt" id="sSpeichern">Einstellungen speichern</button>
+</section>
+
+<section id="sicherung">
+  <p>Datenordner: <code id="ordner"></code></p>
+  <div class="zeile"><button class="haupt" id="bSichern">Sicherung erstellen</button><button id="bSichernUnter">Sicherung speichern unter…</button>
+    <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
+  <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
+  <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+</main>
+<section id="konto">
+  <fieldset><legend>Spengler-Digital-App <button class="hilfe" data-hilfe="konto">?</button></legend>
+    <div id="kAbgemeldet">
+      <p>Mit dem App-Konto anmelden: Vorlagen, 3D-Details und Materialprofile werden mit allen PCs der Firma abgeglichen,
+        Updates kommen per Klick. Ohne Anmeldung arbeitet das Add-in nur auf diesem PC.</p>
+      <div class="zeile"><label>Benutzername</label><input id="kBenutzer" size="28" placeholder="Vorname.Nachname oder E-Mail" autocomplete="username"></div>
+      <div class="zeile"><label>Passwort</label><input id="kPasswort" type="password" size="28" autocomplete="current-password"></div>
+      <div class="zeile"><button class="haupt" id="kAnmelden">Anmelden</button></div>
+    </div>
+    <div id="kAngemeldet" style="display:none">
+      <p id="kWer"></p>
+      <p id="kRecht" class="klein"></p>
+      <div class="zeile"><button class="haupt" id="kAbgleich">Jetzt abgleichen</button><button id="kUpdate">Nach Updates suchen</button>
+        <span style="flex:1"></span><button id="kAbmelden">Abmelden</button></div>
+      <div id="kBericht"></div>
+    </div>
+  </fieldset>
+  <fieldset><legend>Beim Start</legend>
+    <div class="zeile"><label style="min-width:0"><input type="checkbox" id="kSyncStart"> automatisch abgleichen</label></div>
+    <div class="zeile"><label style="min-width:0"><input type="checkbox" id="kUpdStart"> nach Updates suchen (mit Rückfrage)</label></div>
+  </fieldset>
+</section>
+<script src="vorlagen.js"></script>
+</body>
+</html>

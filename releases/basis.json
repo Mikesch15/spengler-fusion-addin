@@ -1,0 +1,335 @@
+{
+ "version": "0.4.2",
+ "dateien": [
+  {
+   "pfad": "README.md",
+   "sha256": "874a1a3dc9297dd4a97d5472031a1bb64c5ea6ccb18a96c74c68e1996cac3e3f",
+   "groesse": 4450
+  },
+  {
+   "pfad": "SpenglerDigital.manifest",
+   "sha256": "cca0bc90c22e50a303bfdc22ea38929c5231735d0f4a7136105fc71e1d08e324",
+   "groesse": 418
+  },
+  {
+   "pfad": "SpenglerDigital.py",
+   "sha256": "70345e6127063f4857458fb6c77c3d4edba3c52d79f151c9f4f66698e15596ce",
+   "groesse": 3512
+  },
+  {
+   "pfad": "assets/icons/16x16.png",
+   "sha256": "961683f3cf1208594a9a22c5a5e976e3b01654db3296b68411d053b93a23461f",
+   "groesse": 896
+  },
+  {
+   "pfad": "assets/icons/16x16@2x.png",
+   "sha256": "237ed006026cf5eabb53cf5192166de7d10fc3ffd4660dfafcdb68c985f3bb7a",
+   "groesse": 2741
+  },
+  {
+   "pfad": "assets/icons/32x32.png",
+   "sha256": "237ed006026cf5eabb53cf5192166de7d10fc3ffd4660dfafcdb68c985f3bb7a",
+   "groesse": 2741
+  },
+  {
+   "pfad": "assets/icons/32x32@2x.png",
+   "sha256": "a44d9fc8eb4b0fb6ee6bb59a3bd5523de13c102cca004515073bc199ae88dcf8",
+   "groesse": 8194
+  },
+  {
+   "pfad": "assets/logo/logo_256.png",
+   "sha256": "31ba24447464a2bf0aca49bf49a0a672ed039514498fb134b66ed29112cbbd42",
+   "groesse": 90771
+  },
+  {
+   "pfad": "assets/logo/logo_32.png",
+   "sha256": "237ed006026cf5eabb53cf5192166de7d10fc3ffd4660dfafcdb68c985f3bb7a",
+   "groesse": 2741
+  },
+  {
+   "pfad": "assets/logo/logo_64.png",
+   "sha256": "a44d9fc8eb4b0fb6ee6bb59a3bd5523de13c102cca004515073bc199ae88dcf8",
+   "groesse": 8194
+  },
+  {
+   "pfad": "docs/Benutzerhandbuch.html",
+   "sha256": "f3f57894bc63d0bc99fa7988289150c58a84ec89c1143213e55978bbcd7eb300",
+   "groesse": 24153
+  },
+  {
+   "pfad": "docs/Testanleitung.html",
+   "sha256": "ad9695338a130138732b6f25bd050ba22a2adac0187375d1213715bb7a00b8ff",
+   "groesse": 14164
+  },
+  {
+   "pfad": "palette/vorlagen.html",
+   "sha256": "35b332fafeecfbcf37863018589eb24ad543e07bd257062f53f9c7db059a284a",
+   "groesse": 14372
+  },
+  {
+   "pfad": "palette/vorlagen.js",
+   "sha256": "00c66a661c3826c73d4732cc189d03374e873f12e1a99d053724ec226b7cffc8",
+   "groesse": 26354
+  },
+  {
+   "pfad": "spengler_cad/__init__.py",
+   "sha256": "dc86255ce8550a4e20c743f17fe0e4d4fc5b7e35d71e9000fbe72769367a3ebd",
+   "groesse": 322
+  },
+  {
+   "pfad": "spengler_cad/commands/__init__.py",
+   "sha256": "4cd5cf8a4b125ae5d2b673ee6747c8da9184814a4cf310314e512e0aceec26fd",
+   "groesse": 41
+  },
+  {
+   "pfad": "spengler_cad/commands/base.py",
+   "sha256": "4d3d583f4c174ef978ff3b45796b7c03be81cd139797bfdd568802b7f6b07394",
+   "groesse": 3295
+  },
+  {
+   "pfad": "spengler_cad/commands/command_registry.py",
+   "sha256": "28f51ac11bab84e96caa94f9cb646a5ea4cc38452bada5ee1c55afbb8955cde5",
+   "groesse": 3182
+  },
+  {
+   "pfad": "spengler_cad/commands/detail_generator_command.py",
+   "sha256": "b1fc742a81e773e5f87e92e525ab901c8c9bea86578fdf3613510df90903ffcb",
+   "groesse": 13247
+  },
+  {
+   "pfad": "spengler_cad/commands/edge_apply_command.py",
+   "sha256": "6d954df1d9f015221e69d10ffc0b8d7b3d7a25e0d9628eef6839c989c51d1536",
+   "groesse": 11280
+  },
+  {
+   "pfad": "spengler_cad/commands/export_command.py",
+   "sha256": "d34275dd71481029fc1bda91c44360f172d34eea5a8408bfdefeb48b30529221",
+   "groesse": 13827
+  },
+  {
+   "pfad": "spengler_cad/commands/forming_command.py",
+   "sha256": "9086a85b01b3b020f1ac850012bab4fbb10186c1edaca73467026741b9c16e46",
+   "groesse": 6787
+  },
+  {
+   "pfad": "spengler_cad/commands/settings_command.py",
+   "sha256": "14e1a5fb1abd07e630252d1fe803a66a6f842c609bfd641dcb76f9fd6a0f6777",
+   "groesse": 8797
+  },
+  {
+   "pfad": "spengler_cad/core/__init__.py",
+   "sha256": "efb94f1b159c9a87cc0d61a4090d7516f8b303ac3d08ad7467eaf03d03fea544",
+   "groesse": 79
+  },
+  {
+   "pfad": "spengler_cad/core/bend_geometry.py",
+   "sha256": "b2f1ea192ad4a50f37abc58ced8c66aaeda92ae4607d7bd0b6370b378db33a28",
+   "groesse": 8096
+  },
+  {
+   "pfad": "spengler_cad/core/expressions.py",
+   "sha256": "a7b52d1601904b36425bdbb5b29742a0bdc24efb6baaf1193fb35b8987757a70",
+   "groesse": 3505
+  },
+  {
+   "pfad": "spengler_cad/core/models.py",
+   "sha256": "8cad293da401f6f31505769c2f0fb41a2854a26279553e42b716f38941a773eb",
+   "groesse": 9804
+  },
+  {
+   "pfad": "spengler_cad/core/operation_plan.py",
+   "sha256": "5092699f265373552129629905fb5d364f521cb3c54245c7018256c967fc3552",
+   "groesse": 6322
+  },
+  {
+   "pfad": "spengler_cad/core/short_syntax.py",
+   "sha256": "dde69558c73369234da67aa0d43b1c885b8f6f8ae790b8d9207a2323eeef2749",
+   "groesse": 4642
+  },
+  {
+   "pfad": "spengler_cad/core/template_engine.py",
+   "sha256": "d99a1da1d980f7da3ef875918337e5d58db1d20ecfefa7aad8dfe5025a0605b9",
+   "groesse": 4801
+  },
+  {
+   "pfad": "spengler_cad/core/units.py",
+   "sha256": "9c781ea94f5bac65b0076dfb555e13ad1a376a35a04fbd7a62ec20933ad92b11",
+   "groesse": 2438
+  },
+  {
+   "pfad": "spengler_cad/core/validation.py",
+   "sha256": "6b3ecdf45bad75af46db9772bf3d83825b13a4bd13d5cdc0d1b06da6405fa97b",
+   "groesse": 6994
+  },
+  {
+   "pfad": "spengler_cad/details/__init__.py",
+   "sha256": "40f9ae8c080d77caa206a69bd139560903e5006b0088c24a243a32bcf01bdbfa",
+   "groesse": 74
+  },
+  {
+   "pfad": "spengler_cad/details/detail_validation.py",
+   "sha256": "063325ce0b962cfb1fb9b749cfe514c631c3e34ec56b7ec6cb72ff71dae63c5f",
+   "groesse": 4797
+  },
+  {
+   "pfad": "spengler_cad/details/frames.py",
+   "sha256": "1e7e6bdb00671c91cb824d4024c855b3d618b6d50d2cd4d23a3701892ecd923d",
+   "groesse": 1704
+  },
+  {
+   "pfad": "spengler_cad/diagnostics/__init__.py",
+   "sha256": "b7c470284b5b5e9b810efb2780eb100be58731a72d2525b49e15089a81ebc335",
+   "groesse": 56
+  },
+  {
+   "pfad": "spengler_cad/diagnostics/fusion_capabilities.py",
+   "sha256": "346da9b4827f8eb7ccada3bf824d9867ada4cdfab6ceaa8e2e8c3d154a256805",
+   "groesse": 2663
+  },
+  {
+   "pfad": "spengler_cad/diagnostics/logger.py",
+   "sha256": "0a60d45af80d8acb9f6843185375c7641c84d66f3a221a8cf4e8357f8b85fa09",
+   "groesse": 1798
+  },
+  {
+   "pfad": "spengler_cad/diagnostics/selftest.py",
+   "sha256": "028f617899858c4a905d895654c13bb7ff114499d61bf2a5f69f94b29057b410",
+   "groesse": 5253
+  },
+  {
+   "pfad": "spengler_cad/forming/__init__.py",
+   "sha256": "20ad1fc2c9d466a239edf8b1d68595fa06d12652be4475ae9af4acb51e668d72",
+   "groesse": 69
+  },
+  {
+   "pfad": "spengler_cad/forming/forming.py",
+   "sha256": "dfc1031c3d2c47166f156e5ab22b49877a6504bf8c6e40df556e7156fdd8c56c",
+   "groesse": 7724
+  },
+  {
+   "pfad": "spengler_cad/geometry/__init__.py",
+   "sha256": "b30addadc515be0f2ba1c9ce0955ed9bb27d678a66e4b17e21473e90d5f4182b",
+   "groesse": 79
+  },
+  {
+   "pfad": "spengler_cad/geometry/edge_resolver.py",
+   "sha256": "3c1dc7659ab41fc92d07ebb39387fd6a5f665576983c1fe16c5b1b92b986c639",
+   "groesse": 1054
+  },
+  {
+   "pfad": "spengler_cad/geometry/fusion_adapter.py",
+   "sha256": "59be4356e8be418f0eedabbaf2cbffe0640d32dbeee4cdf4650f2b7f8bcd70f4",
+   "groesse": 22316
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/__init__.py",
+   "sha256": "01b87d3c19b82eb885441f3ead28de8769a6bd924287ed4aa0e05a1a4568cc90",
+   "groesse": 74
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/drawing.py",
+   "sha256": "a465a727fb95ecaf1837cb8aac454a281ca91f2fef9beb24b89f330689d8a77f",
+   "groesse": 9526
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/dxf_writer.py",
+   "sha256": "874dc02f8660cb2cbbc59f1d6e8b34a8428f8171cd0ef4ba8733594c19d87759",
+   "groesse": 3738
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/material_calculator.py",
+   "sha256": "843e8b8b139da5409ed7fadee905b4161c2c41292c42be76831aa7478b57e9bd",
+   "groesse": 4490
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/nesting.py",
+   "sha256": "64449fe13aea08999ece8436d9d1bc272a119f473c6259773a3caf9b19d93086",
+   "groesse": 14797
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/parts_list.py",
+   "sha256": "11bdb9c557de27a15f57019ae9bf331c09c5af785edddc7f0a342bcbe7143a61",
+   "groesse": 9769
+  },
+  {
+   "pfad": "spengler_cad/manufacturing/workshop_sheet.py",
+   "sha256": "396b0af9a4801c2051cc73f8c540a4518dc0ac6f1ac99103f1c364526ede0f58",
+   "groesse": 4242
+  },
+  {
+   "pfad": "spengler_cad/storage/__init__.py",
+   "sha256": "e94f7f55147609303c9061cb8e42f3103b12bb95eb9fd2c57a9b6f64f861c407",
+   "groesse": 88
+  },
+  {
+   "pfad": "spengler_cad/storage/backup_service.py",
+   "sha256": "fa2b43746b9655c0ddce7c77d0bd7c02875d857e28ab3af44b6880c553ab0dab",
+   "groesse": 6158
+  },
+  {
+   "pfad": "spengler_cad/storage/cloud_client.py",
+   "sha256": "7ee42b92c6bd183674032061496d69b1b93cce2649a8e64247397183d904ed13",
+   "groesse": 10241
+  },
+  {
+   "pfad": "spengler_cad/storage/json_store.py",
+   "sha256": "f94e1209b548d7b69aeba87747e1f508e4b76d2ec869bf9aa368e79095a8cf28",
+   "groesse": 1163
+  },
+  {
+   "pfad": "spengler_cad/storage/material_library.py",
+   "sha256": "f8e0c279c16881f459d06e746fbbd7f8e543a071816c7ab43987b95b1fb43ced",
+   "groesse": 3911
+  },
+  {
+   "pfad": "spengler_cad/storage/migration_service.py",
+   "sha256": "5c1730d921df170d342b635ff185a35f585fb35d868842da466121f0007108ff",
+   "groesse": 7193
+  },
+  {
+   "pfad": "spengler_cad/storage/paths.py",
+   "sha256": "00378cd2035f284ead95cb8077fbacc9d4dc5fb3cc0e9568a38c66c53a05878e",
+   "groesse": 2169
+  },
+  {
+   "pfad": "spengler_cad/storage/settings_service.py",
+   "sha256": "95e27bbbfd403ab122ed39ca2551fe8cf17b9634931192932ed4ea5cf7d9bb4e",
+   "groesse": 2045
+  },
+  {
+   "pfad": "spengler_cad/storage/sync_service.py",
+   "sha256": "5f254881e9019b370f04e3612da5528d370e9c1bc949891fd354b6d86e59571a",
+   "groesse": 11086
+  },
+  {
+   "pfad": "spengler_cad/storage/template_repository.py",
+   "sha256": "1c03784df435285a11f4baaad05b7b70f7fa1c42573b6b135bdc69006096b813",
+   "groesse": 14062
+  },
+  {
+   "pfad": "spengler_cad/storage/updater.py",
+   "sha256": "503cdf0d3ef4e209f8695da66121941643179b89084f0ad20038a6166a674de6",
+   "groesse": 5623
+  },
+  {
+   "pfad": "spengler_cad/ui/__init__.py",
+   "sha256": "3517f98b9c6620c934aaedb7198f09d6a6d1451e36d2b0dd4a9d817a582a357c",
+   "groesse": 49
+  },
+  {
+   "pfad": "spengler_cad/ui/help_content.py",
+   "sha256": "373665b6c4ee03e4a6b147217082da2a836100c0f3515006f850e79e78199d04",
+   "groesse": 9120
+  },
+  {
+   "pfad": "spengler_cad/ui/palette_backend.py",
+   "sha256": "c366437cc10ff8fd2c34c316711b3598cd48e85d4e3fcbf06518452309d01b3b",
+   "groesse": 10832
+  },
+  {
+   "pfad": "templates/system/LIESMICH.txt",
+   "sha256": "d4a11214aa2fef0384fceb947100ee51b1e6d242fae1f17741014e746954868b",
+   "groesse": 224
+  }
+ ]
+}

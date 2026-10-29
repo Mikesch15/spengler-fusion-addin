@@ -1,0 +1,181 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Spengler Digital CAD – Bedienungsanleitung</title><style>body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1b1f24;line-height:1.45}h1{color:#1b1f24}h2{color:#1d4f7a;margin-top:28px}table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid #c8ced6;padding:4px 6px;text-align:left;vertical-align:top}th{background:#e6eef6}code,pre{background:#f2f4f6;padding:1px 4px}.hinweis{background:#fff6e0;border:1px solid #e0b040;padding:8px}</style></head><body><h1>Spengler Digital CAD – Bedienungsanleitung</h1>
+<p>Add-in für Autodesk Fusion · Version 0.4.2 · Stand 29.10.2026</p>
+<p class="hinweis"><b>Prüfstand dieser Version:</b> Die Rechenteile (Kurzschrift, Vorlagen, Bauplan, Zuschnitt, Material, Umformung, Sicherung, Migration) sind automatisch getestet. Die Bedienung in Fusion selbst ist <b>noch nicht in Fusion getestet</b>. Funktionen, die davon abhängen, sind mit <b>[nicht in Fusion geprüft]</b> markiert.</p>
+<h2>1. Installation und erster Start</h2>
+<ol>
+<li>ZIP-Datei entpacken; es entsteht der Ordner <code>SpenglerDigital</code>.</li>
+<li>Ordner z. B. nach <code>%APPDATA%\Autodesk\Autodesk Fusion 360\API\AddIns\</code> (Windows) bzw. <code>~/Library/Application Support/Autodesk/Autodesk Fusion 360/API/AddIns/</code> (macOS) kopieren.</li>
+<li>In Fusion <b>Dienstprogramme → Add-Ins → Skripte und Add-Ins</b> (Shift+S), Register <b>Add-Ins</b>. Fehlt «SpenglerDigital» in der Liste: <b>+</b> und den Ordner wählen.</li>
+<li><b>Ausführen</b> und <b>Beim Start ausführen</b> ankreuzen.</li>
+<li>Im Arbeitsbereich <b>Konstruktion</b> erscheint das Register <b>SPENGLER</b>.</li>
+</ol>
+<p>Beim ersten Start legt das Add-in den Benutzerdatenordner an (siehe Kapitel 14). Danach empfiehlt sich <b>Hilfe → Selbsttest in neuem Dokument</b>: Er prüft in einem neuen, leeren Dokument die Fusion-Funktionen, die das Add-in benutzt, und schreibt das Ergebnis ins Protokoll.</p>
+<h2>2. Werkzeugleiste und Befehle</h2>
+<p>Register <b>SPENGLER</b>, drei Gruppen:</p>
+<table>
+<tr><th>Gruppe</th><th>Befehl</th><th>Zweck</th></tr>
+<tr><td>Kanten &amp; Details</td><td>Kanten bearbeiten</td><td>Eigene Kantenvorlage auf eine oder mehrere Blechkanten anwenden</td></tr>
+<tr><td></td><td>3D-Detail erfassen</td><td>Eigenes 3D-Blechdetail als Vorlage speichern</td></tr>
+<tr><td></td><td>3D-Detail anwenden</td><td>Gespeichertes Detail an eine Kante bzw. ein Falzende ansetzen</td></tr>
+<tr><td></td><td>Rundblech / Umformung</td><td>Rundbleche, Kragen, Kegel: Beurteilung und Drehkörper</td></tr>
+<tr><td>Fertigung</td><td>Abwicklung &amp; DXF</td><td>Fusion-Abwicklung, DXF-Export, Werkstattblatt</td></tr>
+<tr><td></td><td>Stückliste &amp; Zuschnitt</td><td>Teilenummern, Stückliste, Etiketten, Materialbedarf, Gewicht (Schätzung), Zuschnittplan</td></tr>
+<tr><td>Verwaltung</td><td>Vorlagen &amp; Einstellungen</td><td>Palette: Vorlagen, 3D-Details, Materialien, Einstellungen, Sicherung</td></tr>
+<tr><td></td><td>Hilfe</td><td>Hilfethemen, diese Anleitung, Fähigkeitsprüfung, Selbsttest</td></tr>
+</table>
+<p>Fehlt in Ihrer Fusion-Version die API für eigene Register, erscheinen die Befehle in den Panels <b>Blech → Erstellen</b> bzw. <b>Volumenkörper → Erstellen</b>.</p>
+<h2>3. Leere Vorlagenbibliothek</h2>
+<p>Die Vorlagenbibliothek ist beim ersten Start <b>leer</b>. Es werden bewusst keine Ortgänge, Traufen, Falze, Säume oder Standardmasse mitgeliefert – Sie legen jede Vorlage passend zu Ihrer Werkstatt selbst an. Auch die Materialbibliothek ist leer; das Add-in erfindet keine Radien, K-Faktoren oder Dichten.</p>
+<p>Bibliotheksebenen:</p>
+<ul>
+<li><b>Benutzerbibliothek</b> – Ihre Vorlagen im Benutzerdatenordner.</li>
+<li><b>Projektbibliothek</b> (optional) – ein Ordner, der unter <i>Einstellungen → Projektbibliothek</i> eingetragen ist, z. B. auf einem Netzlaufwerk.</li>
+<li><b>Systemvorlagen</b> – im Add-in-Ordner, produktiv leer und schreibgeschützt.</li>
+</ul>
+<h2>4. Eigene Kanten- und Operationsvorlagen</h2>
+<p><i>Vorlagen &amp; Einstellungen → Kantenvorlagen → Neue Vorlage erstellen.</i></p>
+<p>Eine Kantenvorlage besteht aus:</p>
+<ul>
+<li><b>Name, Beschreibung, Kategorie, Favorit</b></li>
+<li><b>Parametern</b> – Name (z. B. <code>H</code>), Bezeichnung, Einheit (mm, deg oder ohne), Standardwert, Minimum, Maximum, variabel ja/nein</li>
+<li><b>Operationen</b> – Folge ab der Kante: Flansch (Winkel, Länge, optional Radius) oder Umschlag (±180°, Länge)</li>
+<li><b>Anschluss und Grenzen</b> (Expertenmodus) – Kantentyp, Dickenbereich, Mindestkantenlänge, Einschnitte ausdrücklich erlauben</li>
+</ul>
+<p>Die schnellste Eingabe ist die <b>Kurzschrift</b>:</p>
+<table>
+<tr><th>Eingabe</th><th>Bedeutung</th></tr>
+<tr><td><code>90 25</code></td><td>90° zur Sichtseite abkanten, Schenkel 25 mm</td></tr>
+<tr><td><code>-90 30</code></td><td>90° nach hinten</td></tr>
+<tr><td><code>U+ 7</code> / <code>U- 7</code></td><td>Umschlag 180° zur Sichtseite / nach hinten, 7 mm</td></tr>
+<tr><td><code>90r5 20</code></td><td>Innenradius 5 mm für diese Biegung</td></tr>
+<tr><td><code>90 H U+ u+4*t</code></td><td>Parameter <code>H</code>, <code>u</code>; <code>t</code> = Blechdicke, <code>ri</code> = Innenradius, <code>k</code> = K-Faktor aus dem Materialprofil</td></tr>
+<tr><td><code>{w} 20</code></td><td>Winkel als Ausdruck</td></tr>
+</table>
+<p>Nach «übernehmen» werden neue Parameternamen automatisch als Parameter angelegt; Werte und Bereiche tragen Sie selbst ein. Unter der Kurzschrift zeigt die <b>Vorschau</b> den Querschnitt mit den Standardwerten: das bestehende Blech gestrichelt, die Kante grün, Schenkelmasse und Biegungen B1, B2 … Sie aktualisiert sich beim Tippen. Ist unter «Prüfen» ein Testmaterial gewählt (sonst das Standardmaterial), zeichnet sie mit dessen Dicke und Innenradius; ohne Material als Skizze mit 1 mm Dicke. Fehlt einem Parameter der Standardwert, steht statt des Bildes der Grund. Dasselbe Bild erscheint verkleinert in der Vorlagenliste. <b>Prüfen &amp; Trockenlauf</b> zeigt Fehler, die Folge mit den Standardwerten und – wenn Innenradius und K-Faktor im Material stehen – die theoretische Abwicklungszugabe.</p>
+<p>Speichern: Jede inhaltliche Änderung erhöht die <b>Vorlagenversion</b>; frühere Versionen bleiben erhalten (<i>Versionen</i>). <b>Duplizieren</b> erzeugt eine unabhängige Kopie, <b>Umbenennen</b> ändert nur den Namen, <b>Löschen</b> verschiebt die Vorlage nach Bestätigung in den Papierkorb (wiederherstellbar unter <i>Sicherung</i>).</p>
+<h2>5. Eigene 3D-Vorlagen und Anschlussreferenzen [nicht in Fusion geprüft]</h2>
+<p>Für Details, die sich nicht als Flanschfolge beschreiben lassen (z. B. Ihren eigenen Doppelfalzabschluss mit Unter-/Oberfalz, Endlasche und Freistellungen), gibt es einen geführten Erfassungsablauf:</p>
+<ol>
+<li>Detail in einer <b>eigenen Komponente</b> modellieren.</li>
+<li>Masse, die später veränderbar sein sollen, als <b>Fusion-Benutzerparameter</b> anlegen (Ändern → Parameter ändern) und in den Features verwenden.</li>
+<li><b>3D-Detail erfassen</b>: Komponente wählen, die <b>Anschlusskante</b> (gerade Kante, an der das Detail später ansetzt) und optional eine <b>Bezugsfläche</b> (bestimmt die Z-Richtung). Name, Kategorie, Beschreibung eingeben und die <b>variablen Parameter</b> ankreuzen.</li>
+</ol>
+<p>Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinatensystem der Anschlusskante (Ursprung = Kantenanfang, X = Kantenrichtung, Z = Normale der Bezugsfläche), die Kantenlänge, die Blechdicke aus der Blechregel, die variablen und festen Parameter und die Namen der Zeitachsen-Features.</p>
+<p><b>Grenzen:</b> Beliebige Körper werden nicht automatisch parametrisiert. Veränderbar ist nur, was Sie als Benutzerparameter angelegt und angekreuzt haben.</p>
+<h2>6. Variable Parameter</h2>
+<ul>
+<li><b>Variable Parameter</b> erscheinen beim Anwenden als Eingabefeld mit Einheit; Bereichsgrenzen werden geprüft.</li>
+<li><b>Feste Parameter</b> behalten den gespeicherten Wert (in der Parameterliste das Häkchen «variabel» entfernen).</li>
+<li><b>Materialwerte</b> <code>t</code>, <code>ri</code>, <code>k</code> kommen immer aus dem gewählten Materialprofil. Fehlt ein benötigter Wert, wird nicht gebaut.</li>
+</ul>
+<h2>7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]</h2>
+<p><b>Kanten bearbeiten:</b> Eine oder mehrere gerade Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der <b>Bauplan</b> im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (gekrümmt, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit <b>Vorschau</b> zeigt Fusion das Ergebnis vor der Bestätigung.</p>
+<p>Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.</p>
+<p><b>3D-Detail anwenden:</b> Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die <b>Passung</b> prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail als <b>eigene Komponente</b> importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Es wird nicht automatisch mit dem Blech vereinigt (damit der Blechkörper gültig bleibt). Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.</p>
+<h2>8. Standard- und Expertenmodus</h2>
+<p>Beide Modi benutzen dieselbe Rechen-Engine.</p>
+<ul>
+<li><b>Standardmodus:</b> Vorlage wählen und die wenigen variablen Werte eingeben.</li>
+<li><b>Expertenmodus</b> (Häkchen in Palette und Dialog): Operationen hinzufügen, ändern, löschen und umordnen, Radien je Biegung, Anschluss/Grenzen/Einschnitt-Freigabe. In «Kanten bearbeiten» kann die Folge für eine Ausführung angepasst und optional als neue Vorlage gespeichert werden – das Original bleibt unverändert.</li>
+</ul>
+<h2>9. Rundbleche und Werkstattumformung</h2>
+<p>Fusion-Flansche funktionieren nur an geraden Kanten. Für runde Bleche gibt es den Befehl <b>Rundblech / Umformung</b>:</p>
+<table>
+<tr><th>Fall</th><th>Was passiert mit dem Rand</th><th>Modell</th></tr>
+<tr><td>Scheibe mit aufgebogenem Rand</td><td>wird gestaucht</td><td>Drehkörper</td></tr>
+<tr><td>Kragen an rundem Ausschnitt</td><td>wird gestreckt</td><td>nur Beurteilung</td></tr>
+<tr><td>Kegelstumpf / konischer Übergang</td><td>abwickelbar, keine Umformung</td><td>Drehkörper</td></tr>
+</table>
+<p>Das Add-in unterscheidet klar:</p>
+<ul>
+<li><b>konstruierbar</b> – lässt sich modellieren bzw. rechnen;</li>
+<li><b>abwickelbar</b> – ohne Dehnung in die Ebene abwickelbar (nur Kegel/Zylinder);</li>
+<li><b>herstellbar</b> – mit dem gewählten Verfahren (Stauchen/Schweifen, Strecken/Schweifen, manuell, automatische Empfehlung). Das wird <b>nur</b> beurteilt, wenn im Materialprofil ein <b>eigener Grenzwert</b> (Stauchen/Strecken in %) mit Quelle hinterlegt ist. Sonst steht «nicht beurteilbar».</li>
+</ul>
+<p>Die angegebene Dehnung ist die reine Umfangsänderung (Geometrie) – keine Garantie: Falten, Rückfederung und Wanddickenänderung sind nicht gerechnet. Einschnitte oder Lappen werden <b>nie</b> automatisch erzeugt. Der Drehkörper ist kein Fusion-Blechkörper; Zuschnittdurchmesser und Kegelabwicklung sind theoretisch.</p>
+<h2>10. Abwicklung und DXF [nicht in Fusion geprüft]</h2>
+<p><b>Abwicklung &amp; DXF:</b> Blechkörper wählen. Hat die Komponente noch keine Abwicklung, eine feststehende Fläche wählen – dann erzeugt Fusion die Abwicklung. Das Add-in liest das umschliessende Rechteck der Abwicklung und exportiert die DXF mit dem <b>Fusion-Exporter</b> (Ebenen und Biegelinien legt Fusion fest). Dateiname nach Muster <code>{bauteil}_{material}_{dicke}mm</code>, Ablage in einem Ordner mit Datum/Uhrzeit (Einzel- und Sammelexport). Erfolg wird nur gemeldet, wenn die Datei tatsächlich geschrieben wurde. «Abwickelbar» in Fusion heisst noch nicht «werkstattgerecht umformbar» (siehe Kapitel 9).</p>
+<h2>11. Fertigungszeichnungen</h2>
+<p>Fusion bietet per API keine zuverlässige automatische Zeichnungserstellung mit Ansichten. Das Add-in erstellt deshalb ein <b>Werkstattblatt</b> (HTML, druckbar) mit Logo, Bauteilkennung, Material, Dicke, Vorlage und Version, Abwicklungsmassen aus Fusion sowie – für Bauteile aus «Kanten bearbeiten» mit Innenradius/K-Faktor im Material – Teilenummer, Objekt/Auftrag sowie – für Bauteile aus «Kanten bearbeiten» mit Innenradius/K-Faktor im Material – <b>Querschnitt mit Schenkelmassen und Biegungen</b>, <b>Abwicklung der Kante mit Biegelinien</b> (Masse ab Biegebeginn) und <b>Biegeliste</b>. Alles daraus ist als <i>theoretisch</i> gekennzeichnet (Blechmitte, K-Faktor des Materialprofils); die Zeichenlogik stammt aus dem CAD-Programm. Normgerechte Fusion-Zeichnungen erstellen Sie weiterhin im Arbeitsbereich Zeichnung.</p>
+<h2>12. Materialberechnung</h2>
+<p><b>K-Faktor aus Probebiegung</b> (Palette → Materialien → Materialprofil öffnen): Streifen genau zuschneiden, <b>eine</b> 90°-Biegung mit dem Innenradius des Profils biegen, beide Schenkel <b>aussen</b> messen. Zuschnitt, a und b eintragen → «K-Faktor berechnen». Dicke und Innenradius kommen aus den Feldern des Profils. Ist das Ergebnis plausibel (0.1–0.6), lässt es sich mit einem Klick übernehmen; danach «Speichern». Die Rechnung ist dieselbe wie im CAD-Programm. Der K-Faktor gilt für die theoretische Abwicklung des Add-ins; für die Fusion-Abwicklung denselben Wert in der Fusion-Blechregel eintragen.</p>
+<p><b>Stückliste &amp; Zuschnitt</b>: Blechkörper mit Fusion-Abwicklung wählen, Material, Stück je Teil, Objekt und Auftrag eingeben (werden für das nächste Mal gemerkt) und die gewünschten Ausgaben ankreuzen:</p>
+<ul>
+<li><b>Teilenummern</b>: Jeder Körper bekommt eine Nummer, die als Attribut am Körper im Fusion-Dokument gespeichert wird. Vorhandene Nummern bleiben; ein neuer Körper erhält die nächste freie Nummer im Dokument. Dieselbe Nummer steht auf Stückliste, Etikett, Werkstattblatt und im DXF-Dateinamen.</li>
+<li><b>Stückliste</b> als <code>stueckliste.csv</code> (Excel: Semikolon, Umlaute korrekt) und <code>stueckliste.html</code> (drucken): Nr, Teil, Material, Dicke, Zuschnitt × Länge, Stück, Laufmeter, Fläche, Gewicht, Summe je Material. Fläche aus der Fusion-Abwicklung; fehlt sie, das umschliessende Rechteck (mit * markiert). Ohne Dichte im Materialprofil kein Gewicht.</li>
+<li><b>Etiketten</b> als <code>etiketten.html</code>: eins pro Stück (Objekt, Auftrag, Teil mit Nummer und i/n, Blech, Mass) im A4-Bogenformat aus <i>Einstellungen → Etikettenbogen</i> (Spalten, Zeilen, Etikettgrösse, Ränder, Abstände – vom Bogen des Herstellers ablesen; die Palette zeigt, ob der Bogen auf A4 passt). Im Browser drucken mit <b>Seitenränder: keine</b> und <b>Skalierung 100 %</b>.</li>
+<li><b>Materialbedarf &amp; Zuschnittplan</b> wie unten.</li>
+</ul>
+<p>Die Materialberechnung ermittelt je Material: Anzahl Teile, Abwicklungsfläche (aus Fusion, sonst Rechteck – dann als obere Schätzung markiert), Gewicht (nur mit Dichte; Fläche × Dicke × Dichte, <b>Schätzwert</b>), Materialverbrauch und Ausnutzung des besten Lagerformats. Ergebnis: <code>bericht.txt</code> im Exportordner (wird nach dem Befehl geöffnet).</p>
+<h2>13. Zuschnittoptimierung</h2>
+<p>Die Rechnung ist aus der <b>Spengler-Digital-App</b> übernommen (gleiche Logik, gegen Referenzfälle aus der App getestet):</p>
+<ul>
+<li>Teile werden als <b>Streifen ihrer Abwicklungsbreite</b> aus Rolle oder Tafel geschnitten; Streifen je Abschnitt = ⌊(B + f) / (A + f)⌋.</li>
+<li>Je Breite wird die <b>kleinste Streifenzahl</b> gesucht (zuerst gierig, dann exakte Suche ab der Untergrenze); die Schnittfuge liegt zwischen zwei Stücken.</li>
+<li>Rolle mit mehreren Streifen nebeneinander: jeder Abschnitt nur so lang wie sein längstes Stück.</li>
+<li>Bestes Format = kleinste Blechfläche.</li>
+</ul>
+<p>Neu im Add-in: Randabstand je Tafelseite, <b>Drehen nur wenn erlaubt</b> (Einstellung), Überlappungs- und Randprüfung der Lage, Ausgabe als <code>zuschnittplan.svg</code>, <code>.csv</code> und <code>.dxf</code> (Layer einstellbar).</p>
+<p><b>Nicht übernommen</b> (und so ausgewiesen): Rollenmischung, Mischen verschiedener Breiten im selben Abschnitt, automatisches Teilen zu langer Stücke mit Nahtüberlappung, Restelager der App. Teile werden als Rechtecke verschachtelt, freie Konturen nicht.</p>
+<h2>14. Import/Export und Sicherung</h2>
+<p><b>Benutzerdatenordner</b> (überlebt Updates):</p>
+<ul>
+<li>Windows: <code>%APPDATA%\SpenglerDigitalCAD</code></li>
+<li>macOS: <code>~/Library/Application Support/SpenglerDigitalCAD</code></li>
+</ul>
+<p>Inhalt: <code>vorlagen/kanten</code>, <code>vorlagen/details</code> (+ <code>geometrie/*.f3d</code>), <code>vorlagen/versionen</code>, <code>vorlagen/papierkorb</code>, <code>materialien</code>, <code>einstellungen.json</code>, <code>datenformat.json</code>, <code>sicherungen</code>, <code>protokoll</code>, <code>export</code>.</p>
+<p><b>Vorlagen exportieren/importieren</b> (Palette, Kantenvorlagen): Austauschformat ist eine JSON-Datei:</p>
+<pre>{ &quot;schemaVersion&quot;: 1, &quot;typ&quot;: &quot;bibliothek_export&quot;, &quot;exportiert&quot;: &quot;&lt;Zeit&gt;&quot;,
+  &quot;vorlagen&quot;: [ &lt;Kantenvorlage oder Detailvorlage, vollständig&gt; ],
+  &quot;geometrie&quot;: { &quot;&lt;relativer Pfad .f3d&gt;&quot;: &quot;&lt;Base64&gt;&quot; } }</pre>
+<p>Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import als Kopie mit neuer ID. Vorlagen aus einer neueren Programmversion werden abgelehnt statt verändert.</p>
+<p><b>Sicherung</b> (Palette → Sicherung): «Sicherung erstellen» schreibt eine ZIP-Datei mit allen Benutzerdaten und Prüfsummen. «Wiederherstellen» prüft die Datei, sichert den aktuellen Stand automatisch und ersetzt ihn erst dann.</p>
+<p><b>Konto &amp; Abgleich mit der Spengler-Digital-App</b> (Palette → Register <b>Konto</b>): Mit demselben Benutzernamen und Passwort wie in der App anmelden. Danach werden Kantenvorlagen, 3D-Details (samt .f3d-Geometrie) und Materialprofile mit allen PCs der Firma abgeglichen – beim Start, nach jeder Änderung in der Palette und mit «Jetzt abgleichen». Oben in der Palette steht der Stand («✓ mit der App abgeglichen», «nur lokal …»).</p>
+<ul>
+<li><b>Lokal zuerst:</b> Jede Änderung wird zuerst auf dem PC gespeichert. Ohne Internet arbeitet das Add-in normal weiter und gleicht später ab.</li>
+<li><b>Rechte:</b> Ändern dürfen Konten mit dem App-Recht «Vorlagen ändern» (Standard: Admin; in der App pro Person einstellbar – es ist dasselbe Recht wie für die Massaufnahme-Vorlagen). Alle anderen sehen und benutzen die Vorlagen; eigene Änderungen bleiben dann auf ihrem PC und werden als «nur auf diesem PC» gemeldet.</li>
+<li><b>Firmen getrennt:</b> Jede Firma sieht nur ihre eigenen Daten (Regeln der App-Datenbank).</li>
+<li><b>Konflikt:</b> Haben zwei PCs dieselbe Vorlage geändert, gilt die Fassung aus der App; die eigene bleibt als Kopie «… (Konflikt TT.MM.)» erhalten und wird ebenfalls abgeglichen.</li>
+<li><b>Löschen</b> verschiebt auf allen PCs in den Papierkorb; in der App wird nur markiert, frühere Fassungen bleiben dort gespeichert.</li>
+<li>Das <b>Passwort</b> wird nicht gespeichert, nur die Sitzung (<code>konto.json</code> im Benutzerdatenordner). «Abmelden» löscht sie.</li>
+</ul>
+<h2>15. Updates und Wiederherstellung</h2>
+<p><b>Mit Anmeldung (ab 0.4.0):</b> Beim Start fragt das Add-in, wenn in der App eine neuere Version bereitliegt (oder Palette → Konto → «Nach Updates suchen»). Bei «Ja»: Benutzerdaten sichern → bisherige Programmdateien nach <code>…\SpenglerDigitalCAD\programm_sicherung\&lt;Version&gt;</code> kopieren → nur geänderte Dateien laden und per Prüfsumme kontrollieren → ersetzen. Danach das Add-in neu starten (Shift+S → Stoppen → Ausführen). Stimmt eine Prüfsumme nicht oder fehlt etwas, wird abgebrochen und nichts verändert. Die PDF-Anleitungen kommen nur mit dem ZIP; «Hilfe → Bedienungsanleitung öffnen» zeigt die stets aktuelle HTML-Fassung.</p>
+<p><b>Von Hand (ZIP), z. B. Erstinstallation auf einem neuen PC:</b></p>
+<ol>
+<li>Add-in stoppen (Skripte und Add-Ins → Stoppen).</li>
+<li>Inhalt des ZIP in <b>denselben</b> Ordner kopieren und ersetzen (danach liegt <code>SpenglerDigital.py</code> direkt im Ordner). Der Benutzerdatenordner wird dabei nicht berührt.</li>
+<li>Add-in starten und unter Hilfe → Fusion-Fähigkeiten Version und Ladeordner prüfen. Das Add-in prüft das Datenformat (<code>schemaVersion</code> je Datensatz):</li>
+</ol>
+<ul>
+<li>Umstellung nötig → <b>automatische Sicherung</b>, Umstellung auf Kopien, Prüfung jedes Datensatzes, erst dann Übernahme.</li>
+<li>Kritische Umstellung → Rückfrage vor dem Start.</li>
+<li>Fehler → <b>keine Datei wird verändert</b>, Meldung mit Pfad der Sicherung.</li>
+<li>Datensätze aus einer neueren Version → werden gelesen, aber nie überschrieben.</li>
+</ul>
+<ol>
+<li>Zurück zum alten Stand: Palette → Sicherung → gewünschte Sicherung → Wiederherstellen.</li>
+</ol>
+<h2>16. Fehlerbehebung und bekannte Grenzen</h2>
+<p><b>Protokoll:</b> Palette → Sicherung → «Protokoll öffnen» (Datei <code>protokoll/spengler_cad.log</code>). Bei Problemen bitte diese Datei schicken.</p>
+<table>
+<tr><th>Meldung</th><th>Ursache / Lösung</th></tr>
+<tr><td>«Die Vorlagenbibliothek ist leer»</td><td>Zuerst unter Vorlagen &amp; Einstellungen eine Vorlage anlegen.</td></tr>
+<tr><td>«… FlangeFeatures.createEdgeFlangeInput fehlt»</td><td>Fusion aktualisieren; die Blech-API ist neu.</td></tr>
+<tr><td>«… lässt sich nicht einstellen – abgebrochen»</td><td>Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken.</td></tr>
+<tr><td>«Neue Aussenkante ist mehrdeutig»</td><td>Folge in Einzelschritten anwenden (je Schritt eine Vorlage).</td></tr>
+<tr><td>«ungeeignet: … gekrümmt»</td><td>Für runde Ränder den Befehl Rundblech verwenden.</td></tr>
+<tr><td>«Materialwerte fehlen: ri, k»</td><td>Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne <code>ri</code>/<code>k</code> schreiben.</td></tr>
+<tr><td>«Parameter nicht gefunden» (3D-Detail)</td><td>Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen.</td></tr>
+</table>
+<p><b>Bekannte Grenzen dieser Version:</b></p>
+<ul>
+<li>Die Fusion-Blech-API ist bei Autodesk «Preview». Flansch und Umschlag sind <b>nicht in Fusion geprüft</b>; die Eigenschaftsnamen werden gesucht und protokolliert.</li>
+<li>Freistellungen/Ecken erzeugt Fusion nach der Blechregel; eigene Freistellungen erzeugt das Add-in nicht.</li>
+<li>Flansche nur an geraden Kanten über die ganze Kantenlänge.</li>
+<li>3D-Details: Benutzerparameter gelten im ganzen Dokument; zweimal dasselbe Detail mit verschiedenen Werten im selben Dokument ist nicht geprüft.</li>
+<li>Rundbleche als Drehkörper, nicht als Fusion-Blechkörper; Umformbarkeit nur mit eigenen Grenzwerten.</li>
+<li>Keine automatische Fusion-Zeichnung (Werkstattblatt statt dessen).</li>
+<li>Zuschnitt mit Rechtecken; Rollenmischung und Restelager der App nicht übernommen.</li>
+<li>Abgleich mit der App: Einstellungen (Zuschnitt, Etiketten, Export) bleiben je PC; abgeglichen werden Vorlagen, 3D-Details und Materialprofile.</li>
+</ul></body></html>

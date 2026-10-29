@@ -1,0 +1,138 @@
+<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Spengler Digital CAD – Testanleitung</title><style>body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1b1f24;line-height:1.45}h1{color:#1b1f24}h2{color:#1d4f7a;margin-top:28px}table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid #c8ced6;padding:4px 6px;text-align:left;vertical-align:top}th{background:#e6eef6}code,pre{background:#f2f4f6;padding:1px 4px}.hinweis{background:#fff6e0;border:1px solid #e0b040;padding:8px}</style></head><body><h1>Spengler Digital CAD – Testanleitung</h1>
+<p>Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken</p>
+<p class="hinweis"><b>So vorgehen:</b> Blöcke der Reihe nach, je Zeile ☐ abhaken. Wenn etwas nicht wie erwartet ist: <b>Meldungstext notieren oder Bildschirmfoto</b>, weitertesten (ausser ein Block sagt «sonst abbrechen»). Am Ende das <b>Protokoll</b> und die Notizen schicken. Dauer gesamt ca. 60–75 Minuten; die Blöcke lassen sich auf mehrere Tage verteilen.</p>
+<h2>0. Vorbereitung (5 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Fusion aktualisieren (Konto-Menü oben rechts → Nach Updates suchen). Fusion-Version notieren (Hilfe → Info): ________</td><td>–</td></tr>
+<tr><td>☐</td><td>Alten Prototyp stoppen: Shift+S → Add-Ins → «SpenglerDigital» → Stoppen</td><td>–</td></tr>
+<tr><td>☐</td><td>ZIP <code>SpenglerDigitalCAD_0.4.2.zip</code> entpacken, Ordner <code>SpenglerDigital</code> an seinen Platz kopieren (siehe README)</td><td>–</td></tr>
+<tr><td>☐</td><td>Ein Lineal/Massband und einen Probestreifen Blech mit bekannter Dicke bereitlegen (für den K-Faktor in Block 3)</td><td>–</td></tr>
+</table>
+<h2>1. Installation und Start (5 Min.) – sonst abbrechen</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Shift+S → Add-Ins → SpenglerDigital → <b>Ausführen</b>, «Beim Start ausführen» ankreuzen</td><td>keine Fehlermeldung</td></tr>
+<tr><td>☐</td><td>Arbeitsbereich Konstruktion</td><td>Register <b>SPENGLER</b> mit «Kanten &amp; Details», «Fertigung», «Verwaltung» und 8 Befehlen, Logo als Symbol</td></tr>
+<tr><td>☐</td><td>Falls kein Register: Befehle unter Blech → Erstellen?</td><td>notieren, wo sie stehen</td></tr>
+<tr><td>☐</td><td>Fusion schliessen und neu starten</td><td>Add-in startet von selbst</td></tr>
+<tr><td>☐</td><td>Ordner <code>%APPDATA%\SpenglerDigitalCAD</code> (Mac: <code>~/Library/Application Support/SpenglerDigitalCAD</code>)</td><td>existiert, enthält <code>protokoll</code> und <code>datenformat.json</code></td></tr>
+</table>
+<h2>2. Selbsttest und Fähigkeiten (5 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>SPENGLER → Hilfe → <b>Fusion-Fähigkeiten prüfen</b></td><td><b>Versionsnummer = 0.4.2</b> und richtiger Ladeordner; Liste mit ✓/✗ – <b>Bildschirmfoto</b></td></tr>
+<tr><td>☐</td><td>Hilfe → <b>Selbsttest in neuem Dokument</b></td><td>neues Dokument; ✓ Einheiten, ✓ Rundblech (Ø ca. 200.7 mm), ✓ 3D-Detail (Ursprung ca. (0, 100, 0) mm, «neu beim Import: SD_H_1», «Original SD_H unverändert») – <b>Bildschirmfoto</b></td></tr>
+<tr><td>☐</td><td>Testdokument ohne Speichern schliessen</td><td>–</td></tr>
+<tr><td>☐</td><td>Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen»</td><td>Texte erscheinen, PDF öffnet</td></tr>
+</table>
+<h2>3. Materialien und K-Faktor (10 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>SPENGLER → <b>Vorlagen &amp; Einstellungen</b></td><td>Palette öffnet rechts; Kantenvorlagen <b>leer</b> mit Hinweis</td></tr>
+<tr><td>☐</td><td>Register Materialien</td><td>leer, Hinweis «keine Fertigungswerte vorgegeben»</td></tr>
+<tr><td>☐</td><td>Neues Materialprofil: Name, Dicke, Innenradius, Dichte, Tafeln (z. B. <code>1000x2000</code>), Rollen (z. B. <code>670</code>)</td><td>–</td></tr>
+<tr><td>☐</td><td>Probestreifen: Zuschnitt messen, eine 90°-Biegung, beide Schenkel <b>aussen</b> messen → Zuschnitt, a, b eintragen → <b>K-Faktor berechnen</b></td><td>Wert zwischen 0.3 und 0.5, Knopf «In K-Faktor übernehmen»</td></tr>
+<tr><td>☐</td><td>Übernehmen → Speichern</td><td>Profil in der Liste mit K-Faktor</td></tr>
+<tr><td>☐</td><td>Probe mit Unsinn (Zuschnitt grösser als a + b)</td><td>rote Meldung, nichts übernommen</td></tr>
+<tr><td>☐</td><td>Gleichen K-Faktor in der <b>Fusion-Blechregel</b> eintragen (Ändern → Blechregeln) und Dicke wie im Profil</td><td>–</td></tr>
+</table>
+<h2>4. Kantenvorlagen in der Palette (10 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Neue Vorlage erstellen, Name eingeben, Kurzschrift <code>90 H U+ u</code> → <b>übernehmen</b></td><td>Parameter H und u erscheinen</td></tr>
+<tr><td>☐</td><td>Standardwerte H = 25, u = 7</td><td><b>Vorschau</b> zeigt Querschnitt mit 25 und 7, Kante grün; ändert sich beim Tippen</td></tr>
+<tr><td>☐</td><td>Testmaterial wählen → <b>Prüfen &amp; Trockenlauf</b></td><td>«Vorlage ist gültig», Abwicklungszugabe, Bauplan</td></tr>
+<tr><td>☐</td><td>Speichern</td><td>«Version 1», Vorschaubild in der Liste</td></tr>
+<tr><td>☐</td><td>Expertenmodus ankreuzen → Operation hinzufügen, mit ↑ verschieben → Speichern</td><td>Kurzschrift folgt der Tabelle, «Version 2»</td></tr>
+<tr><td>☐</td><td>Versionen</td><td>Version 1 wird angezeigt</td></tr>
+<tr><td>☐</td><td>Duplizieren, Kopie umbenennen, Kategorie und Favorit setzen, Kategoriefilter</td><td>Kopie unabhängig, Favorit steht oben</td></tr>
+<tr><td>☐</td><td>Kopie löschen → Rückfrage → <b>Nein</b></td><td>bleibt</td></tr>
+<tr><td>☐</td><td>Löschen → <b>Ja</b> → Register Sicherung → Papierkorb → Zurückholen</td><td>Vorlage wieder da</td></tr>
+<tr><td>☐</td><td>Vorlage mit leerem Namen speichern</td><td>rote Fehlermeldung, nichts gespeichert</td></tr>
+<tr><td>☐</td><td>Zwei Vorlagen ankreuzen → Gewählte exportieren… → Datei speichern → Importieren… dieselbe Datei</td><td>Import «als Kopie» (nichts überschrieben)</td></tr>
+</table>
+<h2>5. Kanten bearbeiten (15 Min.) – Kernfunktion</h2>
+<p>Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 200 skizzieren → <b>Lasche</b> (Grundlasche).</p>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>SPENGLER → <b>Kanten bearbeiten</b>, eine obere Aussenkante wählen, Ihre Vorlage, Material</td><td>Bauplan: «Kanten: 1 gewählt, 1 geeignet», Folge mit Werten</td></tr>
+<tr><td>☐</td><td>Vorschau an</td><td>Flansch + Umschlag sichtbar <b>vor</b> OK</td></tr>
+<tr><td>☐</td><td>Wert H im Dialog ändern</td><td>Vorschau passt sich an</td></tr>
+<tr><td>☐</td><td>OK</td><td>Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________</td></tr>
+<tr><td>☐</td><td>Strg+Z</td><td><b>alles</b> dieses Befehls in einem Schritt weg</td></tr>
+<tr><td>☐</td><td>Zwei gegenüberliegende Kanten zugleich → OK</td><td>beide bearbeitet</td></tr>
+<tr><td>☐</td><td>Zwei aneinanderstossende Kanten (Ecke) → OK</td><td>notieren, wie Fusion die Ecke löst (Bildschirmfoto)</td></tr>
+<tr><td>☐</td><td>Eine Biegekante bzw. Kante eines normalen Volumenkörpers wählen</td><td>«ungeeignet» mit Grund, OK gesperrt</td></tr>
+<tr><td>☐</td><td>Expertenmodus im Dialog, Folge <code>-90 20</code> → OK</td><td>Abkantung nach hinten; gespeicherte Vorlage unverändert</td></tr>
+<tr><td>☐</td><td>Expertenmodus, Folge <code>90r5 20</code>, «als neue Vorlage speichern» → OK</td><td>Radius 5; neue Vorlage «… (angepasst)» in der Palette</td></tr>
+<tr><td>☐</td><td>Vorlage mit zu grossem Wert (Maximum setzen, darüber eingeben)</td><td>Bauplan meldet Bereich, OK gesperrt</td></tr>
+<tr><td>☐</td><td>Bei jeder Fehlermeldung</td><td>Text notieren: ________</td></tr>
+</table>
+<h2>6. Eigene 3D-Details (10 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Neue Komponente, darin ein kleines Detail; Benutzerparameter z. B. <code>SD_Laenge</code> anlegen und im Feature verwenden</td><td>–</td></tr>
+<tr><td>☐</td><td><b>3D-Detail erfassen</b>: Komponente, gerade Anschlusskante, Parameter ankreuzen, Name → OK</td><td>«Gespeichert … Version 1»</td></tr>
+<tr><td>☐</td><td>Palette → 3D-Details</td><td>Detail in der Liste</td></tr>
+<tr><td>☐</td><td>Anderes Bauteil: <b>3D-Detail anwenden</b>, Zielkante wählen</td><td>Passung «✓ passt» bzw. Gründe</td></tr>
+<tr><td>☐</td><td>Wert ändern → Vorschau → OK</td><td>Detail sitzt an der Kante, Meldung nennt gesetzte Parameter</td></tr>
+<tr><td>☐</td><td>«Um 180° wenden»</td><td>Detail andersherum</td></tr>
+<tr><td>☐</td><td>Gekrümmte Zielkante wählen</td><td>lässt sich nicht wählen (nur gerade Kanten)</td></tr>
+</table>
+<h2>7. Rundblech (5 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td><b>Rundblech / Umformung</b>: Scheibe r 100, Rand 20 → OK</td><td>Drehkörper; «Herstellbar: nicht beurteilbar», Rohling Ø 240</td></tr>
+<tr><td>☐</td><td>Im Materialprofil Stauchen max. z. B. 20 % mit Quelle eintragen, erneut</td><td>«Herstellbar: ja» bzw. «nein» nach Grenzwert</td></tr>
+<tr><td>☐</td><td>Kragen r 50, Höhe 10</td><td>nur Beurteilung «gestreckt», kein Körper</td></tr>
+<tr><td>☐</td><td>Kegel r 100 / 50, Höhe 100 → OK</td><td>Drehkörper, Abwicklung Kreisringsektor</td></tr>
+</table>
+<h2>8. Abwicklung, DXF und Werkstattblatt (8 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td><b>Abwicklung &amp; DXF</b>, Blechkörper aus Block 5 (noch ohne Abwicklung: feststehende Fläche wählen) → OK</td><td>Ordner öffnet sich, <code>Nr_…dxf</code> und <code>…_werkstattblatt.html</code></td></tr>
+<tr><td>☐</td><td>DXF in einem CAD-Programm öffnen</td><td>Kontur und Biegelinien, Masse stimmen</td></tr>
+<tr><td>☐</td><td>Werkstattblatt öffnen</td><td>Teilenummer, Material, Vorlage + Version, <b>Querschnitt mit Massen</b>, <b>Abwicklung mit Biegelinien</b>, Biegeliste</td></tr>
+<tr><td>☐</td><td>Zwei Körper gleichzeitig</td><td>beide exportiert, Zusammenfassung «2 von 2»</td></tr>
+<tr><td>☐</td><td>Normaler Volumenkörper</td><td>«✗ … kein Blechkörper»</td></tr>
+</table>
+<h2>9. Stückliste, Etiketten, Zuschnitt (8 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Einstellungen → Etikettenbogen: Masse Ihres Bogens eintragen</td><td>«Belegt … von 210 × 297 mm» bzw. «Passt nicht auf A4»</td></tr>
+<tr><td>☐</td><td><b>Stückliste &amp; Zuschnitt</b>: 2–3 Blechkörper, Stück 2, Objekt, Auftrag → OK</td><td>Ordner mit <code>stueckliste.csv/.html</code>, <code>etiketten.html</code>, <code>zuschnittplan.svg/.csv/.dxf</code>, <code>bericht.txt</code></td></tr>
+<tr><td>☐</td><td>Befehl erneut ausführen</td><td><b>gleiche</b> Teilenummern; Objekt/Auftrag vorausgefüllt</td></tr>
+<tr><td>☐</td><td><code>stueckliste.csv</code> in Excel öffnen</td><td>Spalten richtig, Umlaute richtig</td></tr>
+<tr><td>☐</td><td><code>etiketten.html</code> drucken (Ränder: keine, 100 %) auf Etikettenbogen</td><td>Etiketten sitzen auf den Feldern</td></tr>
+<tr><td>☐</td><td><code>zuschnittplan.svg</code> ansehen</td><td>keine Überlappungen, Teile beschriftet</td></tr>
+</table>
+<h2>10. Sicherung, Wiederherstellung, Update (5 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Palette → Sicherung → <b>Sicherung erstellen</b></td><td>erscheint in der Liste</td></tr>
+<tr><td>☐</td><td>Eine Vorlage löschen, dann die Sicherung <b>Wiederherstellen</b></td><td>Rückfrage; Vorlage wieder da</td></tr>
+<tr><td>☐</td><td><b>Update simulieren:</b> Add-in stoppen, Ordner <code>SpenglerDigital</code> löschen und aus dem ZIP neu kopieren, starten</td><td>Vorlagen, Materialien, Einstellungen <b>alle noch da</b></td></tr>
+<tr><td>☐</td><td>Palette → Sicherung → <b>Protokoll öffnen</b></td><td>Textdatei öffnet sich</td></tr>
+</table>
+<h2>11. Konto, Abgleich und Updates (10 Min.) – ab 0.4.0</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Palette → Register <b>Konto</b> → mit App-Benutzername und Passwort anmelden</td><td>«Angemeldet als …, Firma …», Recht «dürfen Vorlagen ändern» (Admin)</td></tr>
+<tr><td>☐</td><td>Falsches Passwort versuchen</td><td>«Benutzername oder Passwort falsch.»</td></tr>
+<tr><td>☐</td><td><b>Jetzt abgleichen</b></td><td>Bericht: Vorlagen/Materialien «in die App hochgeladen»</td></tr>
+<tr><td>☐</td><td>Eine Vorlage ändern und speichern</td><td>oben «✓ mit der App abgeglichen»</td></tr>
+<tr><td>☐</td><td>Zweiter PC (oder zweites Windows-Konto): Add-in installieren, anmelden</td><td>dieselben Vorlagen und Materialien erscheinen</td></tr>
+<tr><td>☐</td><td>Mit einem <b>Mitarbeiter</b>-Konto anmelden, Vorlage ändern</td><td>Hinweis «nur auf diesem PC», in der App unverändert</td></tr>
+<tr><td>☐</td><td>Fusion ohne Internet starten (WLAN aus)</td><td>Add-in startet normal, kein Fehler; nach Wiederverbindung «Jetzt abgleichen»</td></tr>
+<tr><td>☐</td><td><b>Nach Updates suchen</b></td><td>Rückfrage «Version 0.4.3 verfügbar» → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt <b>0.4.3</b></td></tr>
+<tr><td>☐</td><td>Abmelden</td><td>Anmeldemaske; Vorlagen bleiben lokal</td></tr>
+</table>
+<h2>12. Rückmeldung</h2>
+<table>
+<tr><th>☐</th><th>Was schicken</th></tr>
+<tr><td>☐</td><td>Datei <code>…\SpenglerDigitalCAD\protokoll\spengler_cad.log</code></td></tr>
+<tr><td>☐</td><td>Bildschirmfotos aus Block 2 und alle Fehlermeldungen</td></tr>
+<tr><td>☐</td><td>Fusion-Version und Betriebssystem</td></tr>
+<tr><td>☐</td><td>Notizen: was war unklar, umständlich oder fehlt?</td></tr>
+</table></body></html>

@@ -1,0 +1,85 @@
+{
+ "hinweis": "TESTDATEN aus Prototyp 0.1 (kurzschrift.py). Nicht Teil der produktiven Vorlagenbibliothek.",
+ "bausteine": [
+  {
+   "id": "dsf-u",
+   "name": "Doppelstehfalz – Unterfalz",
+   "folge": "90 25 U+ 7"
+  },
+  {
+   "id": "dsf-o",
+   "name": "Doppelstehfalz – Oberfalz",
+   "folge": "90 25.7 U-r1.75 10.5"
+  },
+  {
+   "id": "sf-u",
+   "name": "Stehfalz einfach – Unterfalz",
+   "folge": "90 25"
+  },
+  {
+   "id": "sf-o",
+   "name": "Stehfalz einfach – Oberfalz",
+   "folge": "90 25.7 U-r1 8"
+  },
+  {
+   "id": "lf-u",
+   "name": "Liegender Falz – unten",
+   "folge": "U-r1 15"
+  },
+  {
+   "id": "lf-o",
+   "name": "Liegender Falz – oben",
+   "folge": "U+r1 15"
+  },
+  {
+   "id": "trauf",
+   "name": "Traufe: Umschlag nach unten (Einhang)",
+   "folge": "U-r1.4 40"
+  },
+  {
+   "id": "ortgang",
+   "name": "Ortgang: Aufkantung",
+   "folge": "90 25"
+  },
+  {
+   "id": "wasserfalz",
+   "name": "Aufkantung mit Wasserfalz",
+   "folge": "90 40 U- 10"
+  },
+  {
+   "id": "first",
+   "name": "First: Aufkantung 25",
+   "folge": "90 25"
+  },
+  {
+   "id": "saum-o",
+   "name": "Saum (Umschlag zur Sichtseite)",
+   "folge": "U+ 10"
+  },
+  {
+   "id": "saum-u",
+   "name": "Saum (Umschlag nach hinten)",
+   "folge": "U- 10"
+  },
+  {
+   "id": "abk-u",
+   "name": "Abkantung 90° nach hinten",
+   "folge": "-90 30"
+  },
+  {
+   "id": "abk-o",
+   "name": "Abkantung 90° zur Sichtseite",
+   "folge": "90 30"
+  },
+  {
+   "id": "tropf",
+   "name": "Abkantung mit Tropfkante",
+   "folge": "-90 30 45 10"
+  },
+  {
+   "id": "paneel",
+   "name": "Paneel: Abkantung 30 mit Einhang",
+   "folge": "-90 30 -90 15"
+  }
+ ]
+}

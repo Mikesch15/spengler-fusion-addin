@@ -1,0 +1,3 @@
+Systemvorlagen – bewusst LEER.
+Das Add-in liefert keine Spengler-Profile mit. Eigene Vorlagen liegen im Benutzerdatenordner
+(Windows: %APPDATA%\SpenglerDigitalCAD, macOS: ~/Library/Application Support/SpenglerDigitalCAD).
