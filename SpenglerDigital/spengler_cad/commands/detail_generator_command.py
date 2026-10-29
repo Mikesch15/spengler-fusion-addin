@@ -8,7 +8,8 @@ Anschlusskante, Parameter, Kompatibilität (Kantenlänge, Dicke) und die Zeitach
 
 Anwenden: Vorlage wählen, Zielkante (und optional Bezugsfläche) wählen, variable Werte eingeben →
 Passung prüfen → Vorschau → Import als neue Komponente, Ausrichtung T = Ziel · Anker⁻¹, Parameter setzen.
-Das Detail wird NICHT automatisch mit dem Zielkörper vereinigt. Es wird keine automatische
+Standardmässig wird das Detail ins Zielbauteil integriert (Basis-Feature + Kombinieren, keine Komponente);
+ohne Haken «integrieren» bleibt es eine eigene Komponente. Es wird keine automatische
 Parametrisierung beliebiger Körper behauptet.
 """
 import os
@@ -132,6 +133,7 @@ def anwenden_erstellt(args):
     f.addSelectionFilter("PlanarFaces")
     f.setSelectionLimits(0, 1)
     inp.addBoolValueInput("drehen", "Um 180° wenden (Richtung der Kante umkehren)", True, "", False)
+    inp.addBoolValueInput("integrieren", "Ins bestehende Modell integrieren (keine eigene Komponente)", True, "", True)
     inp.addGroupCommandInput("parameter", "Parameter")
     inp.addTextBoxCommandInput("pruefung", "Passung", "", 5, True)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
@@ -203,7 +205,7 @@ def anwenden_pruefen(args):
         args.areInputsValid = False
 
 
-def _einsetzen(inp):
+def _einsetzen(inp, integrieren=False):
     d = _detail(inp)
     kante, gruende, hinweise = _passung(inp)
     if gruende:
@@ -235,12 +237,21 @@ def _einsetzen(inp):
         hinweise = hinweise + ["Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n)]
     fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
     andere = [b for b in root.bRepBodies if b != kante.body]
-    return d, occ, gesetzt, fehlend, hinweise, fa.kollision(occ, andere)
+    koll = fa.kollision(occ, andere)
+    cf = None
+    if integrieren:
+        try:
+            cf, warn = fa.detail_integrieren(occ, kante.body, neue_param)
+        except fa.AdapterFehler:
+            fa.entfernen([occ])   # Import wieder entfernen; Basis-/Kombinieren-Feature hat detail_integrieren selbst zurückgebaut
+            raise
+        hinweise = hinweise + warn
+    return d, occ, gesetzt, fehlend, hinweise, koll, cf
 
 
 def anwenden_vorschau(args):
     try:
-        _einsetzen(args.command.commandInputs)
+        _einsetzen(args.command.commandInputs)   # Vorschau: nur Import + Ausrichtung; Fusion verwirft sie selbst
         args.isValidResult = False
     except Exception:
         logger.ausnahme("Detail-Vorschau")
@@ -248,16 +259,24 @@ def anwenden_vorschau(args):
 
 @base.sicher("3D-Detail anwenden")
 def _anwenden(self, args):
-    d, occ, gesetzt, fehlend, hinweise, koll = _einsetzen(args.command.commandInputs)
-    z = ["Detail «%s» (Version %s) eingesetzt als Komponente «%s»." % (d["name"], d.get("version"), occ.name)]
+    inp = args.command.commandInputs
+    integr = inp.itemById("integrieren").value
+    d, occ, gesetzt, fehlend, hinweise, koll, cf = _einsetzen(inp, integr)
+    if cf is not None:
+        z = ["Detail «%s» (Version %s) ins Modell integriert (Zeitverlauf: Basis-Feature + «Kombinieren»)." % (d["name"], d.get("version"))]
+    else:
+        z = ["Detail «%s» (Version %s) eingesetzt als Komponente «%s»." % (d["name"], d.get("version"), occ.name)]
     if gesetzt:
         z.append("Parameter gesetzt: " + ", ".join(gesetzt))
     if fehlend:
         z.append("WARNUNG – Parameter nicht gefunden (Detail behält Originalmasse): " + ", ".join(fehlend))
-    if koll:
+    if koll and cf is None:
         z.append("Hinweis: Begrenzungsrahmen überschneidet sich mit: %s – bitte Kollision prüfen." % ", ".join(koll))
     z += hinweise
-    z.append("Das Detail ist eine eigene Komponente und wurde nicht mit dem Blech vereinigt.")
+    if cf is None:
+        z.append("Das Detail ist eine eigene Komponente und wurde nicht mit dem Blech vereinigt.")
+    else:
+        z.append("Die Detailmasse sind beim Anwenden festgelegt (keine nachträgliche Parametrisierung). Alles ist ein Rückgängig-Schritt (Strg+Z).")
     logger.info("Detail angewendet", id=d["id"], version=d.get("version"), fehlend=fehlend)
     base.melden("3D-Detail anwenden", "\n".join(z), bool(fehlend))
 

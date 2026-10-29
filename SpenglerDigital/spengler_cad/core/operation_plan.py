@@ -18,8 +18,9 @@ def kante_eignung(kante, vorlage, material):
         gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)")
     typ = (vorlage or {}).get("connection", {}).get("edgeType", "gerade")
     kurve = kante.get("kurve")
-    if typ == "gerade" and kurve != "linie":
-        gruende.append("ist gekrümmt (%s) – die Vorlage verlangt eine gerade Kante; für Rundbleche den Befehl «Rundblech» verwenden" % kurve)
+    # Flansch/Umschlag folgen auch runden Kanten (Kreis, Bogen). Andere Kurven (Ellipse, Spline) sind nicht zuverlässig → abgelehnt.
+    if kurve not in ("linie", "kreis", "bogen"):
+        gruende.append("hat den Kurventyp «%s» – Flansch/Umschlag sind nur an geraden Kanten, Kreisen und Kreisbögen möglich" % kurve)
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     if kante.get("flaechen", 2) != 2:

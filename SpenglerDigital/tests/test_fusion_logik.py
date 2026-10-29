@@ -387,5 +387,174 @@ class TeilnummerTest(DatenTest):
             fa.design = alt
 
 
+# ---------------------------------------------------------------- Runde Kanten (Nachbau – NICHT live in Fusion)
+class RundGeo(object):
+    def __init__(self, c, r, n=(0, 0, 1), typ="KREIS"):
+        self.center, self.radius, self.curveType = V(*c), r, typ
+        self.normal = type("N", (V,), {"copy": lambda s: V(s.x, s.y, s.z)})(*n)
+
+
+class Rundkante(object):
+    """Kreis/Bogen um die z-Achse in Höhe z, Radius r (cm), Öffnungswinkel w (rad)."""
+    def __init__(self, r, z=0.0, w=2 * math.pi, typ="KREIS"):
+        _nr[0] += 1
+        self.tempId = _nr[0]
+        self.isValid = True
+        self.geometry = RundGeo((0, 0, z), r, typ=typ)
+        self.length = r * w
+        self.pointOnEdge = V(r, 0, z)
+
+
+class RundKanteTest(unittest.TestCase):
+    def feature(self, *kanten):
+        return Feature([Flaeche(list(kanten))])
+
+    def test_kreisflansch_findet_ende(self):
+        vorher = Rundkante(10.0)                         # R = 100 mm
+        oben, unten = Rundkante(10.0, 2.5), Rundkante(10.07, 2.5)   # Flansch 25 mm hoch, Ende = 2 Kanten (t = 0.7 mm)
+        biege = Rundkante(10.0, 0.05)                     # Biegezone nahe der Basis – unplausibel
+        k = fa.neue_aussenkante(self.feature(oben, unten, biege), vorher, 25.0, 0.7)
+        self.assertIn(k, (oben, unten))
+
+    def test_andere_achse_wird_ignoriert(self):
+        vorher = Rundkante(10.0)
+        fremd = Rundkante(10.0, 2.5)
+        fremd.geometry.center = V(5, 0, 2.5)              # nicht koaxial
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.neue_aussenkante(self.feature(fremd), vorher, 25.0, 0.7)
+        self.assertIn("nicht gefunden", str(cm.exception))
+
+    def test_bogen_braucht_gleichen_winkel(self):
+        w = math.pi / 2
+        vorher = Rundkante(10.0, 0, w, "BOGEN")
+        gut, falsch = Rundkante(10.0, 2.5, w, "BOGEN"), Rundkante(10.0, 2.5, w / 2, "BOGEN")
+        k = fa.neue_aussenkante(self.feature(gut, falsch), vorher, 25.0, 0.7)
+        self.assertIs(k, gut)
+
+    def test_rund_mehrdeutig(self):
+        vorher = Rundkante(10.0)
+        feat = self.feature(Rundkante(10.0, 2.5), Rundkante(10.07, 2.5), Rundkante(10.0, 1.8))
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.neue_aussenkante(feat, vorher, 25.0, 0.7)
+        self.assertIn("mehrdeutig", str(cm.exception))
+
+    def test_tangentenkette_nur_bei_runden_kanten(self):
+        inp = Eingabe("isTangentChain")
+        ff = Sammlung(inp)
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        fa.flansch(k, 90, 25)
+        self.assertEqual(inp.werte, {"isTangentChain": True})
+        inp2 = Eingabe("isTangentChain")
+        fa.flansch(kante_mit(Sammlung(inp2)), 90, 25)
+        self.assertEqual(inp2.werte, {})
+
+    def test_schlitzhinweis(self):
+        def flaeche(breiten):
+            f = Flaeche([type("E", (), {"length": b / 10.0})() for b in breiten])
+            f.geometry = type("G", (), {"surfaceType": adsk.core.SurfaceTypes.PlaneSurfaceType})()
+            return f
+        adsk.core.SurfaceTypes.PlaneSurfaceType = "EBENE"
+        kreis = Rundkante(10.0)
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25])]), kreis, 0.7)[0][:20], "Der Flansch an der r")
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([30, 25])]), kreis, 0.7), [])
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25])]), Kante((0, 0, 0), (5, 0, 0)), 0.7), [])
+        bogen = Rundkante(10.0, 0, 1.0, "BOGEN")
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25]), flaeche([0.7, 25])]), bogen, 0.7), [])
+
+
+# ---------------------------------------------------------------- Detail ins Modell integrieren (Nachbau – NICHT live in Fusion)
+class IntegrationTest(unittest.TestCase):
+    def aufbau(self, volumen_nachher=2.0, combine_fehler=None, blech=True):
+        log = []
+
+        class Koerper(object):
+            isValid, isSolid, assemblyContext, entityToken = True, True, None, "tok"
+            def __init__(s, v):
+                s.volume = v
+        ziel, danach = Koerper(1.0), Koerper(volumen_nachher)
+        feats = []
+
+        class Feat(object):
+            isValid = True
+            bodies = [object()]
+            def __init__(s, n):
+                s.n = n
+            def startEdit(s): log.append("start")
+            def finishEdit(s): log.append("fertig")
+            def deleteMe(s):
+                s.isValid = False
+                log.append("del " + s.n)
+
+        class CF(object):
+            def createInput(s, z, t):
+                return type("I", (), {})()
+
+            def add(s, i):
+                if combine_fehler:
+                    raise RuntimeError(combine_fehler)
+                f = Feat("combine"); feats.append(f); return f
+        comp = type("C", (), {})()
+        comp.features = type("F", (), {"baseFeatures": type("B", (), {"add": lambda s: (feats.append(Feat("basis")) or feats[-1])})(),
+                                       "combineFeatures": CF()})()
+        comp.bRepBodies = type("BB", (), {"add": lambda s, k, bf: log.append("add")})()
+        ziel.parentComponent = comp
+        occ = type("O", (), {"name": "Detail1", "bRepBodies": [object()], "deleteMe": lambda s: log.append("occ weg")})()
+        return ziel, danach, occ, log, feats
+
+    def lauf(self, **kw):
+        ziel, danach, occ, log, feats = self.aufbau(**kw)
+        alt = (fa.koerper_neu, fa.ist_blech, fa.design, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection, adsk.fusion.FeatureOperations)
+        fa.koerper_neu = lambda t: danach
+        fa.ist_blech = lambda b: kw.get("blech", False)
+        fa.design = lambda: type("D", (), {"userParameters": type("U", (), {"itemByName": lambda s, n: None})()})()
+        adsk.fusion.TemporaryBRepManager = type("T", (), {"get": staticmethod(lambda: type("M", (), {"copy": lambda s, b: b})())})
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: type("L", (), {"n": 0, "add": lambda s, b: setattr(s, "n", s.n + 1), "count": property(lambda s: s.n)})())})
+        adsk.fusion.FeatureOperations.JoinFeatureOperation = "JOIN"
+        try:
+            return fa.detail_integrieren(occ, ziel, ["SD_H_1"]), log, feats
+        finally:
+            (fa.koerper_neu, fa.ist_blech, fa.design, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection, adsk.fusion.FeatureOperations) = alt
+
+    def test_erfolg_ohne_restkomponente(self):
+        (cf, warn), log, feats = self.lauf()
+        self.assertEqual([f.n for f in feats], ["basis", "combine"])
+        self.assertIn("occ weg", log)
+        self.assertEqual(warn, [])
+
+    def test_blechhinweis(self):
+        (cf, warn), _, _ = self.lauf(blech=True)
+        self.assertTrue(any("Blechkörper" in w for w in warn))
+
+    def test_keine_beruehrung_baut_zurueck(self):
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.aufbau_fehler(combine_fehler="No intersection")
+        self.assertIn("berührt", str(cm.exception))
+        self.assertIn("del basis", self.rest[0])   # Basis-Feature wurde zurückgebaut
+        self.assertNotIn("occ weg", self.rest[0])
+
+    def aufbau_fehler(self, **kw):
+        ziel, danach, occ, log, feats = self.aufbau(**kw)
+        alt = (fa.koerper_neu, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection)
+        adsk.fusion.TemporaryBRepManager = type("T", (), {"get": staticmethod(lambda: type("M", (), {"copy": lambda s, b: b})())})
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: type("L", (), {"n": 0, "add": lambda s, b: setattr(s, "n", s.n + 1), "count": property(lambda s: s.n)})())})
+        try:
+            fa.detail_integrieren(occ, ziel)
+        finally:
+            self.rest = (log, feats)
+            (fa.koerper_neu, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection) = alt
+
+    def test_kein_volumenzuwachs_baut_zurueck(self):
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(volumen_nachher=1.0)
+        self.assertIn("nicht verändert", str(cm.exception))
+
+    def test_unterkomponente_abgelehnt(self):
+        ziel, _, occ, _, _ = self.aufbau()
+        ziel.assemblyContext = object()
+        with self.assertRaises(fa.AdapterFehler):
+            fa.detail_integrieren(occ, ziel)
+
+
 if __name__ == "__main__":
     unittest.main()

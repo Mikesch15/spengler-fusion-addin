@@ -87,7 +87,7 @@ Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinat
 
 ## 7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]
 
-**Kanten bearbeiten:** Eine oder mehrere gerade Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (gekrümmt, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
+**Kanten bearbeiten:** Eine oder mehrere gerade oder runde (Kreis/Bogen) Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
 
 Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.
 
@@ -102,7 +102,7 @@ Beide Modi benutzen dieselbe Rechen-Engine.
 
 ## 9. Rundbleche und Werkstattumformung
 
-Fusion-Flansche funktionieren nur an geraden Kanten. Für runde Bleche gibt es den Befehl **Rundblech / Umformung**:
+Für Rundbleche als Drehkörper (kein Fusion-Blech) gibt es den Befehl **Rundblech / Umformung**:
 
 | Fall | Was passiert mit dem Rand | Modell |
 |---|---|---|
@@ -215,9 +215,12 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 
 - Die Fusion-Blech-API ist bei Autodesk «Preview». Flansch und Umschlag sind **nicht in Fusion geprüft**; die Eigenschaftsnamen werden gesucht und protokolliert.
 - Freistellungen/Ecken erzeugt Fusion nach der Blechregel; eigene Freistellungen erzeugt das Add-in nicht.
-- Flansche nur an geraden Kanten über die ganze Kantenlänge.
+- Flansche über die ganze Kantenlänge; an runden Kanten (Kreis/Bogen) per Tangentenkette – nicht live geprüft, bei Hinweis auf Einschnitte Ergebnis prüfen.
 - 3D-Details: Benutzerparameter gelten im ganzen Dokument; zweimal dasselbe Detail mit verschiedenen Werten im selben Dokument ist nicht geprüft.
 - Rundbleche als Drehkörper, nicht als Fusion-Blechkörper; Umformbarkeit nur mit eigenen Grenzwerten.
 - Keine automatische Fusion-Zeichnung (Werkstattblatt statt dessen).
 - Zuschnitt mit Rechtecken; Rollenmischung und Restelager der App nicht übernommen.
 - Abgleich mit der App: Einstellungen (Zuschnitt, Etiketten, Export) bleiben je PC; abgeglichen werden Vorlagen, 3D-Details und Materialprofile.
+
+
+**3D-Detail anwenden – Integration:** Mit Haken «Ins bestehende Modell integrieren» (Standard) wird das Detail als Basis-Feature plus «Kombinieren» in den Zielkörper übernommen, ohne eigene Komponente; ein Rückgängig-Schritt. Berührt das Detail den Körper nicht oder ändert es das Volumen nicht, wird alles zurückgenommen und der Grund gemeldet. Ohne Haken bleibt es eine eigene Komponente. Die Masse sind danach fest. Nicht live geprüft.

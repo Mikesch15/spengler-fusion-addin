@@ -39,7 +39,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Detail in Fusion modellieren, Anschlusskante + lokales KS festlegen, Variablen markieren, speichern (geführtes Authoring) | TEIL | Befehl «3D-Detail erfassen»; Rahmen-/Prüflogik AUTO; Ausführung in Fusion nicht live |
 | Vorlage auf kompatible Kante anwenden, ausrichten, Variablen setzen | TEIL | Selbsttest **LIVE**: Export/Import/Ausrichtung/Parameter; Befehl «3D-Detail anwenden» selbst nicht live |
 | Vorschau und Eignungsprüfung vor dem Anwenden | TEIL | Passungsprüfung AUTO (test_validation); Vorschau in Fusion nicht live |
-| Bearbeitbare Fusion-Features / gültige Blechgeometrie im Zielbauteil | NEIN | Detail wird als eigene Komponente eingesetzt, NICHT mit dem Blechkörper vereinigt; keine Feature-Neuerzeugung |
+| Bearbeitbare Fusion-Features / gültige Blechgeometrie im Zielbauteil | TEIL | «3D-Detail anwenden» integriert standardmässig: Basis-Feature + «Kombinieren» im Zeitverlauf, keine Komponente; Detailmasse eingefroren (keine Parametrik/Feature-Neuerzeugung). Logik-Test AUTO; **Fusion-Verhalten nicht live geprüft** (Weltlage der Kopie, Join auf Blechkörper, Abwicklung danach) |
 | Kopieren, umbenennen, exportieren ohne Original zu ändern | AUTO | test_templates, test_cloud (Geometrie wird mitkopiert) |
 | Unterscheidung fest/variabel/Referenzen/Version | AUTO | Datenmodell detailvorlage, test_validation |
 | Keine Behauptung automatischer Parametrisierung | AUTO | Hilfetexte/Handbuch sagen das ausdrücklich |
@@ -85,7 +85,8 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 
 | Anforderung | Status | Nachweis / Bemerkung |
 |---|---|---|
-| **Durchgehende Flansche/Umschläge/Einzel-/Doppelfalze an runden/gekrümmten Blechkanten ohne Einschnitte/Lappen** | **NEIN** | Fusion-Flansch nur an geraden Kanten. Ersatz: Scheibe mit aufgebogenem Rand und Kegel als **Drehkörper (kein Fusion-Blechkörper)**; kein Umschlag/Falz an gekrümmten Rändern, kein Anwenden auf bestehende gekrümmte Blechkanten |
+| **Durchgehende Flansche/Umschläge an runden Blechkanten (Kreis, Bogen) ohne Einschnitte/Lappen** | **TEIL** | «Kanten bearbeiten» lässt Kreise/Bögen zu (Tangentenkette, Folge-Kante koaxial, Hinweis bei Stirnflächen/Schlitzen). Logik-Test AUTO; **nicht live geprüft** – ob Fusion den Flansch ohne Schlitze erzeugt, zeigt nur der Live-Test. Ellipse/Spline abgelehnt. |
+| (Alt) Einzel-/Doppelfalze an runden Kanten als Drehkörper | **NEIN** | Fusion-Flansch nur an geraden Kanten. Ersatz: Scheibe mit aufgebogenem Rand und Kegel als **Drehkörper (kein Fusion-Blechkörper)**; kein Umschlag/Falz an gekrümmten Rändern, kein Anwenden auf bestehende gekrümmte Blechkanten |
 | Fälle Scheibe / Kragen / Kegel unterscheiden | AUTO | test_forming |
 | Fertigungsabsicht Stauchen/Strecken/manuell/Empfehlung | AUTO | test_forming |
 | konstruierbar / abwickelbar / herstellbar getrennt | AUTO | herstellbar nur mit eigenem Grenzwert |

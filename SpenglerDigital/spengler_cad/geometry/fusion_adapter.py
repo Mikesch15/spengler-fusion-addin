@@ -11,6 +11,7 @@ es wird nie stillschweigend ein anderer Wert verwendet.
 Längen: Fusion-API in cm, Add-in in mm (Umrechnung über core/units.py).
 """
 import json
+import math
 
 import adsk.core
 import adsk.fusion
@@ -162,12 +163,14 @@ def neue_aussenkante(feature, vorher, erwartet_mm, dicke_mm):
     lang und in plausibler Entfernung liegen (0.3·L … L + 2·t + 5 mm). Am Flanschende liegen zwei Kanten
     (Ober-/Unterseite, Abstand ≈ t). Mehr als dieses eine Paar → mehrdeutig → Abbruch statt Raten.
     """
-    p0, d0 = _linie(vorher)
-    L0 = vorher.length
-    kandidaten = []
     flaechen = getattr(feature, "faces", None)
     if flaechen is None:
         raise AdapterFehler("Das erzeugte Feature liefert keine Flächen – neue Kante nicht bestimmbar.")
+    if _kurventyp(vorher) in ("kreis", "bogen"):
+        return _neue_rundkante(flaechen, vorher, erwartet_mm, dicke_mm)
+    p0, d0 = _linie(vorher)
+    L0 = vorher.length
+    kandidaten = []
     gesehen = set()
     for f in flaechen:
         for k in f.edges:
@@ -198,7 +201,96 @@ def neue_aussenkante(feature, vorher, erwartet_mm, dicke_mm):
     return paar[0][1]
 
 
+def _kreisdaten(edge):
+    """Kreis/Bogen → (Mittelpunkt, Achse (normiert), Radius, Öffnungswinkel in rad) – Fusion-Einheiten (cm)."""
+    g = edge.geometry
+    n = g.normal.copy()
+    n.normalize()
+    r = g.radius
+    return g.center, n, r, (edge.length / r if r > 0 else 0.0)
+
+
+def _abstand_zur_rundkante(vorher_daten, punkt):
+    """Kürzester Abstand eines Punkts zum Vollkreis der vorigen Kante (mm) = √((ρ − r)² + h²)."""
+    c, n, r, _ = vorher_daten
+    v = c.vectorTo(punkt)
+    h = v.dotProduct(n)
+    rho = math.sqrt(max(0.0, v.length ** 2 - h * h))
+    return units.cm_zu_mm(math.sqrt((rho - r) ** 2 + h * h))
+
+
+def _neue_rundkante(flaechen, vorher, erwartet_mm, dicke_mm):
+    """Wie neue_aussenkante, aber für Kreise/Bögen: Kandidaten sind koaxiale Kreise/Bögen gleichen Typs und gleichen
+    Öffnungswinkels (Kreis: gleich vollständig). Das Flanschende besteht aus zwei Kanten (Abstand ≈ t); mehr → Abbruch."""
+    vd = _kreisdaten(vorher)
+    typ = _kurventyp(vorher)
+    kandidaten, gesehen = [], set()
+    for f in flaechen:
+        for k in f.edges:
+            try:
+                key = k.tempId
+            except Exception:
+                key = id(k)
+            if key in gesehen or _kurventyp(k) != typ:
+                continue
+            gesehen.add(key)
+            c, n, r, wk = _kreisdaten(k)
+            if abs(abs(n.dotProduct(vd[1])) - 1) > 1e-4:
+                continue                                    # nicht parallele Achse
+            if units.cm_zu_mm(c.vectorTo(vd[0]).crossProduct(vd[1]).length) > 0.05:
+                continue                                    # nicht koaxial
+            if typ == "bogen" and abs(wk - vd[3]) > 0.02 * max(vd[3], 1e-6):
+                continue                                    # anderer Öffnungswinkel
+            kandidaten.append((_abstand_zur_rundkante(vd, k.pointOnEdge), k))
+    lo, hi = 0.3 * erwartet_mm, erwartet_mm + 2 * dicke_mm + 5.0
+    plausibel = sorted([c for c in kandidaten if lo <= c[0] <= hi], key=lambda c: -c[0])
+    logger.info("Aussenkante (rund)", erwartet=erwartet_mm, kandidaten=[round(a, 2) for a, _ in kandidaten], plausibel=[round(a, 2) for a, _ in plausibel])
+    if not plausibel:
+        raise AdapterFehler("Neue runde Aussenkante nicht gefunden (erwartet ca. %.1f mm von der vorigen Kante)." % erwartet_mm)
+    oben = plausibel[0][0]
+    paar = [c for c in plausibel if oben - c[0] <= dicke_mm + 0.05]
+    rest = [c for c in plausibel if c not in paar and c[0] > 0.6 * erwartet_mm]
+    if len(paar) > 2 or rest:
+        raise AdapterFehler("Neue Aussenkante ist mehrdeutig (%d Kandidaten). Abbruch statt Raten – bitte die Folge in Einzelschritten anwenden." % len(plausibel))
+    return paar[0][1]
+
+
+def schlitze_pruefen(feature, kante, dicke_mm):
+    """Hinweise auf ungewollte Einschnitte in einem Flansch an runder Kante (nicht live geprüft).
+
+    Ein durchgehender Flansch an einem Kreis hat KEINE ebenen Stirnflächen quer zur Kante; an einem Bogen genau zwei
+    (Anfang/Ende). Mehr ebene, schmale Flächen (Breite ≈ Blechdicke) deuten auf Schlitze/Lappen hin. → Liste von Texten."""
+    typ = _kurventyp(kante)
+    if typ not in ("kreis", "bogen"):
+        return []
+    try:
+        quer = 0
+        for f in feature.faces:
+            if f.geometry.surfaceType != adsk.core.SurfaceTypes.PlaneSurfaceType:
+                continue
+            # Stirnfläche eines Schlitzes: ebene Fläche, deren Kanten alle höchstens Blechdicke breit sind
+            breite = min(units.cm_zu_mm(e.length) for e in f.edges)
+            if abs(breite - dicke_mm) < max(0.02, 0.05 * dicke_mm):
+                quer += 1
+    except Exception as e:
+        logger.warnung("Schlitzprüfung nicht möglich", fehler=e)
+        return ["Prüfung auf Einschnitte nicht möglich – Flansch an der runden Kante bitte selbst prüfen."]
+    erlaubt = 0 if typ == "kreis" else 2
+    if quer > erlaubt:
+        return ["Der Flansch an der runden Kante hat %d ebene Stirnflächen (erwartet %d) – möglicherweise Einschnitte/Lappen. Bitte prüfen "
+                "(Vorschau, Blechregel: Eckentlastung)." % (quer, erlaubt)]
+    return []
+
+
 # ------------------------------------------------------------------ Flansch / Umschlag
+def _tangentenkette(inp, edge):
+    """Bei runden Kanten die Tangentenkette einschalten, damit Fusion der ganzen Kontur folgt (Bogen + Anschlussstücke)."""
+    if _kurventyp(edge) not in ("kreis", "bogen"):
+        return
+    n = setze(inp, ["isTangentChain", "tangentChain", "isTangentChainEnabled"], True)
+    logger.info("Tangentenkette", gesetzt=n)
+
+
 def _flange_features(comp):
     ff = getattr(comp.features, "flangeFeatures", None)
     if ff is None or not hasattr(ff, "createEdgeFlangeInput"):
@@ -213,6 +305,7 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None):
     ff = _flange_features(comp)
     inp = ff.createEdgeFlangeInput([edge], _vi_mm(laenge_mm))
     logger.info("EdgeFlangeInput", eigenschaften=_namen(inp))
+    _tangentenkette(inp, edge)
     w = abs(winkel)
     gesetzt = setze(inp, ["flangeAngle", "angle", "setAngle", "setFlangeAngle"], _vi_grad(w))
     if not gesetzt and abs(w - 90) > 1e-6:
@@ -262,6 +355,7 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None):
     if inp is None:
         raise AdapterFehler("Saum-Eingabe ging nicht: " + " // ".join(versuche))
     logger.info("HemFeatureInput", eigenschaften=_namen(inp))
+    _tangentenkette(inp, edge)
     if not setze(inp, ["length", "distance", "hemLength", "flangeLength", "setLength", "setDistance"], L):
         raise AdapterFehler("Die Umschlaglänge lässt sich nicht einstellen – abgebrochen.")
     setze(inp, ["gap", "hemGap", "setGap"], _vi_mm(0 if radius_mm is None else 2 * radius_mm))
@@ -294,8 +388,10 @@ def entfernen(objekte):
     return ok
 
 
-def folge_anbringen(edge, ops, dicke_mm, markierung):
-    """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler."""
+def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None):
+    """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler.
+    Hinweise (z. B. mögliche Einschnitte an runden Kanten) werden in die übergebene Liste geschrieben."""
+    hinweise = hinweise if hinweise is not None else []
     erzeugt = []
     aktuell = edge
     phase = "Schritt 1"
@@ -307,6 +403,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung):
             else:
                 feat = flansch(aktuell, op["winkel"], op["laenge"], op.get("radius"))
             erzeugt.append(feat)
+            hinweise.extend(schlitze_pruefen(feat, aktuell, dicke_mm or 1.0))
             markieren(feat, dict(markierung, schritt=i))
             logger.info("Schritt erzeugt", nr=i, typ=op["typ"], winkel=op["winkel"], laenge=op["laenge"])
             if i < len(ops):
@@ -460,6 +557,84 @@ def detail_importieren(f3d, ziel_comp):
     if len(neu) != 1:
         raise AdapterFehler("Import lieferte %d neue Komponenten (erwartet 1)." % len(neu))
     return neu[0], [p.name for p in design().userParameters if p.name not in param_vorher]
+
+
+def detail_integrieren(occ, ziel_body, neue_param=()):
+    """Eingesetztes Detail (Occurrence) direkt in den Zielkörper übernehmen – NICHT live geprüft.
+
+    Ablauf: Körper der Occurrence als temporäre Kopie (Weltlage inkl. Ausrichtung) → Basis-Feature in der Komponente des
+    Zielkörpers → Feature «Kombinieren» (Vereinigen) mit dem Zielkörper → leere Import-Komponente und beim Import neu
+    entstandene, nicht mehr benutzte Parameter entfernen. Ergebnis: eine bearbeitbare Basis- und Kombinieren-Feature-Folge
+    im Zeitverlauf, keine separate Komponente. Die Detailgeometrie selbst ist eingefroren (Masse = beim Anwenden gesetzte Werte).
+    → (Kombinieren-Feature, Warnungen). Bei Fehler: alles wieder entfernen und AdapterFehler."""
+    if getattr(ziel_body, "assemblyContext", None) is not None:
+        raise AdapterFehler("Der Zielkörper liegt in einer Unterkomponente. Bitte die Komponente des Zielkörpers aktivieren oder "
+                            "das Detail ohne Integration (eigene Komponente) einsetzen.")
+    comp = ziel_body.parentComponent
+    token = ziel_body.entityToken
+    werkzeuge = [b for b in occ.bRepBodies]
+    if not werkzeuge:
+        raise AdapterFehler("Das Detail enthält keinen Körper, der sich ins Modell übernehmen liesse.")
+    warnungen, erzeugt = [], []
+    vol_vorher = ziel_body.volume
+    try:
+        tbm = adsk.fusion.TemporaryBRepManager.get()
+        kopien = [tbm.copy(b) for b in werkzeuge]
+        bf = comp.features.baseFeatures.add()
+        erzeugt.append(bf)
+        bf.startEdit()
+        try:
+            for k in kopien:
+                comp.bRepBodies.add(k, bf)
+        finally:
+            bf.finishEdit()
+        tools = adsk.core.ObjectCollection.create()
+        for b in bf.bodies:
+            tools.add(b)
+        if tools.count != len(werkzeuge):
+            raise AdapterFehler("Beim Übernehmen der Detailgeometrie entstanden %d statt %d Körper." % (tools.count, len(werkzeuge)))
+        ci = comp.features.combineFeatures.createInput(ziel_body, tools)
+        ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+        ci.isKeepToolBodies = False
+        try:
+            cf = comp.features.combineFeatures.add(ci)
+        except RuntimeError as e:
+            raise AdapterFehler("Fusion konnte das Detail nicht mit dem Körper vereinigen – es berührt den Körper vermutlich nicht oder "
+                                "die Geometrie überschneidet sich unzulässig (Fusion: %s)." % (str(e).strip().splitlines()[-1] if str(e).strip() else "keine Angabe"))
+        erzeugt.append(cf)
+        body = koerper_neu(token)
+        if body is None:
+            raise AdapterFehler("Zielkörper nach dem Vereinigen nicht auffindbar.")
+        for p in koerper_pruefen(body):
+            raise AdapterFehler("Nach dem Vereinigen: " + p)
+        if abs(body.volume - vol_vorher) < 1e-9:
+            raise AdapterFehler("Das Detail hat den Körper nicht verändert (kein Volumenzuwachs) – Position/Ausrichtung prüfen.")
+        if ist_blech(ziel_body) and not ist_blech(body):
+            warnungen.append("Der Körper ist nach dem Vereinigen kein Blechkörper mehr – Abwicklung und Blechregeln sind für ihn "
+                             "womöglich nicht mehr verfügbar. Mit Strg+Z lässt sich der ganze Schritt zurücknehmen.")
+        elif ist_blech(body):
+            warnungen.append("Zielkörper ist ein Blechkörper: bitte Abwicklung/Biegezonen nach dem Vereinigen prüfen (nicht live geprüft).")
+    except Exception as e:
+        logger.ausnahme("Detail-Integration")
+        zurueck = entfernen(erzeugt)
+        text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)
+        raise AdapterFehler(text + (" – die Änderungen wurden zurückgenommen." if zurueck else
+                                    " – ACHTUNG: Rückbau unvollständig, bitte mit Strg+Z zurücknehmen."), rueckbau_ok=zurueck)
+    # Aufräumen erst nach Erfolg: die Kopie im Basis-Feature hängt nicht an der Import-Komponente.
+    try:
+        occ.deleteMe()
+    except Exception:
+        logger.ausnahme("Import-Komponente nicht entfernt")
+        warnungen.append("Die leere Import-Komponente «%s» liess sich nicht entfernen – bitte von Hand löschen." % getattr(occ, "name", "?"))
+    up = design().userParameters
+    for n in neue_param:
+        try:
+            p = up.itemByName(n)
+            if p is not None:
+                p.deleteMe()   # False, solange der Parameter noch benutzt wird – dann bleibt er stehen
+        except Exception:
+            pass
+    return cf, warnungen
 
 
 def matrix_fusion(m_mm):

@@ -203,7 +203,9 @@ def _bauen(inp, ergebnis):
         try:
             kante = edge_resolver.aufloesen(tok)
             body_name, body_token = kante.body.name, kante.body.entityToken
-            feats = fa.folge_anbringen(kante, plan["operations"], t, markierung)
+            hinw = []
+            feats = fa.folge_anbringen(kante, plan["operations"], t, markierung, hinw)
+            ergebnis.warnungen += ["Kante %d: %s" % (nr, h) for h in hinw]
             ergebnis.ausgefuehrt.append("Kante %d: %d Schritt(e)" % (nr, len(feats)))
             ergebnis.geometrie.append(body_name)
             body = fa.koerper_neu(body_token)

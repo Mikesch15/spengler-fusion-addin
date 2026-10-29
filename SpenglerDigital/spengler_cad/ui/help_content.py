@@ -6,7 +6,7 @@ NICHT_GEPRUEFT = "Hinweis: Diese Funktion wurde noch nicht in Fusion selbst gete
 HILFE = {
     "kanten": (
         "Kanten bearbeiten",
-        "1. Eine oder mehrere gerade Aussenkanten eines Blechkörpers wählen.\n"
+        "1. Eine oder mehrere gerade oder runde (Kreis/Bogen) Aussenkanten eines Blechkörpers wählen.\n"
         "2. Eigene Vorlage und Materialprofil wählen. Die Bibliothek ist anfangs leer – zuerst unter «Vorlagen verwalten» eine Vorlage anlegen.\n"
         "3. Parameter eingeben (Einheiten stehen am Feld). Im Expertenmodus kann die Operationsfolge als Kurzschrift direkt bearbeitet werden.\n"
         "4. Die Vorschau zeigt das Ergebnis; ungeeignete Kanten werden mit Grund aufgeführt und NICHT bearbeitet.\n"
