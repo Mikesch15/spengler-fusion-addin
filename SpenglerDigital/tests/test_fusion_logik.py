@@ -888,5 +888,84 @@ class MassUndLageTest(unittest.TestCase):
         self.assertEqual(inp.aufrufe[0][-1], "B-AUSSEN")
 
 
+class ZuschnittKoerperTest(unittest.TestCase):
+    """Flacher Körper aus dem Zuschnitt (Rundblech): Aufruffolge mit nachgebauten Fusion-Objekten – NICHT die echte Geometrie."""
+    def fusion(self, split_fehler=False, flaechen_z=(0.0, -0.06)):
+        log = []
+
+        class Kurve(object):
+            pass
+
+        def kurvenfabrik(name):
+            return type(name, (), {k: (lambda self, *a, _k=k: (log.append((name, _k)) or Kurve())) for k in ("addByCenterRadius", "addByCenterStartSweep", "addByTwoPoints")})()
+
+        class Skizze(object):
+            def __init__(s):
+                s.name, s.sketchCurves = "", type("SC", (), {"sketchCircles": kurvenfabrik("kreis"), "sketchArcs": kurvenfabrik("bogen"), "sketchLines": kurvenfabrik("linie")})()
+                s.profiles = Liste([type("Prof", (), {"areaProperties": lambda self: type("A", (), {"area": 5.0})()})()])
+
+        class Flaeche(object):
+            def __init__(s, z):
+                s.boundingBox = type("BB", (), {"minPoint": type("P", (), {"z": z})()})()
+
+        body = type("Body", (), {"name": "", "faces": [Flaeche(z) for z in flaechen_z]})()
+        feat = type("F", (), {"bodies": Liste([body])})()
+        ext = type("Ext", (), {"createInput": lambda s, p, op: type("EI", (), {"setDistanceExtent": lambda s2, sym, d: log.append(("extrude", sym))})(),
+                               "add": lambda s, i: feat})()
+
+        class Split(object):
+            def createInput(s, f, w, erweitert):
+                log.append(("split", len(f.liste), len(w.liste)))
+                return object()
+
+            def add(s, i):
+                if split_fehler:
+                    raise RuntimeError("Split failed")
+        comp = type("Comp", (), {"xYConstructionPlane": object(), "sketches": type("Sk", (), {"add": lambda s, ebene: Skizze()})(),
+                                 "features": type("Fe", (), {"extrudeFeatures": ext, "splitFaceFeatures": Split()})()})()
+        return comp, body, log
+
+    def lauf(self, comp, zs):
+        class Sammlung2(object):
+            def __init__(s):
+                s.liste = []
+
+            def add(s, x):
+                s.liste.append(x)
+        alt = adsk.core.ObjectCollection
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: Sammlung2())})
+        try:
+            return fa.abwicklung_koerper(comp, zs, 0.6, "Abwicklung Test")
+        finally:
+            adsk.core.ObjectCollection = alt
+
+    def test_scheibe_mit_biegelinie(self):
+        from spengler_cad.forming import forming as fo
+        zs = fo.zuschnitt(fo.scheibe_mit_rand(100, 20, 90))
+        comp, body, log = self.fusion()
+        koerper, hinweise = self.lauf(comp, zs)
+        self.assertIs(koerper, body)
+        self.assertEqual(body.name, "Abwicklung Test")
+        self.assertEqual(hinweise, [])
+        self.assertIn(("split", 1, 1), log, "Oberseite (z = 0) wird mit dem Biegekreis geteilt")
+        self.assertEqual([x for x in log if x[0] == "kreis"], [("kreis", "addByCenterRadius")] * 2, "Kontur- und Biegekreis")
+
+    def test_split_scheitert_koerper_bleibt(self):
+        from spengler_cad.forming import forming as fo
+        zs = fo.zuschnitt(fo.scheibe_mit_rand(100, 20, 90))
+        comp, body, log = self.fusion(split_fehler=True)
+        koerper, hinweise = self.lauf(comp, zs)
+        self.assertIs(koerper, body)
+        self.assertIn("Skizze «Abwicklung Test Biegelinien»", hinweise[0])
+
+    def test_kegel_ohne_biegelinien_kein_split(self):
+        from spengler_cad.forming import forming as fo
+        comp, body, log = self.fusion()
+        self.lauf(comp, fo.zuschnitt(fo.kegelstumpf(100, 50, 100)))
+        self.assertFalse([x for x in log if x[0] == "split"])
+        self.assertIn(("bogen", "addByCenterStartSweep"), log)
+        self.assertIn(("linie", "addByTwoPoints"), log)
+
+
 if __name__ == "__main__":
     unittest.main()

@@ -65,6 +65,8 @@ Die schnellste Eingabe ist die **Kurzschrift**:
 | `90 H U+ u+4*t` | Parameter `H`, `u`; `t` = Blechdicke, `ri` = Innenradius, `k` = K-Faktor aus dem Materialprofil |
 | `{w} 20` | Winkel als Ausdruck |
 
+**Mass und Lage (Schrittetabelle):** *Mass* legt fest, worauf die Schenkellänge zielt: aussen, innen oder tangential (Fusion: Höhenbezug). *Lage* sagt, wo der Flansch an der Bestandsfläche ansetzt: Kante, innen, aussen oder tangential (Fusion: Biegeposition). Ein freier «Versatz ±» ist in der Fusion-Flansch-API nicht vorgesehen. Vorschau und Abwicklung rechnen immer theoretisch mit der Blechmitte. Beim Umschlag probiert das Add-in mehrere Lagen/Richtungen durch und protokolliert die Versuche. Nicht in Fusion geprüft.
+
 Nach «übernehmen» werden neue Parameternamen automatisch als Parameter angelegt; Werte und Bereiche tragen Sie selbst ein. Unter der Kurzschrift zeigt die **Vorschau** den Querschnitt mit den Standardwerten: das bestehende Blech gestrichelt, die Kante grün, Schenkelmasse und Biegungen B1, B2 … Sie aktualisiert sich beim Tippen. Ist unter «Prüfen» ein Testmaterial gewählt (sonst das Standardmaterial), zeichnet sie mit dessen Dicke und Innenradius; ohne Material als Skizze mit 1 mm Dicke. Fehlt einem Parameter der Standardwert, steht statt des Bildes der Grund. Dasselbe Bild erscheint verkleinert in der Vorlagenliste. **Prüfen & Trockenlauf** zeigt Fehler, die Folge mit den Standardwerten und – wenn Innenradius und K-Faktor im Material stehen – die theoretische Abwicklungszugabe.
 
 Speichern: Jede inhaltliche Änderung erhöht die **Vorlagenversion**; frühere Versionen bleiben erhalten (*Versionen*). **Duplizieren** erzeugt eine unabhängige Kopie, **Umbenennen** ändert nur den Namen, **Löschen** verschiebt die Vorlage nach Bestätigung in den Papierkorb (wiederherstellbar unter *Sicherung*).
@@ -119,6 +121,8 @@ Das Add-in unterscheidet klar:
 - **herstellbar** – mit dem gewählten Verfahren (Stauchen/Schweifen, Strecken/Schweifen, manuell, automatische Empfehlung). Das wird **nur** beurteilt, wenn im Materialprofil ein **eigener Grenzwert** (Stauchen/Strecken in %) mit Quelle hinterlegt ist. Sonst steht «nicht beurteilbar».
 
 Die angegebene Dehnung ist die reine Umfangsänderung (Geometrie) – keine Garantie: Falten, Rückfederung und Wanddickenänderung sind nicht gerechnet. Einschnitte oder Lappen werden **nie** automatisch erzeugt. Der Drehkörper ist kein Fusion-Blechkörper; Zuschnittdurchmesser und Kegelabwicklung sind theoretisch.
+
+**Zuschnitt ausgeben:** Mit «flach» entsteht zusätzlich ein flacher Körper (Rohling) mit sichtbaren Biegelinien (Skizze, Fläche geteilt) – daraus lässt sich eine Fusion-Zeichnung ableiten. Mit «dxf» wird der Zuschnitt (Layer ZUSCHNITT, BIEGELINIE) in den Exportordner geschrieben. Scheibe: Kreis + Biegekreis; Kegel/Zylinder: Kreisringsektor bzw. Rechteck; Kragen: nur Loch und Biegekreis (kein Körper). Nicht in Fusion geprüft.
 
 ## 10. Abwicklung und DXF [nicht in Fusion geprüft]
 

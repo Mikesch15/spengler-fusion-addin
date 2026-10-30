@@ -52,6 +52,15 @@ class Dxf(object):
         self._layer(layer, farbe)
         self.ents += ["0", "LINE", "8", layer, "10", _f(a[0]), "20", _f(a[1]), "30", "0", "11", _f(b[0]), "21", _f(b[1]), "31", "0"]
 
+    def kreis(self, c, r, layer="0", farbe=7):
+        self._layer(layer, farbe)
+        self.ents += ["0", "CIRCLE", "8", layer, "10", _f(c[0]), "20", _f(c[1]), "30", "0", "40", _f(r)]
+
+    def bogen(self, c, r, a0, a1, layer="0", farbe=7):
+        """Kreisbogen gegen den Uhrzeigersinn von a0 nach a1 (Grad)."""
+        self._layer(layer, farbe)
+        self.ents += ["0", "ARC", "8", layer, "10", _f(c[0]), "20", _f(c[1]), "30", "0", "40", _f(r), "50", _f(a0 % 360.0), "51", _f(a1 % 360.0)]
+
     def rechteck(self, x, y, w, h, layer="0", farbe=7):
         p = [(x, y), (x + w, y), (x + w, y + h), (x, y + h)]
         for i in range(4):
@@ -89,4 +98,20 @@ def zuschnittplan_dxf(blaetter, titel, layer_kontur="ZUSCHNITT", layer_text="TEX
             d.rechteck(x0 + r["x"], r["y"], r["w"], r["h"], layer_kontur, 7)
             d.text((x0 + r["x"] + 2, r["y"] + 4), min(6.0, r["w"] / 4), "%s %s" % (r["nr"], r["name"]), layer_text)
         x0 += b["breite"] + abstand
+    return d
+
+
+def elemente_dxf(zuschnitt, titel, layer_kontur="ZUSCHNITT", layer_biege="BIEGELINIE", layer_text="TEXT"):
+    """Zuschnitt aus forming.zuschnitt() → Dxf: Kontur auf layer_kontur, Biegelinien (rot) auf layer_biege, Titel als Text."""
+    d = Dxf()
+    for lage, layer, farbe in ((zuschnitt["kontur"], layer_kontur, 7), (zuschnitt["biegelinien"], layer_biege, 1)):
+        for e in lage:
+            if e[0] == "kreis":
+                d.kreis((e[1], e[2]), e[3], layer, farbe)
+            elif e[0] == "bogen":
+                d.bogen((e[1], e[2]), e[3], e[4], e[5], layer, farbe)
+            else:
+                d.linie((e[1], e[2]), (e[3], e[4]), layer, farbe)
+    x0, y0, x1, y1 = zuschnitt["grenzen"]
+    d.text((x0, y0 - 12.0), 5.0, "%s - %s" % (titel, zuschnitt["beschreibung"]), layer_text)
     return d

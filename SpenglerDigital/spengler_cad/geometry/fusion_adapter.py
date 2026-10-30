@@ -781,6 +781,63 @@ def drehkoerper(comp, kontur_mm, name):
     return feat
 
 
+def abwicklung_koerper(comp, zuschnitt, dicke_mm, name):
+    """Flachen Körper aus einem Zuschnitt (forming.zuschnitt) erzeugen – NICHT live geprüft.
+
+    Kontur (Skizze auf XY) um die Blechdicke NACH UNTEN extrudiert (die Oberseite liegt in der Skizzenebene); die Biegelinien kommen als zweite
+    Skizze auf dieselbe Ebene und teilen die Oberseite per «Fläche teilen» – so sind sie als Kanten sichtbar und in einer Fusion-Zeichnung
+    darstellbar. Klappt das Teilen nicht, bleibt die Skizze «… Biegelinien» sichtbar. → (Körper, Hinweise)."""
+    P = adsk.core.Point3D.create
+
+    def zeichnen(sk, elemente):
+        kurven = []
+        for e in elemente:
+            if e[0] == "kreis":
+                kurven.append(sk.sketchCurves.sketchCircles.addByCenterRadius(P(units.mm_zu_cm(e[1]), units.mm_zu_cm(e[2]), 0), units.mm_zu_cm(e[3])))
+            elif e[0] == "bogen":
+                a0 = math.radians(e[4])
+                start = P(units.mm_zu_cm(e[1] + e[3] * math.cos(a0)), units.mm_zu_cm(e[2] + e[3] * math.sin(a0)), 0)
+                kurven.append(sk.sketchCurves.sketchArcs.addByCenterStartSweep(P(units.mm_zu_cm(e[1]), units.mm_zu_cm(e[2]), 0), start, math.radians(e[5] - e[4])))
+            else:
+                kurven.append(sk.sketchCurves.sketchLines.addByTwoPoints(P(units.mm_zu_cm(e[1]), units.mm_zu_cm(e[2]), 0), P(units.mm_zu_cm(e[3]), units.mm_zu_cm(e[4]), 0)))
+        return kurven
+    sk = comp.sketches.add(comp.xYConstructionPlane)
+    sk.name = name + " Kontur"
+    zeichnen(sk, zuschnitt["kontur"])
+    if sk.profiles.count < 1:
+        raise AdapterFehler("Der Zuschnitt bildet keine geschlossene Fläche – Körper nicht erzeugt.")
+    prof = max(list(sk.profiles), key=lambda p: p.areaProperties().area)
+    ext = comp.features.extrudeFeatures
+    ei = ext.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(-units.mm_zu_cm(dicke_mm)))
+    feat = ext.add(ei)
+    if not feat or feat.bodies.count < 1:
+        raise AdapterFehler("Fusion hat den Körper des Zuschnitts nicht erzeugt.")
+    body = feat.bodies.item(0)
+    body.name = name
+    hinweise = []
+    if zuschnitt["biegelinien"]:
+        sk2 = comp.sketches.add(comp.xYConstructionPlane)
+        sk2.name = name + " Biegelinien"
+        kurven = zeichnen(sk2, zuschnitt["biegelinien"])
+        try:
+            oben = [f for f in body.faces if f.boundingBox.minPoint.z > -1e-6]
+            if len(oben) != 1:
+                raise AdapterFehler("Oberseite nicht eindeutig (%d Flächen)" % len(oben))
+            flaechen = adsk.core.ObjectCollection.create()
+            flaechen.add(oben[0])
+            werkzeug = adsk.core.ObjectCollection.create()
+            for k in kurven:
+                werkzeug.add(k)
+            sf = comp.features.splitFaceFeatures
+            sf.add(sf.createInput(flaechen, werkzeug, False))
+        except Exception as e:
+            logger.ausnahme("Biegelinien teilen", fehler=e)
+            hinweise.append("Die Biegelinien konnten die Oberseite nicht teilen (%s) – sie liegen als Skizze «%s» vor." % (
+                str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__, sk2.name))
+    return body, hinweise
+
+
 # ------------------------------------------------------------------ 3D-Detailvorlagen
 def komponente_exportieren(comp, dateipfad):
     em = design().exportManager

@@ -131,3 +131,40 @@ def drehprofil_scheibe(radius, randhoehe, dicke, ri, winkel=90.0):
            {"typ": "schenkel", "L": randhoehe}]
     res = berechne(0.0, ops, dicke, ri, 0.5)
     return kontur(res["pfad"], dicke, 6)
+
+
+def zuschnitt(e):
+    """Flacher Zuschnitt zu einem Ergebnis von scheibe_mit_rand / kragen / kegelstumpf (mm, Blechmitte, theoretisch).
+
+    → {"kontur": [Element], "biegelinien": [Element], "grenzen": (x0, y0, x1, y1), "beschreibung": str, "geschlossen": bool}
+    Element: ("kreis", cx, cy, r) | ("bogen", cx, cy, r, a0°, a1°) | ("linie", x1, y1, x2, y2).
+    Scheibe: Kreis, Biegelinie am Randansatz. Kragen: Loch im Rohling (ohne Aussenkontur, die ist Sache des Blechs) und Biegekreis.
+    Kegel: Kreisringsektor (bei Zylinder Rechteck). Wirft ValueError, wenn kein einteiliger Zuschnitt möglich ist."""
+    fall = e.get("fall")
+    if fall == "scheibe":
+        R, r = e["rohling_radius"], e["zone"]["von_radius"]
+        return {"kontur": [("kreis", 0.0, 0.0, R)], "biegelinien": [("kreis", 0.0, 0.0, r)], "grenzen": (-R, -R, R, R),
+                "beschreibung": "Scheibe Rohling D %.1f mm, Biegelinie D %.1f mm (theoretisch)" % (2 * R, 2 * r), "geschlossen": True}
+    if fall == "kragen":
+        if e.get("fehler") or e["rohling_loch_radius"] <= 0:
+            raise ValueError("Kragen höher als der Lochradius – kein Zuschnitt")
+        r0, r1 = e["rohling_loch_radius"], e["zone"]["bis_radius"]
+        return {"kontur": [("kreis", 0.0, 0.0, r0)], "biegelinien": [("kreis", 0.0, 0.0, r1)], "grenzen": (-r1, -r1, r1, r1),
+                "beschreibung": "Kragen Loch im Rohling D %.1f mm, Biegelinie D %.1f mm (theoretisch)" % (2 * r0, 2 * r1), "geschlossen": False}
+    if fall == "kegel":
+        if e.get("zylinder"):
+            b, h = e["rechteck"]
+            kont = [("linie", 0.0, 0.0, b, 0.0), ("linie", b, 0.0, b, h), ("linie", b, h, 0.0, h), ("linie", 0.0, h, 0.0, 0.0)]
+            return {"kontur": kont, "biegelinien": [], "grenzen": (0.0, 0.0, b, h),
+                    "beschreibung": "Zylinder Rechteck %.1f x %.1f mm (theoretisch)" % (b, h), "geschlossen": True}
+        if e.get("mehrteilig_noetig"):
+            raise ValueError("Öffnungswinkel über 360° – der Mantel besteht aus mehreren Teilen, kein einteiliger Zuschnitt")
+        R1, R2, w = e["R_innen"], e["R_aussen"], e["oeffnungswinkel"]
+        a = math.radians(w)
+        kont = [("bogen", 0.0, 0.0, R2, 0.0, w), ("linie", R2, 0.0, R1, 0.0), ("linie", R2 * math.cos(a), R2 * math.sin(a), R1 * math.cos(a), R1 * math.sin(a))]
+        if R1 > 1e-9:
+            kont.append(("bogen", 0.0, 0.0, R1, 0.0, w))
+        gr = (-R2 if w > 180 else min(0.0, R2 * math.cos(a)), -R2 if w > 270 else 0.0, R2, R2)
+        return {"kontur": kont, "biegelinien": [], "grenzen": gr,
+                "beschreibung": "Kegelstumpf Kreisringsektor R %.1f / %.1f mm, Winkel %.1f Grad (theoretisch)" % (R1, R2, w), "geschlossen": True}
+    raise ValueError("Unbekannter Fall")

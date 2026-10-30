@@ -92,6 +92,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | konstruierbar / abwickelbar / herstellbar getrennt | AUTO | herstellbar nur mit eigenem Grenzwert |
 | Keine Einschnitte ohne Freigabe; warnen statt heimlich ändern | AUTO | es werden nie Einschnitte erzeugt |
 | Umformzonen markieren | TEIL | als Radiusbereich im Text; nicht im Modell markiert |
+| Zuschnitt DXF + flacher Körper (Rundblech) | AUTO | nur Logik/DXF getestet; Fusion-Körper nicht live |
 | Drehkörper in Fusion | LIVE | Selbsttest Ø 200.70 mm; Befehl «Rundblech» selbst nicht live |
 
 ## 9 Doppelfalzabschluss als Benutzervorlage

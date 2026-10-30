@@ -104,6 +104,8 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Im Materialprofil Stauchen max. z. B. 20 % mit Quelle eintragen, erneut | «Herstellbar: ja» bzw. «nein» nach Grenzwert |
 | ☐ | Kragen r 50, Höhe 10 | nur Beurteilung «gestreckt», kein Körper |
 | ☐ | Kegel r 100 / 50, Höhe 100 → OK | Drehkörper, Abwicklung Kreisringsektor |
+| ☐ | Scheibe r 100, Rand 20, «flach» und «dxf» anhaken → OK | flacher Körper mit sichtbarer Biegelinie, DXF im Exportordner |
+| ☐ | Aus dem flachen Körper eine Zeichnung ableiten | Biegekante in der Zeichnung sichtbar |
 
 ## 8. Abwicklung, DXF und Werkstattblatt (8 Min.)
 
@@ -112,6 +114,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | **Abwicklung & DXF**, Blechkörper aus Block 5 (noch ohne Abwicklung: feststehende Fläche wählen) → OK | Ordner öffnet sich, `Nr_…dxf` und `…_werkstattblatt.html` |
 | ☐ | DXF in einem CAD-Programm öffnen | Kontur und Biegelinien, Masse stimmen |
 | ☐ | Werkstattblatt öffnen | Teilenummer, Material, Vorlage + Version, **Querschnitt mit Massen**, **Abwicklung mit Biegelinien**, Biegeliste |
+| ☐ | Werkstattblatt nach Export | Zeichnung der Abwicklung (aus DXF) sichtbar, Biegelinien gestrichelt |
 | ☐ | Zwei Körper gleichzeitig | beide exportiert, Zusammenfassung «2 von 2» |
 | ☐ | Normaler Volumenkörper | «✗ … kein Blechkörper» |
 
