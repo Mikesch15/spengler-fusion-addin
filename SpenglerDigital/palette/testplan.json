@@ -349,6 +349,16 @@
      "id": "7.4",
      "text": "Kegel r 100 / 50, Höhe 100 → OK",
      "erwartet": "Drehkörper, Abwicklung Kreisringsektor"
+    },
+    {
+     "id": "7.5",
+     "text": "Scheibe r 100, Rand 20, «flach» und «dxf» anhaken → OK",
+     "erwartet": "flacher Körper mit sichtbarer Biegelinie, DXF im Exportordner"
+    },
+    {
+     "id": "7.6",
+     "text": "Aus dem flachen Körper eine Zeichnung ableiten",
+     "erwartet": "Biegekante in der Zeichnung sichtbar"
     }
    ]
   },
@@ -374,11 +384,16 @@
     },
     {
      "id": "8.4",
+     "text": "Werkstattblatt nach Export",
+     "erwartet": "Zeichnung der Abwicklung (aus DXF) sichtbar, Biegelinien gestrichelt"
+    },
+    {
+     "id": "8.5",
      "text": "Zwei Körper gleichzeitig",
      "erwartet": "beide exportiert, Zusammenfassung «2 von 2»"
     },
     {
-     "id": "8.5",
+     "id": "8.6",
      "text": "Normaler Volumenkörper",
      "erwartet": "«✗ … kein Blechkörper»"
     }
