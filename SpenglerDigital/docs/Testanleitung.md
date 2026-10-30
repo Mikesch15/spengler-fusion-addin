@@ -82,6 +82,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 
 | ☐ | Zwei flache Bleche nebeneinander. Vorlage mit 1 Flansch 90° 25 mm und **Versatz 5**, an beiden Blechen anwenden | Beide Flansche sitzen 5 mm weiter innen, zwischen den Flanschen 10 mm Luft; in der Zeitleiste je Skizze «Versatz +5 mm» und Extrusion |
 | ☐ | Gleiche Vorlage mit **Versatz −5** | Blech wird je 5 mm verlängert, Flansch sitzt aussen; Abstand der Flansche 10 mm kleiner |
+| ☐ | Zwei zusammenstossende Kanten eines Blechs, Vorlage Flansch 90° 25 mm mit Versatz 5 (und −5) | Gemeinsamer Flansch mit Gehrung an der Ecke, beide Flansche um 5 mm versetzt, nur eine Skizze «Versatz» und eine Extrusion |
 | ☐ | Versatz an runder Kante | Meldung «nur an geraden Kanten», nichts gebaut |
 
 ## 6. Eigene 3D-Details (10 Min.)

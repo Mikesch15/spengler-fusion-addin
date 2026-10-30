@@ -1159,10 +1159,13 @@ class VersatzTest(unittest.TestCase):
         adsk.core.ValueInput = type("VI", (), {"createByReal": staticmethod(lambda x: x), "createByString": staticmethod(lambda x: x)})
         alt_p = adsk.core.Point3D
         adsk.core.Point3D = type("P3", (), {"create": staticmethod(lambda x, y, z: V(x, y, z))})
+        alt_oc = adsk.core.ObjectCollection
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: Liste())})
+        Liste.add = lambda self, x: self.append(x)
         try:
-            return fa._versatz_anwenden(kante, mm, dicke)
+            return fa._versatz_anwenden(kante, mm, dicke) if not isinstance(kante, list) else fa._versatz_gruppe(kante, mm, dicke)
         finally:
-            adsk.fusion.FeatureOperations, adsk.core.ValueInput, adsk.core.Point3D = alt, alt_vi, alt_p
+            adsk.fusion.FeatureOperations, adsk.core.ValueInput, adsk.core.Point3D, adsk.core.ObjectCollection = alt, alt_vi, alt_p, alt_oc
 
     def test_rueckversatz_schneidet_und_findet_neue_kante(self):
         self.ziel = ((0, -1.0, 0), (50, -1.0, 0))        # 10 mm nach innen (y von 0 auf −1 cm)
@@ -1179,6 +1182,48 @@ class VersatzTest(unittest.TestCase):
         self.assertEqual(len(versuch), 2)
         self.assertAlmostEqual(neu.geometry.startPoint.y, 0.5)
         self.assertEqual([x[1] for x in log if x[0] == "dist"], [0.07, -0.07])
+
+    def test_zwei_zusammenstossende_kanten_eine_extrusion(self):
+        """Ecke bei (0, 0): Kante 1 entlang x, Kante 2 entlang y – beide werden um 5 mm nach aussen versetzt, in einer Skizze/Extrusion."""
+        t = 0.07
+        gross = Flaeche(area=100.0)
+        gross.pointOnFace = V(25.0, -25.0, 0.0)
+        k1 = Kante((0, 0, 0), (50, 0, 0), flaechen=[gross])
+        gross2 = Flaeche(area=100.0)
+        gross2.pointOnFace = V(25.0, -25.0, 0.0)
+        k2 = Kante((0, 0, 0), (0, -50, 0), flaechen=[gross2])
+        k1.body = k2.body = body = type("Body", (), {"volume": 100.0, "edges": []})()
+        zeilen, ext = [], []
+
+        class Skizze(object):
+            def __init__(s):
+                s.profiles = Liste([object(), object(), object()])
+                s.sketchCurves = type("SC", (), {"sketchLines": s})()
+
+            def modelToSketchSpace(s, p):
+                return p
+
+            def addByTwoPoints(s, a, b):
+                zeilen.append((a, b))
+                return type("Ln", (), {"endSketchPoint": b, "startSketchPoint": a})()
+
+        def add(ei):
+            neu = type("B", (), {"volume": 100.0 + 2 * 50 * 0.5 * t})()
+            neu.edges = [Kante((-0.5, 0.5, 0), (50, 0.5, 0)), Kante((-0.5, 0.5, 0), (-0.5, -50, 0))]
+            f = Feature([], "ext")
+            f.bodies = Liste([neu])
+            ext.append(f)
+            return f
+        ei = type("EI", (), {"setDistanceExtent": lambda s, a, b: None})()
+        ef = type("EF", (), {"createInput": lambda s, p, op: (ext.append(("profile", len(p))) or ei), "add": staticmethod(add)})()
+        body.parentComponent = type("Comp", (), {"sketches": type("Sk", (), {"add": lambda s, f: Skizze()})(),
+                                                 "features": type("Fe", (), {"extrudeFeatures": ef})()})()
+        erzeugt, neue = self.lauf([k1, k2], -5.0, 0.7)
+        self.assertEqual(len(neue), 2)
+        self.assertEqual(ext[0], ("profile", 3), "alle Profile der Skizze gehen in EINE Extrusion")
+        self.assertEqual(len(zeilen), 8, "zwei Rechtecke")
+        # Ecke gefüllt: Streifen 1 beginnt 5 mm VOR dem Anfang der Kante (x = −0.5 cm), Streifen 2 ebenso
+        self.assertAlmostEqual(min(a.x for a, _ in zeilen), -0.5)
 
     def test_volumen_passt_nicht_dann_fehler(self):
         self.ziel = ((0, -1.0, 0), (50, -1.0, 0))

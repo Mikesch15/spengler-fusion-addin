@@ -273,6 +273,11 @@
     },
     {
      "id": "5.15",
+     "text": "Zwei zusammenstossende Kanten eines Blechs, Vorlage Flansch 90° 25 mm mit Versatz 5 (und −5)",
+     "erwartet": "Gemeinsamer Flansch mit Gehrung an der Ecke, beide Flansche um 5 mm versetzt, nur eine Skizze «Versatz» und eine Extrusion"
+    },
+    {
+     "id": "5.16",
      "text": "Versatz an runder Kante",
      "erwartet": "Meldung «nur an geraden Kanten», nichts gebaut"
     }
