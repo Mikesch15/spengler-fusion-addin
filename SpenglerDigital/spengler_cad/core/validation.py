@@ -49,10 +49,10 @@ def pruefe_operationen(ops, bekannte_namen):
         if typ not in OP_TYPEN:
             fehler.append("Schritt %d: unbekannte Operation «%s» (erlaubt: Flansch, Umschlag)." % (i, typ))
             continue
-        for feld, label in (("winkel", "Winkel"), ("laenge", "Länge"), ("radius", "Radius")):
+        for feld, label in (("winkel", "Winkel"), ("laenge", "Länge"), ("radius", "Radius"), ("versatz", "Versatz")):
             w = op.get(feld)
             if w is None or w == "":
-                if feld != "radius":
+                if feld not in ("radius", "versatz"):
                     fehler.append("Schritt %d: %s fehlt." % (i, label))
                 continue
             if _zahl(w):
@@ -70,6 +70,8 @@ def pruefe_operationen(ops, bekannte_namen):
                 fehler.append("Schritt %d: Flanschwinkel %g° ungültig (erlaubt: zwischen -180° und 180°, nicht 0)." % (i, w))
             elif abs(w) > 135:
                 warn.append("Schritt %d: Flanschwinkel %g° ist sehr spitz – für 180° einen Umschlag verwenden." % (i, w))
+        if _zahl(op.get("versatz")) and abs(op["versatz"]) > 500:
+            fehler.append("Schritt %d: Versatz %g mm ist unplausibel (erlaubt bis ±500 mm)." % (i, op["versatz"]))
         if op.get("bezug") and op["bezug"] not in BEZUEGE:
             fehler.append("Schritt %d: Massbezug «%s» unbekannt (erlaubt: %s)." % (i, op["bezug"], ", ".join(sorted(BEZUEGE))))
         if op.get("bezug") and typ == "umschlag":
@@ -100,7 +102,7 @@ def pruefe_kantenvorlage(v):
         fehler.append("Dickenbereich: Minimum ist grösser als Maximum.")
     benutzt = set()
     for op in v.get("operations", []):
-        for feld in ("winkel", "laenge", "radius"):
+        for feld in ("winkel", "laenge", "radius", "versatz"):
             if isinstance(op.get(feld), str):
                 try:
                     benutzt |= namen_in(op[feld])

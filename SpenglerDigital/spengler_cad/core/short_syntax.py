@@ -96,6 +96,7 @@ def aufloesen(ops, werte):
             w = berechne(op["winkel"], werte)
             L = berechne(op["laenge"], werte)
             r = None if op.get("radius") in (None, "") else berechne(op["radius"], werte)
+            vs = None if op.get("versatz") in (None, "") else berechne(op["versatz"], werte)
         except AusdruckFehler as e:
             raise KurzschriftFehler("Schritt %d: %s" % (i, e))
         if op["typ"] == "umschlag":
@@ -104,6 +105,8 @@ def aufloesen(ops, werte):
         for feld in ("bezug", "lage"):      # Massbezug (Höhe von aussen/innen/tangential) und Lage der Biegung – nur wenn gewählt
             if op.get(feld):
                 d[feld] = op[feld]
+        if vs:      # Versatz der Biegung von der Startkante (mm, + nach innen / − nach aussen); 0 = keiner
+            d["versatz"] = vs
         out.append(d)
     return out
 

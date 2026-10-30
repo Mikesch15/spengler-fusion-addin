@@ -51,6 +51,21 @@ class MassbezugTest(unittest.TestCase):
         ops = operation_plan.erstelle(v, {}, m, [k])["operations"]
         self.assertEqual([o["radius"] for o in ops], [m["innerRadius"], 2.0, None], "Flansch: Materialradius, eigener Radius gilt, Umschlag unberührt")
 
+    def test_versatz_pruefen_aufloesen_anzeigen(self):
+        f, _ = validation.pruefe_operationen([op(versatz=5), op(versatz="a*2")], ["a"])
+        self.assertEqual(f, [])
+        f, _ = validation.pruefe_operationen([op(versatz=900), op(versatz="zz")], [])
+        self.assertIn("unplausibel", " ".join(f))
+        self.assertIn("unbekannte Parameter zz", " ".join(f))
+        aus = short_syntax.aufloesen([op(versatz="a*2"), op(), op(versatz=0)], {"a": 3})
+        self.assertEqual([o.get("versatz") for o in aus], [6, None, None], "0 und leer = kein Versatz")
+        from _basis import test_material
+        from test_templates import testvorlage
+        v = testvorlage()
+        v["operations"] = [op(versatz=-5)]
+        k = {"ref": 1, "text": "Kante 1", "kurve": "linie", "laenge": 500.0, "flaechen": 2, "blech": True, "dicke": 0.7, "frei": True}
+        self.assertIn("Versatz -5 mm (nach aussen)", operation_plan.beschreibung(operation_plan.erstelle(v, {}, test_material(), [k])))
+
 
 if __name__ == "__main__":
     unittest.main()

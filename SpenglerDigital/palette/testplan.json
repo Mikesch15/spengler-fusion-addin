@@ -260,6 +260,21 @@
      "id": "5.12",
      "text": "Bei jeder Fehlermeldung",
      "erwartet": "Text notieren: ________"
+    },
+    {
+     "id": "5.13",
+     "text": "Zwei flache Bleche nebeneinander. Vorlage mit 1 Flansch 90° 25 mm und Versatz 5, an beiden Blechen anwenden",
+     "erwartet": "Beide Flansche sitzen 5 mm weiter innen, zwischen den Flanschen 10 mm Luft; in der Zeitleiste je Skizze «Versatz +5 mm» und Extrusion"
+    },
+    {
+     "id": "5.14",
+     "text": "Gleiche Vorlage mit Versatz −5",
+     "erwartet": "Blech wird je 5 mm verlängert, Flansch sitzt aussen; Abstand der Flansche 10 mm kleiner"
+    },
+    {
+     "id": "5.15",
+     "text": "Versatz an runder Kante",
+     "erwartet": "Meldung «nur an geraden Kanten», nichts gebaut"
     }
    ]
   },

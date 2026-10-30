@@ -1104,5 +1104,103 @@ class ZuschnittKoerperTest(unittest.TestCase):
         self.assertIn(("linie", "addByTwoPoints"), log)
 
 
+class VersatzTest(unittest.TestCase):
+    """Versatz der Biegung (Streifen abschneiden/anfügen) mit Nachbau von Skizze/Extrusion – NICHT die echte Geometrie."""
+    def aufbau(self, volumen_nach, wirft_erste=False, mit_zielkante=True):
+        t, L = 0.07, 50.0
+        gross = Flaeche(area=100.0)
+        gross.pointOnFace = V(25.0, -10.0, 0.0)          # Blech liegt bei y < 0, Kante bei y = 0
+        kante = Kante((0, 0, 0), (L, 0, 0), flaechen=[gross])
+        log = []
+        body = type("Body", (), {"volume": 100.0})()
+        body.edges = []
+        kante.body = body
+
+        class Skizze(object):
+            def __init__(s):
+                s.name, s.profiles = "", Liste([object()])
+                s.sketchCurves = type("SC", (), {"sketchLines": s})()
+
+            def modelToSketchSpace(s, p):
+                return p
+
+            def addByTwoPoints(s, a, b):
+                log.append(("linie", a, b))
+                return type("Ln", (), {"endSketchPoint": b, "startSketchPoint": a})()
+
+        class Eingabe2(object):
+            def setSymmetricExtent(s, d, voll):
+                log.append(("symm", d))
+
+            def setDistanceExtent(s, sym, d):
+                log.append(("dist", d))
+        versuch = []
+
+        def add(ei):
+            versuch.append(1)
+            if wirft_erste and len(versuch) == 1:
+                raise RuntimeError("falsche Richtung")
+            neu = type("B", (), {"volume": volumen_nach, "edges": list(body.edges)})()
+            if mit_zielkante:
+                neu.edges.append(Kante(*self.ziel))
+            f = Feature([], "ext")
+            f.bodies = Liste([neu])
+            return f
+        ef = type("EF", (), {"createInput": lambda s, p, op: Eingabe2(), "add": staticmethod(add)})()
+        comp = type("Comp", (), {"sketches": type("Sk", (), {"add": lambda s, f: Skizze()})(),
+                                 "features": type("Fe", (), {"extrudeFeatures": ef})()})()
+        body.parentComponent = comp
+        return kante, log, versuch, t * 10
+
+    def lauf(self, kante, mm, dicke):
+        alt = adsk.fusion.FeatureOperations
+        adsk.fusion.FeatureOperations = type("FO", (), {"CutFeatureOperation": "cut", "JoinFeatureOperation": "join"})
+        alt_vi = adsk.core.ValueInput
+        adsk.core.ValueInput = type("VI", (), {"createByReal": staticmethod(lambda x: x), "createByString": staticmethod(lambda x: x)})
+        alt_p = adsk.core.Point3D
+        adsk.core.Point3D = type("P3", (), {"create": staticmethod(lambda x, y, z: V(x, y, z))})
+        try:
+            return fa._versatz_anwenden(kante, mm, dicke)
+        finally:
+            adsk.fusion.FeatureOperations, adsk.core.ValueInput, adsk.core.Point3D = alt, alt_vi, alt_p
+
+    def test_rueckversatz_schneidet_und_findet_neue_kante(self):
+        self.ziel = ((0, -1.0, 0), (50, -1.0, 0))        # 10 mm nach innen (y von 0 auf −1 cm)
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 - 50 * 1.0 * 0.07)
+        erzeugt, neu = self.lauf(kante, 10.0, d)
+        self.assertEqual(len(erzeugt), 2, "Skizze und Schnitt")
+        self.assertAlmostEqual(neu.geometry.startPoint.y, -1.0)
+        self.assertTrue(any(x[0] == "symm" for x in log))
+
+    def test_vorversatz_probiert_zweite_richtung(self):
+        self.ziel = ((0, 0.5, 0), (50, 0.5, 0))          # 5 mm nach aussen
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07, wirft_erste=True)
+        erzeugt, neu = self.lauf(kante, -5.0, d)
+        self.assertEqual(len(versuch), 2)
+        self.assertAlmostEqual(neu.geometry.startPoint.y, 0.5)
+        self.assertEqual([x[1] for x in log if x[0] == "dist"], [0.07, -0.07])
+
+    def test_volumen_passt_nicht_dann_fehler(self):
+        self.ziel = ((0, -1.0, 0), (50, -1.0, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(kante, 10.0, d)
+        self.assertIn("nicht an das Blech", str(cm.exception))
+
+    def test_neue_kante_nicht_gefunden(self):
+        self.ziel = ((0, -1.0, 0), (50, -1.0, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 - 50 * 0.07, mit_zielkante=False)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(kante, 10.0, d)
+        self.assertIn("nicht eindeutig", str(cm.exception))
+
+    def test_runde_kante_und_fehlende_dicke(self):
+        rund = Kante((0, 0, 0), (50, 0, 0), typ="KREIS")
+        with self.assertRaises(fa.AdapterFehler):
+            fa._versatz_anwenden(rund, 5.0, 0.7)
+        with self.assertRaises(fa.AdapterFehler):
+            fa._versatz_anwenden(Kante((0, 0, 0), (50, 0, 0)), 5.0, None)
+
+
 if __name__ == "__main__":
     unittest.main()

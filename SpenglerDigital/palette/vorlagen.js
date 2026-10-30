@@ -158,6 +158,7 @@ function zeigeOps() {
     <td><input data-o="${i}" data-f="radius" value="${esc(o.radius ?? "")}" size="6"></td>
     <td>${o.typ === "umschlag" ? "" : `<select data-o="${i}" data-f="bezug">${[["", "Standard"], ["aussen", "aussen"], ["innen", "innen"], ["tangential", "tangential"]].map(([w, t]) => `<option value="${w}" ${(o.bezug || "") === w ? "selected" : ""}>${t}</option>`).join("")}</select>`}</td>
     <td><select data-o="${i}" data-f="lage">${[["", "Standard"], ["kante", "benachbart (Kante)"], ["innen", "innen"], ["aussen", "aussen"], ["tangential", "tangential"]].map(([w, t]) => `<option value="${w}" ${(o.lage || "") === w ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+    <td><input data-o="${i}" data-f="versatz" value="${esc(o.versatz ?? "")}" size="5" placeholder="0"></td>
     <td><button data-oauf="${i}">↑</button><button data-oab="${i}">↓</button><button data-odel="${i}">✕</button></td></tr>`).join("");
 }
 function editorLesen() {
@@ -178,7 +179,7 @@ document.addEventListener("input", (e) => {
   }
   if (t.dataset.o !== undefined) {
     const o = V.operations[+t.dataset.o], f = t.dataset.f;
-    o[f] = f === "typ" ? t.value : (f === "bezug" || f === "lage") ? (t.value || undefined) : zahlOderText(t.value);
+    o[f] = f === "typ" ? t.value : (f === "bezug" || f === "lage") ? (t.value || undefined) : f === "versatz" ? (t.value.trim() ? zahlOderText(t.value) : undefined) : zahlOderText(t.value);
     if (f === "typ" && t.value === "umschlag") { o.winkel = 180; delete o.bezug; }   // Umschlag hat keinen Massbezug
     $("eKurz").value = kurzText(V.operations);
   }
@@ -228,8 +229,8 @@ $("oNeuU").onclick = () => schrittNeu({ typ: "umschlag", winkel: 180, laenge: 7,
 $("eKurzUeb").onclick = async () => {
   const r = await tun(() => senden("kurzschrift", { text: $("eKurz").value }));
   if (!r) return;
-  const alt = V.operations;   // Mass/Lage der bisherigen Schritte bleiben erhalten (die Kurzschrift kennt sie nicht)
-  V.operations = r.operations.map((o, i) => (alt[i] && alt[i].typ === o.typ ? Object.assign(o, { bezug: alt[i].bezug, lage: alt[i].lage }) : o));
+  const alt = V.operations;   // Mass/Lage/Versatz der bisherigen Schritte bleiben erhalten (die Kurzschrift kennt sie nicht)
+  V.operations = r.operations.map((o, i) => (alt[i] && alt[i].typ === o.typ ? Object.assign(o, { bezug: alt[i].bezug, lage: alt[i].lage, versatz: alt[i].versatz }) : o));
   for (const n of r.parameter) if (!V.parameters.some((p) => p.name === n)) V.parameters.push({ name: n, label: n, unit: "mm", default: null, min: null, max: null, description: "", variable: true });
   zeigeParameter(); zeigeOps(); vorschau();
   meldung(r.parameter.length ? "Übernommen. Neue Parameter bitte mit Wert/Bereich ergänzen: " + r.parameter.join(", ") : "Übernommen.", "ok");

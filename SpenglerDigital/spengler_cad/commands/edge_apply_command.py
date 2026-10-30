@@ -261,7 +261,7 @@ def _bauen(inp, ergebnis):
         gruppen = [[i] for i in range(len(tokens))]
     for gruppe in gruppen:
         einzeln = list(gruppe)
-        if len(gruppe) >= 2 and ops and ops[0]["typ"] != "umschlag":
+        if len(gruppe) >= 2 and ops and ops[0]["typ"] != "umschlag" and not any(o.get("versatz") for o in ops):
             nrn = [i + 1 for i in gruppe]
             try:
                 kanten = [edge_resolver.aufloesen(tokens[i]) for i in gruppe]

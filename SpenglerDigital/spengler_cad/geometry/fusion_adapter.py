@@ -556,6 +556,99 @@ def _kante_aufloesen(token, alt):
         return alt
 
 
+# ------------------------------------------------------------------ Versatz der Biegung von der Startkante – NICHT live geprüft
+def _versatz_anwenden(edge, versatz_mm, dicke_mm):
+    """Verschiebt die Kante, an der der Flansch ansetzt, um versatz_mm quer zur Kante: + nach innen (Streifen wird abgeschnitten), − nach aussen
+    (Streifen wird angefügt). Fusions Flansch kennt keine freie Verschiebung der Biegung; das Blech wird deshalb vorher entsprechend gekürzt
+    oder verlängert (gerade Kanten, Streifen über die ganze Kantenlänge). → (erzeugte Objekte, neue Kante). Rückbau macht der Aufrufer."""
+    if _kurventyp(edge) != "linie":
+        raise AdapterFehler("Ein Versatz ist nur an geraden Kanten möglich.")
+    if not dicke_mm:
+        raise AdapterFehler("Für den Versatz fehlt die Blechdicke (Materialprofil).")
+    rahmen = _kantenrahmen_quer(edge)
+    if rahmen is None:
+        raise AdapterFehler("Für den Versatz konnte die Lage der Kante zur Blechfläche nicht bestimmt werden.")
+    e, u = rahmen                                   # u: von der Fläche zur Kante (nach aussen)
+    s = versatz_mm / 10.0                           # cm; > 0 nach innen
+    g = edge.geometry
+    p0, p1 = _v(g.startPoint), _v(g.endPoint)
+    flaeche = max(list(edge.faces), key=lambda f: f.area)
+    koerper = edge.body
+    comp = koerper.parentComponent
+    laenge = math.sqrt(_skal(_plus(p1, p0, 1.0, -1.0), _plus(p1, p0, 1.0, -1.0)))
+    ueber, tief = 0.1, 0.1
+    if s > 0:      # Rückversatz: Streifen von etwas ausserhalb der Kante bis s nach innen wegschneiden (an den Enden etwas länger)
+        a0, a1 = _plus(_plus(p0, u, 1.0, ueber), e, 1.0, -0.05), _plus(_plus(p1, u, 1.0, ueber), e, 1.0, 0.05)
+        c1, c0 = _plus(_plus(p1, u, 1.0, -s), e, 1.0, 0.05), _plus(_plus(p0, u, 1.0, -s), e, 1.0, -0.05)
+        ziel = -s
+    else:          # Vorversatz: Streifen der Breite |s| aussen anfügen (überlappt innen etwas)
+        a0, a1 = _plus(p0, u, 1.0, -tief), _plus(p1, u, 1.0, -tief)
+        c1, c0 = _plus(p1, u, 1.0, -s), _plus(p0, u, 1.0, -s)
+        ziel = -s
+    erzeugt = []
+    skizze = comp.sketches.add(flaeche)
+    skizze.name = "Versatz %+g mm" % versatz_mm
+    erzeugt.append(skizze)
+
+    def pt(x):
+        return skizze.modelToSketchSpace(adsk.core.Point3D.create(x[0], x[1], x[2]))
+    linien = skizze.sketchCurves.sketchLines
+    l1 = linien.addByTwoPoints(pt(a0), pt(a1))
+    l2 = linien.addByTwoPoints(l1.endSketchPoint, pt(c1))
+    l3 = linien.addByTwoPoints(l2.endSketchPoint, pt(c0))
+    linien.addByTwoPoints(l3.endSketchPoint, l1.startSketchPoint)
+    if skizze.profiles.count < 1:
+        raise AdapterFehler("Der Versatz-Streifen ergab keine Fläche in der Skizze.")
+    profil = skizze.profiles.item(0)
+    ef = comp.features.extrudeFeatures
+    t = dicke_mm / 10.0
+    vol0 = koerper.volume
+    soll = abs(s) * laenge * t
+    feat = None
+    versuche = []
+    for richtung in ((None,) if s > 0 else (1.0, -1.0)):
+        try:
+            if s > 0:
+                ei = ef.createInput(profil, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                ei.setSymmetricExtent(adsk.core.ValueInput.createByReal(4 * t + 0.2), True)
+            else:
+                ei = ef.createInput(profil, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * t))
+            ei.participantBodies = [koerper]
+            f = ef.add(ei)
+        except Exception as ex:
+            versuche.append(str(ex).strip().splitlines()[-1][:120] if str(ex).strip() else type(ex).__name__)
+            continue
+        koerper_neu = f.bodies.item(0) if f.bodies.count else koerper
+        delta = koerper_neu.volume - vol0
+        if (s > 0 and delta < -0.5 * soll) or (s < 0 and delta > 0.5 * soll):
+            feat = f
+            break
+        versuche.append("Volumen %.3f statt %.3f cm³" % (delta, soll if s < 0 else -soll))
+        f.deleteMe()
+    if feat is None:
+        raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
+    erzeugt.append(feat)
+    koerper = feat.bodies.item(0)
+    mitte = _plus(_plus(p0, p1, 0.5, 0.5), u, 1.0, ziel)
+    kandidaten = []
+    for k in koerper.edges:
+        try:
+            q0, d = _linie(k)
+        except Exception:
+            continue
+        d = _v(d)
+        if abs(abs(_skal(d, e)) - 1.0) > 1e-6 or abs(k.length - laenge) > 0.02:
+            continue
+        w = _ohne_komponente(_plus(mitte, _v(q0), 1.0, -1.0), d)
+        if math.sqrt(_skal(w, w)) < 0.005:
+            kandidaten.append(k)
+    if len(kandidaten) != 1:
+        raise AdapterFehler("Die versetzte Kante wurde nicht eindeutig gefunden (%d Treffer)." % len(kandidaten))
+    logger.info("Versatz angewendet", versatz_mm=versatz_mm, art="Rückversatz" if s > 0 else "Vorversatz")
+    return erzeugt, kandidaten[0]
+
+
 def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None):
     if op["typ"] == "umschlag":
         return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm)
@@ -588,6 +681,15 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
             except Exception:
                 pass
             gespiegelt = op["winkel"] < 0 if i == 1 else False
+            if op.get("versatz"):
+                phase = "Schritt %d (Versatz)" % i
+                vorbereitung, aktuell = _versatz_anwenden(aktuell, op["versatz"], dicke_mm)
+                erzeugt.extend(vorbereitung)
+                try:
+                    token = aktuell.entityToken
+                except Exception:
+                    token = None
+                phase = "Schritt %d" % i
             feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm)
             erzeugt.append(feat)
             neu = None

@@ -80,6 +80,10 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Vorlage mit zu grossem Wert (Maximum setzen, darüber eingeben) | Bauplan meldet Bereich, OK gesperrt |
 | ☐ | Bei jeder Fehlermeldung | Text notieren: ________ |
 
+| ☐ | Zwei flache Bleche nebeneinander. Vorlage mit 1 Flansch 90° 25 mm und **Versatz 5**, an beiden Blechen anwenden | Beide Flansche sitzen 5 mm weiter innen, zwischen den Flanschen 10 mm Luft; in der Zeitleiste je Skizze «Versatz +5 mm» und Extrusion |
+| ☐ | Gleiche Vorlage mit **Versatz −5** | Blech wird je 5 mm verlängert, Flansch sitzt aussen; Abstand der Flansche 10 mm kleiner |
+| ☐ | Versatz an runder Kante | Meldung «nur an geraden Kanten», nichts gebaut |
+
 ## 6. Eigene 3D-Details (10 Min.)
 
 | ☐ | Schritt | Erwartet |
