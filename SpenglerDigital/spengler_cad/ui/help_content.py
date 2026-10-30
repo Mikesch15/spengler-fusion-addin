@@ -30,8 +30,10 @@ HILFE = {
         "Erfassen: Detail in einer eigenen Komponente modellieren, variable Masse als Fusion-Benutzerparameter anlegen, dann «3D-Detail erfassen»: "
         "Komponente, Anschlusskante und Bezugsfläche wählen und die Parameter markieren, die beim Anwenden veränderbar sein sollen.\n"
         "Anwenden: Vorlage und Zielkante wählen; das Add-in prüft Kantentyp, Länge und Dicke, importiert das Detail als neue Komponente, "
-        "richtet es an der Kante aus und setzt die Parameter. Es wird NICHT automatisch mit dem Zielkörper vereinigt – das geschieht bewusst "
-        "von Hand, damit ein Blechkörper gültig bleibt.\n"
+        "richtet es an der Kante aus und setzt die Parameter. Mit dem Haken «Ins bestehende Modell integrieren» (Standard) wird es als "
+        "Basis-Feature plus «Kombinieren» in den Zielkörper übernommen (keine eigene Komponente, ein Rückgängig-Schritt); berührt es den Körper "
+        "nicht, wird alles zurückgenommen und der Grund gemeldet. Ohne Haken bleibt es eine eigene Komponente. Die Masse sind danach fest. "
+        "Bei Blechkörpern danach die Abwicklung prüfen.\n"
         "Grenzen: Beliebige Körper werden nicht automatisch parametrisiert; nur die markierten Benutzerparameter sind veränderbar.\n\n" + NICHT_GEPRUEFT),
     "rundblech": (
         "Rundbleche und Werkstattumformung",
@@ -98,7 +100,7 @@ def text(thema):
 
 
 TOOLTIPS = {
-    "kanten": "Gerade Aussenkanten eines Blechkörpers. Mehrfachauswahl möglich.",
+    "kanten": "Gerade oder runde (Kreis/Bogen) Aussenkanten eines Blechkörpers. Mehrfachauswahl möglich.",
     "vorlage": "Eigene Kantenvorlage. Anlegen unter «Vorlagen verwalten».",
     "material": "Eigenes Materialprofil (Dicke, optional Radius/K-Faktor).",
     "experte": "Operationsfolge direkt bearbeiten (Kurzschrift).",
