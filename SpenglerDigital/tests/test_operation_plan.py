@@ -24,11 +24,22 @@ class BauplanTest(unittest.TestCase):
         self.assertIn("Kanten: 2 gewählt, 2 geeignet", text)
 
     def test_ungeeignete_kanten(self):
-        faelle = [kante(kurve="kreis"), kante(blech=False), kante(flaechen=1), kante(frei=False), kante(dicke=1.0)]
+        faelle = [kante(kurve="spline"), kante(kurve="ellipse"), kante(blech=False), kante(flaechen=1), kante(frei=False), kante(dicke=1.0)]
         for k in faelle:
             p = op.erstelle(testvorlage(), {}, test_material(), [k])
             self.assertTrue(p["validation"]["errors"], k)
             self.assertFalse(op.ist_ausfuehrbar(p))
+
+    def test_runde_kanten_nur_fuer_reine_umschlag_vorlagen(self):
+        for kurve in ("kreis", "bogen"):
+            p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])   # enthält Flansch → Fusion-Flansch nur an geraden Kanten
+            self.assertFalse(op.ist_ausfuehrbar(p), kurve)
+            self.assertIn("nur an geraden Kanten", " ".join(p["validation"]["errors"]))
+            v = testvorlage()
+            v["operations"] = [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+            p = op.erstelle(v, {}, test_material(), [kante(kurve=kurve)])
+            self.assertFalse(p["validation"]["errors"], kurve)
+            self.assertTrue(op.ist_ausfuehrbar(p))
 
     def test_dicken_und_laengenbereich(self):
         v = testvorlage()

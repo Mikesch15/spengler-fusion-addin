@@ -6,7 +6,7 @@ NICHT_GEPRUEFT = "Hinweis: Diese Funktion wurde noch nicht in Fusion selbst gete
 HILFE = {
     "kanten": (
         "Kanten bearbeiten",
-        "1. Eine oder mehrere gerade Aussenkanten eines Blechkörpers wählen.\n"
+        "1. Eine oder mehrere Aussenkanten eines Blechkörpers wählen (Flansch: nur gerade; Umschlag auch Kreis/Bogen).\n"
         "2. Eigene Vorlage und Materialprofil wählen. Die Bibliothek ist anfangs leer – zuerst unter «Vorlagen verwalten» eine Vorlage anlegen.\n"
         "3. Parameter eingeben (Einheiten stehen am Feld). Im Expertenmodus kann die Operationsfolge als Kurzschrift direkt bearbeitet werden.\n"
         "4. Die Vorschau zeigt das Ergebnis; ungeeignete Kanten werden mit Grund aufgeführt und NICHT bearbeitet.\n"
@@ -21,7 +21,8 @@ HILFE = {
     "vorlagen": (
         "Vorlagen verwalten",
         "Die Vorlagenbibliothek beginnt leer – es gibt bewusst keine mitgelieferten Profile. Sie legen alle Vorlagen selbst an.\n"
-        "Neue Vorlage: Name, Kategorie, Parameter (Name, Einheit, Standardwert, Bereich) und Operationen. Jede gespeicherte Änderung erhöht die "
+        "Neue Vorlage: Name, Kategorie, Parameter (Name, Einheit, Standardwert, Bereich) und Schritte: mit «+ Flansch» / «+ Umschlag» "
+        "Schritt für Schritt Winkel und Länge eintragen – die Vorschau zeichnet mit (alternativ Kurzschrift). Jede gespeicherte Änderung erhöht die "
         "Vorlagenversion; frühere Versionen bleiben erhalten. Kopieren erzeugt eine unabhängige Vorlage. Löschen verschiebt nach Bestätigung in den "
         "Papierkorb. Export/Import: JSON-Datei (Format «bibliothek_export», siehe Handbuch). Bereits erzeugte Bauteile ändern sich nicht, "
         "wenn eine Vorlage später geändert wird."),
@@ -30,8 +31,10 @@ HILFE = {
         "Erfassen: Detail in einer eigenen Komponente modellieren, variable Masse als Fusion-Benutzerparameter anlegen, dann «3D-Detail erfassen»: "
         "Komponente, Anschlusskante und Bezugsfläche wählen und die Parameter markieren, die beim Anwenden veränderbar sein sollen.\n"
         "Anwenden: Vorlage und Zielkante wählen; das Add-in prüft Kantentyp, Länge und Dicke, importiert das Detail als neue Komponente, "
-        "richtet es an der Kante aus und setzt die Parameter. Es wird NICHT automatisch mit dem Zielkörper vereinigt – das geschieht bewusst "
-        "von Hand, damit ein Blechkörper gültig bleibt.\n"
+        "richtet es an der Kante aus und setzt die Parameter. Mit dem Haken «Ins bestehende Modell integrieren» (Standard) wird es als "
+        "Basis-Feature plus «Kombinieren» in den Zielkörper übernommen (keine eigene Komponente, ein Rückgängig-Schritt); berührt es den Körper "
+        "nicht, wird alles zurückgenommen und der Grund gemeldet. Ohne Haken bleibt es eine eigene Komponente. Die Masse sind danach fest. "
+        "Bei Blechkörpern danach die Abwicklung prüfen.\n"
         "Grenzen: Beliebige Körper werden nicht automatisch parametrisiert; nur die markierten Benutzerparameter sind veränderbar.\n\n" + NICHT_GEPRUEFT),
     "rundblech": (
         "Rundbleche und Werkstattumformung",
@@ -98,7 +101,7 @@ def text(thema):
 
 
 TOOLTIPS = {
-    "kanten": "Gerade Aussenkanten eines Blechkörpers. Mehrfachauswahl möglich.",
+    "kanten": "Aussenkanten eines Blechkörpers (Flansch nur gerade, Umschlag auch Kreis/Bogen). Mehrfachauswahl möglich.",
     "vorlage": "Eigene Kantenvorlage. Anlegen unter «Vorlagen verwalten».",
     "material": "Eigenes Materialprofil (Dicke, optional Radius/K-Faktor).",
     "experte": "Operationsfolge direkt bearbeiten (Kurzschrift).",

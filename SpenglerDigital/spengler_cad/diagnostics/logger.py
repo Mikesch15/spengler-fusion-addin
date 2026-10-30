@@ -26,6 +26,19 @@ def pfad():
     return _pfad()
 
 
+def fusion_version():
+    return _kontext["fusion"]
+
+
+def ende(zeilen=40, max_zeichen=6000):
+    """Letzte Protokollzeilen (für Testergebnisse); leer, wenn es kein Protokoll gibt."""
+    try:
+        with open(_pfad(), encoding="utf-8", errors="replace") as f:
+            return "".join(f.readlines()[-zeilen:])[-max_zeichen:]
+    except Exception:
+        return ""
+
+
 def setze_fusion_version(v):
     _kontext["fusion"] = str(v)
 

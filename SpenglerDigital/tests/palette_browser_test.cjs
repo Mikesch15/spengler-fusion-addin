@@ -41,7 +41,7 @@ const { chromium } = require("playwright");
   await page.fill("#eKurz", "90 H U+ u+4*t");
   await page.click("#eKurzUeb");
   await page.waitForFunction(() => document.querySelectorAll("#pTab tbody tr").length === 2);
-  pruefe(!(await page.isVisible("#oTab")), "Operationstabelle nur im Expertenmodus");
+  pruefe(await page.isVisible("#oTab"), "Schritt-Tabelle auch im Standardmodus sichtbar");
   await page.fill('#pTab input[data-p="0"][data-f="default"]', "25");
   await page.fill('#pTab input[data-p="1"][data-f="default"]', "7");
   await page.waitForFunction(() => document.querySelector("#eVorschau svg") && document.querySelector("#eVorschau").textContent.includes("25"));
@@ -59,9 +59,8 @@ const { chromium } = require("playwright");
   pruefe(await page.isVisible("#vListe tbody td.mini svg"), "Vorschaubild in der Vorlagenliste");
   if (process.env.BILDSCHIRMFOTO) await page.screenshot({ path: process.env.BILDSCHIRMFOTO, fullPage: true });
   // Expertenmodus: Operation ergänzen, umordnen, speichern → Version 2
-  await page.check("#experte");
-  pruefe(await page.isVisible("#oTab"), "Operationstabelle im Expertenmodus");
   await page.click("#oNeu");
+  await page.waitForFunction(() => document.getElementById("eVorschau").innerHTML.includes("<svg"));   // Vorschau zeichnet mit
   await page.click('button[data-oauf="2"]');
   pruefe((await page.inputValue("#eKurz")) === "90 H 90 10 U+ u+4*t", "Kurzschrift folgt Tabelle: " + await page.inputValue("#eKurz"));
   await page.click("#eSpeichern");
@@ -107,6 +106,17 @@ const { chromium } = require("playwright");
   await page.fill("#eBeschr", "nach Anmeldung geändert");
   await page.click("#eSpeichern");
   await page.waitForFunction(() => document.getElementById("syncStatus").textContent.includes("abgeglichen"));
+  // Register Tests: abhaken, mit Notiz Fehler melden, Übermittlung an die (nachgebaute) App
+  await page.click("nav button[data-tab=tests]");
+  await page.waitForSelector('.tpunkt[data-tid="0.1"]');
+  await page.click('.tpunkt[data-tid="0.1"] [data-tstatus=ok]');
+  await page.waitForFunction(() => document.querySelector('.tpunkt[data-tid="0.1"]').textContent.includes("gesendet"));
+  await page.fill('.tpunkt[data-tid="0.2"] .tnotiz', "Meldung XY");
+  await page.click('.tpunkt[data-tid="0.2"] [data-tstatus=fehler]');
+  await page.waitForFunction(() => document.querySelector('.tpunkt[data-tid="0.2"]').classList.contains("s-fehler"));
+  pruefe((await page.textContent("#tFortschritt")).includes("2 von"), "Fortschritt zählt: " + await page.textContent("#tFortschritt"));
+  await page.click('.tpunkt[data-tid="0.1"] [data-tstatus=ok]');   // nochmal klicken = zurücknehmen
+  await page.waitForFunction(() => document.querySelector('.tpunkt[data-tid="0.1"]').classList.contains("s-offen"));
   pruefe(fehler.length === 0, "JS-Fehler: " + fehler.join("; "));
   await browser.close();
   console.log("BROWSERTEST OK");

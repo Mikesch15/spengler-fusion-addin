@@ -1,0 +1,49 @@
+# Release-Knopf: GitHub → Actions → «Release veröffentlichen» → Run workflow.
+# Setzt die Version, führt die Tests aus, lädt die geänderten Dateien in die Datenbank der Spengler-Digital-App, prüft sie per
+# Prüfsumme und legt erst dann den Release-Eintrag an. Danach wird die Versionsänderung (und releases/hochgeladen.json) committet.
+# Nötig: Geheimnis SUPABASE_ACCESS_TOKEN (Settings → Secrets and variables → Actions). Beschreibung: werkzeug/veroeffentlichen.py
+name: Release veröffentlichen
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Neue Version, z. B. 0.4.6 (muss höher sein als die letzte)"
+        required: true
+        type: string
+      text:
+        description: "Was ist neu? (Kurztext, sieht der Anwender beim Update)"
+        required: true
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Release veröffentlichen
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          VERSION: ${{ inputs.version }}
+          TEXT: ${{ inputs.text }}
+        run: python3 werkzeug/veroeffentlichen.py "$VERSION" "$TEXT"
+      - name: Versionsänderung speichern
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          git config user.name "Release-Knopf"
+          git config user.email "actions@users.noreply.github.com"
+          git add SpenglerDigital/spengler_cad/__init__.py SpenglerDigital/SpenglerDigital.manifest SpenglerDigital/palette/testplan.json releases/hochgeladen.json
+          git commit -m "Release $VERSION veröffentlicht (Release-Knopf)" || echo "nichts zu committen"
+          git push

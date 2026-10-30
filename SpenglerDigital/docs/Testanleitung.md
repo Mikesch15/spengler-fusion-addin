@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Testanleitung
 
-Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken
+Live-Test in Fusion · zum Abhaken in der Palette (Register **Tests**) oder zum Ausdrucken
 
 > **So vorgehen:** Blöcke der Reihe nach, je Zeile ☐ abhaken. Wenn etwas nicht wie erwartet ist: **Meldungstext notieren oder Bildschirmfoto**, weitertesten (ausser ein Block sagt «sonst abbrechen»). Am Ende das **Protokoll** und die Notizen schicken. Dauer gesamt ca. 60–75 Minuten; die Blöcke lassen sich auf mehrere Tage verteilen.
 
@@ -10,7 +10,7 @@ Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken
 |---|---|---|
 | ☐ | Fusion aktualisieren (Konto-Menü oben rechts → Nach Updates suchen). Fusion-Version notieren (Hilfe → Info): ________ | – |
 | ☐ | Alten Prototyp stoppen: Shift+S → Add-Ins → «SpenglerDigital» → Stoppen | – |
-| ☐ | ZIP `SpenglerDigitalCAD_0.4.2.zip` entpacken, Ordner `SpenglerDigital` an seinen Platz kopieren (siehe README) | – |
+| ☐ | ZIP `SpenglerDigitalCAD_<Version>.zip` entpacken, Ordner `SpenglerDigital` an seinen Platz kopieren (siehe README) | – |
 | ☐ | Ein Lineal/Massband und einen Probestreifen Blech mit bekannter Dicke bereitlegen (für den K-Faktor in Block 3) | – |
 
 ## 1. Installation und Start (5 Min.) – sonst abbrechen
@@ -27,7 +27,7 @@ Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken
 
 | ☐ | Schritt | Erwartet |
 |---|---|---|
-| ☐ | SPENGLER → Hilfe → **Fusion-Fähigkeiten prüfen** | **Versionsnummer = 0.4.2** und richtiger Ladeordner; Liste mit ✓/✗ – **Bildschirmfoto** |
+| ☐ | SPENGLER → Hilfe → **Fusion-Fähigkeiten prüfen** | **Versionsnummer = installierte Version** und richtiger Ladeordner; Liste mit ✓/✗ – **Bildschirmfoto** |
 | ☐ | Hilfe → **Selbsttest in neuem Dokument** | neues Dokument; ✓ Einheiten, ✓ Rundblech (Ø ca. 200.7 mm), ✓ 3D-Detail (Ursprung ca. (0, 100, 0) mm, «neu beim Import: SD_H_1», «Original SD_H unverändert») – **Bildschirmfoto** |
 | ☐ | Testdokument ohne Speichern schliessen | – |
 | ☐ | Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen» | Texte erscheinen, PDF öffnet |
@@ -49,6 +49,7 @@ Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken
 | ☐ | Schritt | Erwartet |
 |---|---|---|
 | ☐ | Neue Vorlage erstellen, Name eingeben, Kurzschrift `90 H U+ u` → **übernehmen** | Parameter H und u erscheinen |
+| ☐ | Statt Kurzschrift: neue Vorlage, Schritte mit **+ Flansch** / **+ Umschlag** anlegen, Winkel und Länge in der Tabelle ändern | Vorschau zeichnet jeden Schritt sofort mit; Kurzschrift-Zeile folgt der Tabelle |
 | ☐ | Standardwerte H = 25, u = 7 | **Vorschau** zeigt Querschnitt mit 25 und 7, Kante grün; ändert sich beim Tippen |
 | ☐ | Testmaterial wählen → **Prüfen & Trockenlauf** | «Vorlage ist gültig», Abwicklungszugabe, Bauplan |
 | ☐ | Speichern | «Version 1», Vorschaubild in der Liste |
@@ -90,6 +91,10 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Wert ändern → Vorschau → OK | Detail sitzt an der Kante, Meldung nennt gesetzte Parameter |
 | ☐ | «Um 180° wenden» | Detail andersherum |
 | ☐ | Gekrümmte Zielkante wählen | lässt sich nicht wählen (nur gerade Kanten) |
+| ☐ | **Kanten bearbeiten** an Kreis- oder Bogenkante mit einer Vorlage **aus reinen Umschlägen** (`U+ 7`) | Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück |
+| ☐ | Dieselbe Kante mit einer Vorlage mit **Flansch** (`90 25`) | «ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze) |
+| ☐ | **3D-Detail anwenden** mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech) | Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen |
+| ☐ | Dasselbe mit Detail, das den Körper nicht berührt | klare Meldung, Modell unverändert |
 
 ## 7. Rundblech (5 Min.)
 
@@ -141,10 +146,17 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Zweiter PC (oder zweites Windows-Konto): Add-in installieren, anmelden | dieselben Vorlagen und Materialien erscheinen |
 | ☐ | Mit einem **Mitarbeiter**-Konto anmelden, Vorlage ändern | Hinweis «nur auf diesem PC», in der App unverändert |
 | ☐ | Fusion ohne Internet starten (WLAN aus) | Add-in startet normal, kein Fehler; nach Wiederverbindung «Jetzt abgleichen» |
-| ☐ | **Nach Updates suchen** | Rückfrage «Version 0.4.3 verfügbar» → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt **0.4.3** |
+| ☐ | **Nach Updates suchen** | Rückfrage «Version x.y.z verfügbar» (nur wenn eine neuere bereitliegt) → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt die neue Version |
 | ☐ | Abmelden | Anmeldemaske; Vorlagen bleiben lokal |
 
-## 12. Rückmeldung
+## 12. Tests in der Palette (3 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | Palette → Register **Tests**: einen Punkt mit ✓ abhaken, bei einem anderen ✗ mit Notiz, bei einem dritten – | Farbe wechselt, Fortschritt oben zählt mit; Zeile zeigt «gesendet» (wenn angemeldet) bzw. «nur lokal» |
+| ☐ | Ohne Anmeldung abhaken, dann anmelden, «nicht gesendete Ergebnisse senden» | Meldung «n Ergebnis(se) gesendet» |
+
+## 13. Rückmeldung
 
 | ☐ | Was schicken |
 |---|---|

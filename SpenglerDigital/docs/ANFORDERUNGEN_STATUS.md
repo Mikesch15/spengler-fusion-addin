@@ -39,7 +39,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Detail in Fusion modellieren, Anschlusskante + lokales KS festlegen, Variablen markieren, speichern (geführtes Authoring) | TEIL | Befehl «3D-Detail erfassen»; Rahmen-/Prüflogik AUTO; Ausführung in Fusion nicht live |
 | Vorlage auf kompatible Kante anwenden, ausrichten, Variablen setzen | TEIL | Selbsttest **LIVE**: Export/Import/Ausrichtung/Parameter; Befehl «3D-Detail anwenden» selbst nicht live |
 | Vorschau und Eignungsprüfung vor dem Anwenden | TEIL | Passungsprüfung AUTO (test_validation); Vorschau in Fusion nicht live |
-| Bearbeitbare Fusion-Features / gültige Blechgeometrie im Zielbauteil | NEIN | Detail wird als eigene Komponente eingesetzt, NICHT mit dem Blechkörper vereinigt; keine Feature-Neuerzeugung |
+| Bearbeitbare Fusion-Features / gültige Blechgeometrie im Zielbauteil | TEIL | «3D-Detail anwenden» integriert standardmässig: Basis-Feature + «Kombinieren» im Zeitverlauf, keine Komponente; Detailmasse eingefroren (keine Parametrik/Feature-Neuerzeugung). Logik-Test AUTO; **Fusion-Verhalten nicht live geprüft** (Weltlage der Kopie, Join auf Blechkörper, Abwicklung danach) |
 | Kopieren, umbenennen, exportieren ohne Original zu ändern | AUTO | test_templates, test_cloud (Geometrie wird mitkopiert) |
 | Unterscheidung fest/variabel/Referenzen/Version | AUTO | Datenmodell detailvorlage, test_validation |
 | Keine Behauptung automatischer Parametrisierung | AUTO | Hilfetexte/Handbuch sagen das ausdrücklich |
@@ -64,8 +64,8 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Alle Fusion-Aufrufe in einem Adapter | AUTO | `geometry/fusion_adapter.py` (+ `edge_resolver.py`); UI ohne Geometrielogik |
 | Kante analysieren / Eignung | TEIL | Logik-Test (Stirnfläche ≈ Dicke → Aussenkante); in Fusion nicht live |
 | Kantenreferenz zuverlässig auflösen (entityToken, kein Raten) | TEIL | Logik-Test (0 oder 2 Treffer → Abbruch); Fusion-Verhalten nicht live |
-| Flansch erzeugen | TEIL | Logik-Test: Werte/Einheiten, Abbruch wenn Winkel/Richtung/Radius nicht setzbar. **Eigenschaftsnamen der Preview-API und Höhenbezug (aussen/innen/Blechmitte) unbekannt – nicht live geprüft** |
-| Umschlag erzeugen | TEIL | Logik-Test beider Aufrufformen; Fusion-Verhalten nicht live; Spalt = 2 × Radius ist eine Annahme |
+| Flansch erzeugen | TEIL | Nach Autodesk-Doku (EdgeFlangeInput: angle, isFlipped, bendRadiusOverride.setOverride; API ab Oktober 2026 – in Fusion 2705.1.30 **nicht vorhanden**). Logik-Test AUTO; Höhenbezug Standard «Aussenflächen» – nicht live geprüft |
+| Umschlag erzeugen | TEIL | Nach Autodesk-Doku: createHemFeatureInput() ohne Argumente, setFlatHem (ohne Radius) bzw. setOpenHem (Spalt = 2 × Radius, Annahme). Live-Test 30.10.: die alte Aufrufform (Eigenschaften setzen) scheiterte an Fusion 2705.1.30; neue Form nicht live geprüft |
 | Neue Kante nach jedem Schritt bestimmen (nicht nur «am weitesten entfernt») | TEIL | Logik-Test: Parallelität, volle Länge, Abstandsfenster, Mehrdeutigkeit → Abbruch. Welche der beiden Endkanten (oben/unten) für Folgeschritte richtig ist, ist NICHT bewiesen |
 | Ausschnitte/Freistellungen erzeugen | NEIN | Ecken/Freistellungen macht Fusion nach Blechregel |
 | Abwicklung erstellen/aktualisieren | TEIL | Logik-Test Masse; `createFlatPattern` nicht live |
@@ -85,7 +85,8 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 
 | Anforderung | Status | Nachweis / Bemerkung |
 |---|---|---|
-| **Durchgehende Flansche/Umschläge/Einzel-/Doppelfalze an runden/gekrümmten Blechkanten ohne Einschnitte/Lappen** | **NEIN** | Fusion-Flansch nur an geraden Kanten. Ersatz: Scheibe mit aufgebogenem Rand und Kegel als **Drehkörper (kein Fusion-Blechkörper)**; kein Umschlag/Falz an gekrümmten Rändern, kein Anwenden auf bestehende gekrümmte Blechkanten |
+| **Durchgehende Flansche/Umschläge an runden Blechkanten (Kreis, Bogen) ohne Einschnitte/Lappen** | **TEIL** | **Flansch an runden Kanten: nicht möglich** – Fusions EdgeFlange-API nimmt laut Autodesk nur lineare Aussenkanten (wird mit Grund abgelehnt). **Umschlag (Saum) an Kreis/Bogen:** in der API nicht auf gerade Kanten beschränkt, Folge-Kante koaxial, Hinweis bei Schlitzen – Logik-Test AUTO, **nicht live geprüft**. Ellipse/Spline abgelehnt. |
+| (Alt) Einzel-/Doppelfalze an runden Kanten als Drehkörper | **NEIN** | Fusion-Flansch nur an geraden Kanten. Ersatz: Scheibe mit aufgebogenem Rand und Kegel als **Drehkörper (kein Fusion-Blechkörper)**; kein Umschlag/Falz an gekrümmten Rändern, kein Anwenden auf bestehende gekrümmte Blechkanten |
 | Fälle Scheibe / Kragen / Kegel unterscheiden | AUTO | test_forming |
 | Fertigungsabsicht Stauchen/Strecken/manuell/Empfehlung | AUTO | test_forming |
 | konstruierbar / abwickelbar / herstellbar getrennt | AUTO | herstellbar nur mit eigenem Grenzwert |

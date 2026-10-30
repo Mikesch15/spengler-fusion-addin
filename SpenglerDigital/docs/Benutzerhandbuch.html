@@ -41,6 +41,7 @@
 <li><b>Operationen</b> – Folge ab der Kante: Flansch (Winkel, Länge, optional Radius) oder Umschlag (±180°, Länge)</li>
 <li><b>Anschluss und Grenzen</b> (Expertenmodus) – Kantentyp, Dickenbereich, Mindestkantenlänge, Einschnitte ausdrücklich erlauben</li>
 </ul>
+<p><b>Schritt für Schritt:</b> Im Abschnitt <b>Schritte</b> der Vorlage legen Sie mit <b>+ Flansch</b> und <b>+ Umschlag</b> jeden Schritt einzeln an und tragen Winkel, Länge und optional den Radius in die Tabelle ein (Zahlen, Parameternamen wie <code>H</code> oder Ausdrücke). Winkel + = zur Sichtseite, − = nach hinten. Die <b>Vorschau</b> darüber zeichnet nach jeder Änderung den Querschnitt neu; Pfeile verschieben Schritte, ✕ löscht sie. Die Kurzschrift bleibt als Alternative erhalten und folgt der Tabelle.</p>
 <p>Die schnellste Eingabe ist die <b>Kurzschrift</b>:</p>
 <table>
 <tr><th>Eingabe</th><th>Bedeutung</th></tr>
@@ -69,9 +70,9 @@
 <li><b>Materialwerte</b> <code>t</code>, <code>ri</code>, <code>k</code> kommen immer aus dem gewählten Materialprofil. Fehlt ein benötigter Wert, wird nicht gebaut.</li>
 </ul>
 <h2>7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]</h2>
-<p><b>Kanten bearbeiten:</b> Eine oder mehrere gerade Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der <b>Bauplan</b> im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (gekrümmt, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit <b>Vorschau</b> zeigt Fusion das Ergebnis vor der Bestätigung.</p>
+<p><b>Kanten bearbeiten:</b> Eine oder mehrere Aussenkanten eines Blechkörpers wählen (Flansch: nur gerade Kanten; Umschlag zusätzlich Kreis/Bogen, dort nicht live geprüft), Vorlage und Material wählen, Werte eingeben. Der <b>Bauplan</b> im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit <b>Vorschau</b> zeigt Fusion das Ergebnis vor der Bestätigung.</p>
 <p>Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.</p>
-<p><b>3D-Detail anwenden:</b> Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die <b>Passung</b> prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail als <b>eigene Komponente</b> importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Es wird nicht automatisch mit dem Blech vereinigt (damit der Blechkörper gültig bleibt). Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.</p>
+<p><b>3D-Detail anwenden:</b> Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die <b>Passung</b> prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Standardmässig (Haken «Ins bestehende Modell integrieren») wird es danach in den Zielkörper übernommen (siehe Kapitel 16); ohne Haken bleibt es eine <b>eigene Komponente</b>. Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.</p>
 <h2>8. Standard- und Expertenmodus</h2>
 <p>Beide Modi benutzen dieselbe Rechen-Engine.</p>
 <ul>
@@ -79,7 +80,7 @@
 <li><b>Expertenmodus</b> (Häkchen in Palette und Dialog): Operationen hinzufügen, ändern, löschen und umordnen, Radien je Biegung, Anschluss/Grenzen/Einschnitt-Freigabe. In «Kanten bearbeiten» kann die Folge für eine Ausführung angepasst und optional als neue Vorlage gespeichert werden – das Original bleibt unverändert.</li>
 </ul>
 <h2>9. Rundbleche und Werkstattumformung</h2>
-<p>Fusion-Flansche funktionieren nur an geraden Kanten. Für runde Bleche gibt es den Befehl <b>Rundblech / Umformung</b>:</p>
+<p>Für Rundbleche als Drehkörper (kein Fusion-Blech) gibt es den Befehl <b>Rundblech / Umformung</b>:</p>
 <table>
 <tr><th>Fall</th><th>Was passiert mit dem Rand</th><th>Modell</th></tr>
 <tr><td>Scheibe mit aufgebogenem Rand</td><td>wird gestaucht</td><td>Drehkörper</td></tr>
@@ -164,7 +165,7 @@
 <tr><td>«… FlangeFeatures.createEdgeFlangeInput fehlt»</td><td>Fusion aktualisieren; die Blech-API ist neu.</td></tr>
 <tr><td>«… lässt sich nicht einstellen – abgebrochen»</td><td>Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken.</td></tr>
 <tr><td>«Neue Aussenkante ist mehrdeutig»</td><td>Folge in Einzelschritten anwenden (je Schritt eine Vorlage).</td></tr>
-<tr><td>«ungeeignet: … gekrümmt»</td><td>Für runde Ränder den Befehl Rundblech verwenden.</td></tr>
+<tr><td>«ungeeignet: … rund / Kurventyp»</td><td>Flansch nur an geraden Kanten; Kreise/Bögen nur mit einer Vorlage aus reinen Umschlägen; Ellipse/Spline gar nicht. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden.</td></tr>
 <tr><td>«Materialwerte fehlen: ri, k»</td><td>Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne <code>ri</code>/<code>k</code> schreiben.</td></tr>
 <tr><td>«Parameter nicht gefunden» (3D-Detail)</td><td>Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen.</td></tr>
 </table>
@@ -172,10 +173,13 @@
 <ul>
 <li>Die Fusion-Blech-API ist bei Autodesk «Preview». Flansch und Umschlag sind <b>nicht in Fusion geprüft</b>; die Eigenschaftsnamen werden gesucht und protokolliert.</li>
 <li>Freistellungen/Ecken erzeugt Fusion nach der Blechregel; eigene Freistellungen erzeugt das Add-in nicht.</li>
-<li>Flansche nur an geraden Kanten über die ganze Kantenlänge.</li>
+<li>Flansche über die ganze Kantenlänge und nur an <b>geraden</b> Kanten: Fusions Flansch-Schnittstelle (EdgeFlange, ab API Oktober 2026) nimmt laut Autodesk nur lineare Aussenkanten. An Kreis-/Bogenkanten ist nur ein <b>Umschlag</b> (Saum) vorgesehen – nicht live geprüft; Vorlagen mit Flansch werden dort mit Grund abgelehnt.</li>
 <li>3D-Details: Benutzerparameter gelten im ganzen Dokument; zweimal dasselbe Detail mit verschiedenen Werten im selben Dokument ist nicht geprüft.</li>
 <li>Rundbleche als Drehkörper, nicht als Fusion-Blechkörper; Umformbarkeit nur mit eigenen Grenzwerten.</li>
 <li>Keine automatische Fusion-Zeichnung (Werkstattblatt statt dessen).</li>
 <li>Zuschnitt mit Rechtecken; Rollenmischung und Restelager der App nicht übernommen.</li>
 <li>Abgleich mit der App: Einstellungen (Zuschnitt, Etiketten, Export) bleiben je PC; abgeglichen werden Vorlagen, 3D-Details und Materialprofile.</li>
-</ul></body></html>
+</ul>
+<p><b>3D-Detail anwenden – Integration:</b> Mit Haken «Ins bestehende Modell integrieren» (Standard) wird das Detail als Basis-Feature plus «Kombinieren» in den Zielkörper übernommen, ohne eigene Komponente; ein Rückgängig-Schritt. Berührt das Detail den Körper nicht oder ändert es das Volumen nicht, wird alles zurückgenommen und der Grund gemeldet. Ohne Haken bleibt es eine eigene Komponente. Die Masse sind danach fest. Nicht live geprüft.</p>
+<h2>17. Tests in Fusion abhaken</h2>
+<p>Palette → Register <b>Tests</b>: Die Testanleitung steht dort Punkt für Punkt. Pro Punkt <b>✓</b> (ok), <b>✗</b> (Fehler, mit Notiz – Meldungstext oder Messwert) oder <b>–</b> (übersprungen); nochmal klicken nimmt zurück. Die Ergebnisse werden auf diesem PC gespeichert (<code>testergebnisse.json</code> im Benutzerdatenordner) und, wenn Sie im Register Konto angemeldet sind, sofort an die Spengler-Digital-App übermittelt, damit die Entwicklung sie sieht. Bei ✗ wird zusätzlich der Protokollauszug (letzte Zeilen) mitgesendet; sonst werden keine Kundendaten übertragen. Ohne Netz oder Anmeldung bleibt alles lokal; <b>Nicht gesendete Ergebnisse senden</b> holt das nach.</p></body></html>

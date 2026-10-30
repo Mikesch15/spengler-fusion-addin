@@ -174,6 +174,69 @@ class Backend(object):
              "dicke": m.get("thickness") if m else None, "frei": True}
         return operation_plan.beschreibung(operation_plan.erstelle(d["vorlage"], d.get("werte") or {}, m, [k]))
 
+    # ------------------------------------------------------------------ Tests (Register «Tests»)
+    def _testdatei(self):
+        return os.path.join(self.wurzel or paths.daten_ordner(), "testergebnisse.json")
+
+    def _testergebnisse(self):
+        return json_store_lesen(self._testdatei()) or {}
+
+    def a_testplan(self, d):
+        plan = json_store_lesen(os.path.join(paths.ADDIN_ORDNER, "palette", "testplan.json")) or {"bloecke": []}
+        return {"plan": plan["bloecke"], "ergebnisse": self._testergebnisse()}
+
+    def _hochladen(self, test_id, e):
+        """→ (hochgeladen, Hinweis). Fehler (offline, nicht angemeldet) verlieren nichts: der Stand bleibt lokal «nicht gesendet»."""
+        from ..storage.cloud_client import CloudFehler
+        try:
+            c = self._cloud()
+            if not c.angemeldet:
+                return False, "nur lokal gespeichert – für die Übermittlung an Claude unter «Konto» anmelden"
+            c.test_speichern({"test_id": test_id, "text": e["text"][:1000], "status": e["status"], "notiz": e["notiz"],
+                              "protokoll": e.get("protokoll", ""), "addin_version": e["addinVersion"], "fusion_version": e["fusionVersion"],
+                              "geaendert_am": e["geaendert"]})
+            return True, ""
+        except CloudFehler as ex:
+            return False, str(ex)
+
+    def a_test_speichern(self, d):
+        import datetime
+        import re
+        from ..diagnostics import logger
+        from ..storage import json_store
+        tid, status = str(d.get("test_id", "")), d.get("status")
+        if not re.match(r"^[0-9]{1,2}\.[0-9]{1,3}$", tid) or status not in ("offen", "ok", "fehler", "uebersprungen"):
+            raise ValueError("Ungültiger Testpunkt oder Status.")
+        alle = self._testergebnisse()
+        e = {"text": str(d.get("text", ""))[:1000], "status": status, "notiz": str(d.get("notiz", ""))[:4000],
+             "geaendert": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+             "addinVersion": VERSION, "fusionVersion": logger.fusion_version(), "gesendet": False}
+        if status == "fehler" or d.get("mit_protokoll"):
+            e["protokoll"] = logger.ende()
+        alle[tid] = e
+        json_store.schreiben(self._testdatei(), alle)
+        ok, hinweis = self._hochladen(tid, e)
+        if ok:
+            e["gesendet"] = True
+            json_store.schreiben(self._testdatei(), alle)
+        return {"ergebnis": e, "gesendet": ok, "hinweis": hinweis}
+
+    def a_tests_senden(self, d):
+        """Alle noch nicht übermittelten Stände hochladen (z. B. nach Anmeldung oder wieder mit Netz)."""
+        from ..storage import json_store
+        alle = self._testergebnisse()
+        n, hinweis = 0, ""
+        for tid, e in alle.items():
+            if e.get("gesendet"):
+                continue
+            ok, hinweis = self._hochladen(tid, e)
+            if not ok:
+                break
+            e["gesendet"] = True
+            n += 1
+        json_store.schreiben(self._testdatei(), alle)
+        return {"gesendet": n, "offen": sum(1 for e in alle.values() if not e.get("gesendet")), "hinweis": hinweis, "ergebnisse": alle}
+
     # ------------------------------------------------------------------ Eingang
     # ------------------------------------------------------------------ Spengler-Digital-App
     def _cloud(self):

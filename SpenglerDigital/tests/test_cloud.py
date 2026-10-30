@@ -298,5 +298,66 @@ class UpdaterTest(CloudBasis):
         self.assertFalse([p for p in pfade if p.startswith(("tests/", "supabase/")) or p.endswith(".pdf")])
 
 
+class TestergebnisseTest(CloudBasis):
+    """Register «Tests»: Ergebnisse lokal speichern und – angemeldet – in die Cloud übermitteln (Nachbau, nicht die echte Datenbank)."""
+    def backend(self, i=0, anmelden=True, benutzer="chef", pw="geheim"):
+        from spengler_cad.ui.palette_backend import Backend
+        os.environ["SPENGLER_CAD_CLOUD_URL"] = self.url
+        self.addCleanup(os.environ.pop, "SPENGLER_CAD_CLOUD_URL", None)
+        if anmelden:
+            Cloud(self.ordner[i], url=self.url, timeout=5).anmelden(benutzer, pw)
+        return Backend(self.ordner[i], timeout=5)
+
+    def test_plan_stimmt_mit_anleitung_ueberein(self):
+        import json
+        import sys
+        sys.path.insert(0, os.path.join(ADDIN, "..", "werkzeug"))
+        import testplan_json
+        datei = json.load(open(os.path.join(ADDIN, "palette", "testplan.json"), encoding="utf-8"))["bloecke"]
+        self.assertEqual(datei, testplan_json.lesen(), "palette/testplan.json veraltet – python3 werkzeug/testplan_json.py ausführen")
+        ids = [p["id"] for b in datei for p in b["punkte"]]
+        self.assertEqual(len(ids), len(set(ids)))
+
+    def test_lokal_ohne_anmeldung(self):
+        b = self.backend(anmelden=False)
+        r = b.a_test_speichern({"test_id": "1.2", "text": "Start", "status": "ok", "notiz": "ging"})
+        self.assertFalse(r["gesendet"])
+        self.assertIn("anmelden", r["hinweis"])
+        self.assertEqual(b.a_testplan({})["ergebnisse"]["1.2"]["status"], "ok")
+        self.assertEqual(self.z.tests, [])
+        for schlecht in ({"test_id": "x", "status": "ok"}, {"test_id": "1.2", "status": "vielleicht"}):
+            with self.assertRaises(ValueError):
+                b.a_test_speichern(schlecht)
+
+    def test_angemeldet_wird_uebermittelt_und_ueberschrieben(self):
+        b = self.backend()
+        r = b.a_test_speichern({"test_id": "6.9", "text": "Integration", "status": "fehler", "notiz": "Meldung XY"})
+        self.assertTrue(r["gesendet"])
+        zeile = self.z.tests[0]
+        self.assertEqual((zeile["test_id"], zeile["status"], zeile["notiz"], zeile["company_id"]), ("6.9", "fehler", "Meldung XY", "firma-a"))
+        self.assertIn("protokoll", zeile)
+        self.assertTrue(zeile["addin_version"])
+        b.a_test_speichern({"test_id": "6.9", "text": "Integration", "status": "ok", "notiz": ""})
+        self.assertEqual(len(self.z.tests), 1)
+        self.assertEqual(self.z.tests[0]["status"], "ok")
+
+    def test_mitarbeiter_darf_melden_fremde_firma_nicht_sichtbar(self):
+        self.backend(1, benutzer="max.muster", pw="pw").a_test_speichern({"test_id": "2.1", "text": "t", "status": "ok"})
+        self.backend(2, benutzer="fremd", pw="pw").a_test_speichern({"test_id": "2.1", "text": "t", "status": "fehler"})
+        self.assertEqual(sorted((r["company_id"], r["status"]) for r in self.z.tests), [("firma-a", "ok"), ("firma-b", "fehler")])
+
+    def test_offline_geht_nichts_verloren(self):
+        b = self.backend()
+        self.z.offline = True
+        r = b.a_test_speichern({"test_id": "3.1", "text": "t", "status": "ok"})
+        self.assertFalse(r["gesendet"])
+        self.assertEqual(self.z.tests, [])
+        self.assertEqual(b.a_testplan({})["ergebnisse"]["3.1"]["gesendet"], False)
+        self.z.offline = False
+        s = b.a_tests_senden({})
+        self.assertEqual((s["gesendet"], s["offen"]), (1, 0))
+        self.assertEqual(self.z.tests[0]["test_id"], "3.1")
+
+
 if __name__ == "__main__":
     unittest.main()

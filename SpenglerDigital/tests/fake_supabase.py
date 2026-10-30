@@ -18,6 +18,7 @@ class Zustand(object):
         self.refresh = {}      # refresh → uid
         self.firmen = {}       # id → name
         self.cad = []          # Zeilen
+        self.tests = []        # cad_testergebnisse
         self.versionen = []
         self.dateien = {}      # pfad → bytes
         self.releases = []
@@ -148,6 +149,21 @@ def server(z):
                     z.versionen.append(dict(r))
                     r.update(d)
                     return self._antwort(200, [{k: v for k, v in r.items() if k != "company_id"}])
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/cad_testergebnisse":
+                eigene = [r for r in z.tests if r["company_id"] == me["firma"]]
+                if m == "GET":
+                    return self._antwort(200, eigene)
+                if m == "POST":   # Upsert (on_conflict=company_id,test_id) – Firma darf nur die eigene sein (RLS)
+                    for d in json.loads(body):
+                        if d.get("company_id") != me["firma"]:
+                            return self._antwort(403, {"message": 'new row violates row-level security policy for table "cad_testergebnisse"'})
+                        alt = next((r for r in z.tests if r["company_id"] == me["firma"] and r["test_id"] == d["test_id"]), None)
+                        if alt:
+                            alt.update(d)
+                        else:
+                            z.tests.append(dict(d))
+                    return self._antwort(201)
                 return self._antwort(405, {"message": "nicht erlaubt"})
             if pfad.startswith("/storage/v1/object/cad/"):
                 name = urllib.parse.unquote(pfad[len("/storage/v1/object/cad/"):])

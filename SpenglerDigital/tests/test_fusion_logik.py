@@ -187,19 +187,35 @@ def kante_mit(flange=None, hem=None):
     return k
 
 
+class Radiusueberschreibung(object):
+    """Nachbau BendRadiusOverride (echte API: setOverride(ValueInput) → bool)."""
+    def __init__(self, klappt=True):
+        self.klappt, self.wert = klappt, None
+
+    def setOverride(self, v):
+        self.wert = v
+        return self.klappt
+
+
 class FlanschTest(unittest.TestCase):
+    """Nach der echten API (EdgeFlangeInput: angle, isFlipped, bendRadiusOverride.setOverride) – ohne Fusion nachgebaut."""
     def test_werte_und_einheiten(self):
-        inp = Eingabe("flangeAngle", "isFlipped", "bendRadiusOverride")
+        inp = Eingabe("angle", "isFlipped", "bendRadiusOverride")
+        inp.werte["bendRadiusOverride"] = ov = Radiusueberschreibung()
         ff = Sammlung(inp)
         fa.flansch(kante_mit(ff), -45, 25, 5)
         self.assertEqual(ff.aufrufe[0][1], "25 mm")
-        self.assertEqual(inp.werte, {"flangeAngle": "45 deg", "isFlipped": True, "bendRadiusOverride": "5 mm"})
+        self.assertEqual((inp.werte["angle"], inp.werte["isFlipped"], ov.wert), ("45 deg", True, "5 mm"))
         self.assertEqual(len(ff.hinzu), 1)
 
     def test_kein_stilles_ersetzen(self):
-        for eig, args, text in ((("isFlipped",), (45, 20), "Flanschwinkel"), (("flangeAngle",), (-90, 20), "Flanschrichtung"),
-                                (("flangeAngle",), (90, 20, 3), "Biegeradius")):
-            ff = Sammlung(Eingabe(*eig))
+        def mit_radius(klappt):
+            e = Eingabe("angle", "bendRadiusOverride")
+            e.werte["bendRadiusOverride"] = Radiusueberschreibung(klappt)
+            return e
+        for inp, args, text in ((Eingabe("isFlipped"), (45, 20), "Flanschwinkel"), (Eingabe("angle"), (-90, 20), "Flanschrichtung"),
+                                (Eingabe("angle"), (90, 20, 3), "Biegeradius"), (mit_radius(False), (90, 20, 3), "Biegeradius")):
+            ff = Sammlung(inp)
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.flansch(kante_mit(ff), *args)
             self.assertIn(text, str(cm.exception))
@@ -211,33 +227,67 @@ class FlanschTest(unittest.TestCase):
         self.assertEqual(len(ff.hinzu), 1)
 
     def test_ohne_api(self):
-        with self.assertRaises(fa.AdapterFehler):
+        with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(kante_mit(), 90, 20)
+        self.assertIn("Oktober 2026", str(cm.exception))
+
+    def test_runde_kante_wird_klar_abgelehnt(self):
+        ff = Sammlung(Eingabe("angle"))
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k, 90, 20)
+        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        self.assertEqual(ff.aufrufe, [], "Fusion wird gar nicht erst aufgerufen")
+
+
+class HemEingabe(object):
+    """Nachbau HemFeatureInput: setFlatHem/setOpenHem merken die Argumente und liefern True/False."""
+    def __init__(self, ergebnis=True, wirft=None):
+        self.aufrufe, self.ergebnis, self.wirft = [], ergebnis, wirft
+
+    def _set(self, name, *a):
+        if self.wirft:
+            raise RuntimeError(self.wirft)
+        self.aufrufe.append((name,) + a)
+        return self.ergebnis
+
+    def setFlatHem(self, *a):
+        return self._set("flat", *a)
+
+    def setOpenHem(self, *a):
+        return self._set("open", *a)
 
 
 class UmschlagTest(unittest.TestCase):
-    def test_ohne_argumente_dann_kante(self):
-        inp = Eingabe("edges", "length", "gap", "isFlipped")
+    """Nach der echten API: createHemFeatureInput() ohne Argumente, dann setFlatHem/setOpenHem (Fusion 2025-09, help.autodesk.com)."""
+    def test_geschlossener_saum_ohne_radius(self):
+        inp = HemEingabe()
         hf = Sammlung(inp)
         k = kante_mit(hem=hf)
         fa.umschlag(k, 7, True)
         self.assertEqual(hf.aufrufe[0], ())
-        self.assertEqual(inp.werte["edges"], [k])
-        self.assertEqual((inp.werte["length"], inp.werte["gap"], inp.werte["isFlipped"]), ("7 mm", "0 mm", True))
-
-    def test_aeltere_aufrufform(self):
-        inp = Eingabe("length")
-        hf = Sammlung(inp, fehler_ohne_args=True)
-        fa.umschlag(kante_mit(hem=hf), 10, False, radius_mm=1.5)
-        self.assertEqual(len(hf.aufrufe[1]), 1, "Rückfall auf createHemFeatureInput([kante])")
+        name, kante, laenge, geflippt, position = inp.aufrufe[0]
+        self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
         self.assertEqual(len(hf.hinzu), 1)
 
-    def test_laenge_nicht_setzbar(self):
-        hf = Sammlung(Eingabe("edges"))
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.umschlag(kante_mit(hem=hf), 7, False)
-        self.assertIn("Umschlaglänge", str(cm.exception))
-        self.assertEqual(hf.hinzu, [])
+    def test_offener_saum_mit_radius(self):
+        inp = HemEingabe()
+        fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
+        name, _, laenge, spalt, geflippt, _ = inp.aufrufe[0]
+        self.assertEqual((name, laenge, spalt, geflippt), ("open", "10 mm", "3 mm", False))
+
+    def test_fusion_lehnt_ab_oder_wirft(self):
+        for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):
+            hf = Sammlung(inp)
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.umschlag(kante_mit(hem=hf), 7, False)
+            self.assertIn(text, str(cm.exception))
+            self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
+
+    def test_ohne_api(self):
+        with self.assertRaises(fa.AdapterFehler):
+            fa.umschlag(kante_mit(), 7, False)
 
 
 class RueckbauTest(unittest.TestCase):
@@ -249,7 +299,7 @@ class RueckbauTest(unittest.TestCase):
         fa.flansch, fa.umschlag, fa.neue_aussenkante = self.alt
 
     def _bauen(self, fehler_bei=None, kante_fehlt=False, loeschen_klappt=True):
-        def flansch(k, w, L, r=None):
+        def flansch(k, w, L, r=None, g=None):
             if fehler_bei == len(self.feats) + 1:
                 raise RuntimeError("Fusion: Flansch fehlgeschlagen\nInternal error 42")
             f = Feature([], "F%d" % (len(self.feats) + 1))
@@ -385,6 +435,250 @@ class TeilnummerTest(DatenTest):
             self.assertEqual(fa.teilnummer(b), 8, "einmal vergeben bleibt die Nummer")
         finally:
             fa.design = alt
+
+
+# ---------------------------------------------------------------- Runde Kanten (Nachbau – NICHT live in Fusion)
+class RundGeo(object):
+    def __init__(self, c, r, n=(0, 0, 1), typ="KREIS"):
+        self.center, self.radius, self.curveType = V(*c), r, typ
+        self.normal = type("N", (V,), {"copy": lambda s: V(s.x, s.y, s.z)})(*n)
+
+
+class Rundkante(object):
+    """Kreis/Bogen um die z-Achse in Höhe z, Radius r (cm), Öffnungswinkel w (rad)."""
+    def __init__(self, r, z=0.0, w=2 * math.pi, typ="KREIS"):
+        _nr[0] += 1
+        self.tempId = _nr[0]
+        self.isValid = True
+        self.geometry = RundGeo((0, 0, z), r, typ=typ)
+        self.length = r * w
+        self.pointOnEdge = V(r, 0, z)
+
+
+class RundKanteTest(unittest.TestCase):
+    def feature(self, *kanten):
+        return Feature([Flaeche(list(kanten))])
+
+    def test_kreisflansch_findet_ende(self):
+        vorher = Rundkante(10.0)                         # R = 100 mm
+        oben, unten = Rundkante(10.0, 2.5), Rundkante(10.07, 2.5)   # Flansch 25 mm hoch, Ende = 2 Kanten (t = 0.7 mm)
+        biege = Rundkante(10.0, 0.05)                     # Biegezone nahe der Basis – unplausibel
+        k = fa.neue_aussenkante(self.feature(oben, unten, biege), vorher, 25.0, 0.7)
+        self.assertIn(k, (oben, unten))
+
+    def test_andere_achse_wird_ignoriert(self):
+        vorher = Rundkante(10.0)
+        fremd = Rundkante(10.0, 2.5)
+        fremd.geometry.center = V(5, 0, 2.5)              # nicht koaxial
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.neue_aussenkante(self.feature(fremd), vorher, 25.0, 0.7)
+        self.assertIn("nicht gefunden", str(cm.exception))
+
+    def test_bogen_braucht_gleichen_winkel(self):
+        w = math.pi / 2
+        vorher = Rundkante(10.0, 0, w, "BOGEN")
+        gut, falsch = Rundkante(10.0, 2.5, w, "BOGEN"), Rundkante(10.0, 2.5, w / 2, "BOGEN")
+        k = fa.neue_aussenkante(self.feature(gut, falsch), vorher, 25.0, 0.7)
+        self.assertIs(k, gut)
+
+    def test_rund_mehrdeutig(self):
+        vorher = Rundkante(10.0)
+        feat = self.feature(Rundkante(10.0, 2.5), Rundkante(10.07, 2.5), Rundkante(10.0, 1.8))
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.neue_aussenkante(feat, vorher, 25.0, 0.7)
+        self.assertIn("mehrdeutig", str(cm.exception))
+
+    def test_schlitzhinweis(self):
+        def flaeche(breiten):
+            f = Flaeche([type("E", (), {"length": b / 10.0})() for b in breiten])
+            f.geometry = type("G", (), {"surfaceType": adsk.core.SurfaceTypes.PlaneSurfaceType})()
+            return f
+        adsk.core.SurfaceTypes.PlaneSurfaceType = "EBENE"
+        kreis = Rundkante(10.0)
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25])]), kreis, 0.7)[0][:20], "Der Flansch an der r")
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([30, 25])]), kreis, 0.7), [])
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25])]), Kante((0, 0, 0), (5, 0, 0)), 0.7), [])
+        bogen = Rundkante(10.0, 0, 1.0, "BOGEN")
+        self.assertEqual(fa.schlitze_pruefen(Feature([flaeche([0.7, 25]), flaeche([0.7, 25])]), bogen, 0.7), [])
+
+
+# ---------------------------------------------------------------- Detail ins Modell integrieren (Nachbau – NICHT live in Fusion)
+class IntegrationTest(unittest.TestCase):
+    def aufbau(self, volumen_nachher=2.0, combine_fehler=None, blech=True):
+        log = []
+
+        class Koerper(object):
+            isValid, isSolid, assemblyContext, entityToken = True, True, None, "tok"
+            def __init__(s, v):
+                s.volume = v
+        ziel, danach = Koerper(1.0), Koerper(volumen_nachher)
+        feats = []
+
+        class Feat(object):
+            isValid = True
+            bodies = [object()]
+            def __init__(s, n):
+                s.n = n
+            def startEdit(s): log.append("start")
+            def finishEdit(s): log.append("fertig")
+            def deleteMe(s):
+                s.isValid = False
+                log.append("del " + s.n)
+
+        class CF(object):
+            def createInput(s, z, t):
+                return type("I", (), {})()
+
+            def add(s, i):
+                if combine_fehler:
+                    raise RuntimeError(combine_fehler)
+                f = Feat("combine"); feats.append(f); return f
+        comp = type("C", (), {})()
+        comp.features = type("F", (), {"baseFeatures": type("B", (), {"add": lambda s: (feats.append(Feat("basis")) or feats[-1])})(),
+                                       "combineFeatures": CF()})()
+        comp.bRepBodies = type("BB", (), {"add": lambda s, k, bf: log.append("add")})()
+        ziel.parentComponent = comp
+        occ = type("O", (), {"name": "Detail1", "bRepBodies": [object()], "deleteMe": lambda s: log.append("occ weg")})()
+        return ziel, danach, occ, log, feats
+
+    def lauf(self, **kw):
+        ziel, danach, occ, log, feats = self.aufbau(**kw)
+        alt = (fa.koerper_neu, fa.ist_blech, fa.design, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection, adsk.fusion.FeatureOperations)
+        fa.koerper_neu = lambda t: danach
+        fa.ist_blech = lambda b: kw.get("blech", False)
+        fa.design = lambda: type("D", (), {"userParameters": type("U", (), {"itemByName": lambda s, n: None})()})()
+        adsk.fusion.TemporaryBRepManager = type("T", (), {"get": staticmethod(lambda: type("M", (), {"copy": lambda s, b: b})())})
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: type("L", (), {"n": 0, "add": lambda s, b: setattr(s, "n", s.n + 1), "count": property(lambda s: s.n)})())})
+        adsk.fusion.FeatureOperations.JoinFeatureOperation = "JOIN"
+        try:
+            return fa.detail_integrieren(occ, ziel, ["SD_H_1"]), log, feats
+        finally:
+            (fa.koerper_neu, fa.ist_blech, fa.design, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection, adsk.fusion.FeatureOperations) = alt
+
+    def test_erfolg_ohne_restkomponente(self):
+        (cf, warn), log, feats = self.lauf()
+        self.assertEqual([f.n for f in feats], ["basis", "combine"])
+        self.assertIn("occ weg", log)
+        self.assertEqual(warn, [])
+
+    def test_blechhinweis(self):
+        (cf, warn), _, _ = self.lauf(blech=True)
+        self.assertTrue(any("Blechkörper" in w for w in warn))
+
+    def test_keine_beruehrung_baut_zurueck(self):
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.aufbau_fehler(combine_fehler="No intersection")
+        self.assertIn("berührt", str(cm.exception))
+        self.assertIn("del basis", self.rest[0])   # Basis-Feature wurde zurückgebaut
+        self.assertNotIn("occ weg", self.rest[0])
+
+    def aufbau_fehler(self, **kw):
+        ziel, danach, occ, log, feats = self.aufbau(**kw)
+        alt = (fa.koerper_neu, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection)
+        adsk.fusion.TemporaryBRepManager = type("T", (), {"get": staticmethod(lambda: type("M", (), {"copy": lambda s, b: b})())})
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: type("L", (), {"n": 0, "add": lambda s, b: setattr(s, "n", s.n + 1), "count": property(lambda s: s.n)})())})
+        try:
+            fa.detail_integrieren(occ, ziel)
+        finally:
+            self.rest = (log, feats)
+            (fa.koerper_neu, adsk.fusion.TemporaryBRepManager, adsk.core.ObjectCollection) = alt
+
+    def test_kein_volumenzuwachs_baut_zurueck(self):
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(volumen_nachher=1.0)
+        self.assertIn("nicht verändert", str(cm.exception))
+
+    def test_unterkomponente_abgelehnt(self):
+        ziel, _, occ, _, _ = self.aufbau()
+        ziel.assemblyContext = object()
+        with self.assertRaises(fa.AdapterFehler):
+            fa.detail_integrieren(occ, ziel)
+
+
+class RichtungTest(unittest.TestCase):
+    """Richtung jedes Schritts wie in der Vorschau: Winkel + = nach links, − = nach rechts, relativ zur bisherigen Laufrichtung.
+    Rechnung rein mathematisch; Fusion wird nur in den Einbau-Tests (mit Messwerten aus dem Nachbau) nachgespielt."""
+    U, V = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
+
+    def test_flansch_relativ_zur_laufrichtung(self):
+        # nach «90» (Lauf 90° = nach oben): gleiches Vorzeichen biegt wieder nach links = zurück (−u), umgekehrtes nach rechts = vorwärts (+u)
+        self.assertTrue(fa.richtung_stimmt(90, 90, (-1, 0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, 90, (1, 0, 0), self.U, self.V))
+        self.assertTrue(fa.richtung_stimmt(90, -90, (1, 0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, -90, (-1, 0, 0), self.U, self.V))
+
+    def test_umschlag_seite(self):
+        # nach «90»: Umschlag + faltet nach links (−u). Gemessen wird nur die seitliche Lage; der Rücklauf (−v) darf überwiegen
+        self.assertTrue(fa.richtung_stimmt(90, 180, (-0.2, -5.0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, 180, (0.2, -5.0, 0), self.U, self.V))
+        self.assertTrue(fa.richtung_stimmt(90, -180, (0.2, -5.0, 0), self.U, self.V))
+
+    def test_nicht_entscheidbar(self):
+        self.assertIsNone(fa.richtung_stimmt(90, 180, (0.0, -5.0, 0), self.U, self.V))
+
+    def test_hilfen(self):
+        self.assertEqual(fa._ohne_komponente((3, 4, 0), (1, 0, 0)), (0.0, 4.0, 0.0))
+        self.assertIsNone(fa._einheit((0, 0, 0)))
+        r = fa.richtung_in_ebene(180, self.U, self.V)
+        self.assertAlmostEqual(r[0], -1.0)
+
+
+class FolgeRichtungTest(unittest.TestCase):
+    """folge_anbringen mit nachgespielten Messwerten: weicht Fusions Richtung von der Vorlage ab, wird der Schritt gespiegelt neu gebaut."""
+    def setUp(self):
+        self.alt = (fa.flansch, fa.umschlag, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen)
+        self.aufrufe, self.feats, self.messungen = [], [], []
+        fa._kantenrahmen_quer = lambda edge: ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))        # e = z, u = x
+        fa._gemessen = lambda vorher, neu, e: self.messungen.pop(0)
+        fa.neue_aussenkante = lambda feat, vorher, L, t: Kante((0, 0, 0), (0, 0, 50))
+
+        def bauen(kante, w, L, r=None, g=None):
+            f = Feature([], "F%d" % (len(self.feats) + 1))
+            self.feats.append(f)
+            self.aufrufe.append((w, g))
+            return f
+        fa.flansch = fa.umschlag = bauen
+
+    def tearDown(self):
+        fa.flansch, fa.umschlag, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen = self.alt
+
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": None}]
+
+    def lauf(self, ops=None):
+        h = []
+        r = fa.folge_anbringen(Kante((0, 0, 0), (0, 0, 50)), ops or self.OPS, 0.7, {}, h)
+        return r, h
+
+    def test_richtige_richtung_bleibt(self):
+        self.messungen = [(0, 1.0, 0), (-1.0, 0, 0)]       # Schritt 1 nach «oben» (+v); Schritt 2 zurück (−u) = wie die Vorschau
+        r, h = self.lauf()
+        self.assertEqual(len(r), 2)
+        self.assertEqual(self.aufrufe, [(90, False), (90, False)])
+        self.assertFalse([x for x in h if "umgekehrt" in x])
+
+    def test_falsche_richtung_wird_gespiegelt_neu_gebaut(self):
+        self.messungen = [(0, 1.0, 0), (1.0, 0, 0), (-1.0, 0, 0), (-1.0, 0, 0)]   # Fusion baut Schritt 2 zuerst nach +u (falsch)
+        r, h = self.lauf()
+        self.assertEqual(len(r), 2, "falscher Schritt 2 wurde ersetzt, nicht zusätzlich gebaut")
+        self.assertTrue(self.feats[1].geloescht)
+        self.assertEqual(self.aufrufe, [(90, False), (90, False), (90, True)])
+        self.assertTrue(any("automatisch umgekehrt" in x for x in h))
+
+    def test_bleibt_falsch_baut_alles_zurueck(self):
+        self.messungen = [(0, 1.0, 0), (1.0, 0, 0), (1.0, 0, 0), (1.0, 0, 0)]
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf()
+        self.assertIn("gespiegelt nicht herstellen", str(cm.exception))
+        self.assertTrue(all(f.geloescht for f in self.feats))
+
+    def test_negativer_erster_winkel_definiert_oben_richtig(self):
+        # Schritt 1 mit −90 (nach rechts): Fusion baut mit isFlipped nach −v; «oben» bleibt +v. Lauf −90° (nach unten);
+        # Schritt 2 mit −90 biegt wieder nach rechts → Laufrichtung −180° = −u (zurück)
+        ops = [dict(self.OPS[0], winkel=-90), dict(self.OPS[1], winkel=-90)]
+        self.messungen = [(0, -1.0, 0), (-1.0, 0, 0)]
+        r, h = self.lauf(ops)
+        self.assertEqual(self.aufrufe, [(-90, True), (-90, False)])
+        self.assertFalse([x for x in h if "umgekehrt" in x])
 
 
 if __name__ == "__main__":
