@@ -299,7 +299,7 @@ class RueckbauTest(unittest.TestCase):
         fa.flansch, fa.umschlag, fa.neue_aussenkante = self.alt
 
     def _bauen(self, fehler_bei=None, kante_fehlt=False, loeschen_klappt=True):
-        def flansch(k, w, L, r=None):
+        def flansch(k, w, L, r=None, g=None):
             if fehler_bei == len(self.feats) + 1:
                 raise RuntimeError("Fusion: Flansch fehlgeschlagen\nInternal error 42")
             f = Feature([], "F%d" % (len(self.feats) + 1))
@@ -593,6 +593,92 @@ class IntegrationTest(unittest.TestCase):
         ziel.assemblyContext = object()
         with self.assertRaises(fa.AdapterFehler):
             fa.detail_integrieren(occ, ziel)
+
+
+class RichtungTest(unittest.TestCase):
+    """Richtung jedes Schritts wie in der Vorschau: Winkel + = nach links, − = nach rechts, relativ zur bisherigen Laufrichtung.
+    Rechnung rein mathematisch; Fusion wird nur in den Einbau-Tests (mit Messwerten aus dem Nachbau) nachgespielt."""
+    U, V = (1.0, 0.0, 0.0), (0.0, 1.0, 0.0)
+
+    def test_flansch_relativ_zur_laufrichtung(self):
+        # nach «90» (Lauf 90° = nach oben): gleiches Vorzeichen biegt wieder nach links = zurück (−u), umgekehrtes nach rechts = vorwärts (+u)
+        self.assertTrue(fa.richtung_stimmt(90, 90, (-1, 0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, 90, (1, 0, 0), self.U, self.V))
+        self.assertTrue(fa.richtung_stimmt(90, -90, (1, 0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, -90, (-1, 0, 0), self.U, self.V))
+
+    def test_umschlag_seite(self):
+        # nach «90»: Umschlag + faltet nach links (−u). Gemessen wird nur die seitliche Lage; der Rücklauf (−v) darf überwiegen
+        self.assertTrue(fa.richtung_stimmt(90, 180, (-0.2, -5.0, 0), self.U, self.V))
+        self.assertFalse(fa.richtung_stimmt(90, 180, (0.2, -5.0, 0), self.U, self.V))
+        self.assertTrue(fa.richtung_stimmt(90, -180, (0.2, -5.0, 0), self.U, self.V))
+
+    def test_nicht_entscheidbar(self):
+        self.assertIsNone(fa.richtung_stimmt(90, 180, (0.0, -5.0, 0), self.U, self.V))
+
+    def test_hilfen(self):
+        self.assertEqual(fa._ohne_komponente((3, 4, 0), (1, 0, 0)), (0.0, 4.0, 0.0))
+        self.assertIsNone(fa._einheit((0, 0, 0)))
+        r = fa.richtung_in_ebene(180, self.U, self.V)
+        self.assertAlmostEqual(r[0], -1.0)
+
+
+class FolgeRichtungTest(unittest.TestCase):
+    """folge_anbringen mit nachgespielten Messwerten: weicht Fusions Richtung von der Vorlage ab, wird der Schritt gespiegelt neu gebaut."""
+    def setUp(self):
+        self.alt = (fa.flansch, fa.umschlag, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen)
+        self.aufrufe, self.feats, self.messungen = [], [], []
+        fa._kantenrahmen_quer = lambda edge: ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))        # e = z, u = x
+        fa._gemessen = lambda vorher, neu, e: self.messungen.pop(0)
+        fa.neue_aussenkante = lambda feat, vorher, L, t: Kante((0, 0, 0), (0, 0, 50))
+
+        def bauen(kante, w, L, r=None, g=None):
+            f = Feature([], "F%d" % (len(self.feats) + 1))
+            self.feats.append(f)
+            self.aufrufe.append((w, g))
+            return f
+        fa.flansch = fa.umschlag = bauen
+
+    def tearDown(self):
+        fa.flansch, fa.umschlag, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen = self.alt
+
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": None}]
+
+    def lauf(self, ops=None):
+        h = []
+        r = fa.folge_anbringen(Kante((0, 0, 0), (0, 0, 50)), ops or self.OPS, 0.7, {}, h)
+        return r, h
+
+    def test_richtige_richtung_bleibt(self):
+        self.messungen = [(0, 1.0, 0), (-1.0, 0, 0)]       # Schritt 1 nach «oben» (+v); Schritt 2 zurück (−u) = wie die Vorschau
+        r, h = self.lauf()
+        self.assertEqual(len(r), 2)
+        self.assertEqual(self.aufrufe, [(90, False), (90, False)])
+        self.assertFalse([x for x in h if "umgekehrt" in x])
+
+    def test_falsche_richtung_wird_gespiegelt_neu_gebaut(self):
+        self.messungen = [(0, 1.0, 0), (1.0, 0, 0), (-1.0, 0, 0), (-1.0, 0, 0)]   # Fusion baut Schritt 2 zuerst nach +u (falsch)
+        r, h = self.lauf()
+        self.assertEqual(len(r), 2, "falscher Schritt 2 wurde ersetzt, nicht zusätzlich gebaut")
+        self.assertTrue(self.feats[1].geloescht)
+        self.assertEqual(self.aufrufe, [(90, False), (90, False), (90, True)])
+        self.assertTrue(any("automatisch umgekehrt" in x for x in h))
+
+    def test_bleibt_falsch_baut_alles_zurueck(self):
+        self.messungen = [(0, 1.0, 0), (1.0, 0, 0), (1.0, 0, 0), (1.0, 0, 0)]
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf()
+        self.assertIn("gespiegelt nicht herstellen", str(cm.exception))
+        self.assertTrue(all(f.geloescht for f in self.feats))
+
+    def test_negativer_erster_winkel_definiert_oben_richtig(self):
+        # Schritt 1 mit −90 (nach rechts): Fusion baut mit isFlipped nach −v; «oben» bleibt +v. Lauf −90° (nach unten);
+        # Schritt 2 mit −90 biegt wieder nach rechts → Laufrichtung −180° = −u (zurück)
+        ops = [dict(self.OPS[0], winkel=-90), dict(self.OPS[1], winkel=-90)]
+        self.messungen = [(0, -1.0, 0), (-1.0, 0, 0)]
+        r, h = self.lauf(ops)
+        self.assertEqual(self.aufrufe, [(-90, True), (-90, False)])
+        self.assertFalse([x for x in h if "umgekehrt" in x])
 
 
 if __name__ == "__main__":

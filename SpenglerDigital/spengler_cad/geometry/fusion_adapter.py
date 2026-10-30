@@ -291,7 +291,7 @@ def _flange_features(comp):
     return ff
 
 
-def flansch(edge, winkel, laenge_mm, radius_mm=None):
+def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
     """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten.
 
     Echte API (help.autodesk.com, EdgeFlangeInput, Preview, ab Oktober 2026): createEdgeFlangeInput(edges, distance) nimmt NUR gerade
@@ -310,7 +310,9 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None):
     gesetzt = setze(inp, ["angle", "flangeAngle", "setAngle", "setFlangeAngle"], _vi_grad(w))
     if not gesetzt and abs(w - 90) > 1e-6:
         raise AdapterFehler("Der Flanschwinkel %g° lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % w)
-    if winkel < 0:
+    if gespiegelt is None:
+        gespiegelt = winkel < 0
+    if gespiegelt:
         if not setze(inp, ["isFlipped", "isDirectionFlipped", "flipDirection", "isFlangeFlipped"], True):
             raise AdapterFehler("Die Flanschrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
     if radius_mm is not None:
@@ -381,27 +383,154 @@ def entfernen(objekte):
     return ok
 
 
+# ------------------------------------------------------------------ Richtung jedes Schritts prüfen
+# Die Vorschau (core/bend_geometry) dreht bei jedem Schritt RELATIV zur bisherigen Laufrichtung: Winkel + = nach links, − = nach rechts
+# (180° = Umschlag zur linken/rechten Seite). Fusions isFlipped ist dagegen nicht relativ. Deshalb wird nach jedem Schritt gemessen, wohin
+# Fusion tatsächlich gebaut hat, und bei Abweichung der Schritt gespiegelt neu angelegt. Rechnung in der Ebene quer zur Kante:
+# u = Laufrichtung von der Blechfläche zur Kante, v = «oben» (so, wie Fusion beim ersten Schritt mit Winkel + baut).
+def _skal(a, b):
+    return sum(x * y for x, y in zip(a, b))
+
+
+def _plus(a, b, fa_=1.0, fb=1.0):
+    return tuple(fa_ * x + fb * y for x, y in zip(a, b))
+
+
+def _einheit(a):
+    n = math.sqrt(_skal(a, a))
+    return tuple(x / n for x in a) if n > 1e-9 else None
+
+
+def _ohne_komponente(a, e):
+    return _plus(a, e, 1.0, -_skal(a, e))
+
+
+def richtung_in_ebene(grad, u, v):
+    """Einheitsvektor cos(φ)·u + sin(φ)·v."""
+    r = math.radians(grad)
+    return _plus(u, v, math.cos(r), math.sin(r))
+
+
+def richtung_stimmt(laufwinkel_vorher, winkel, tatsaechlich, u, v):
+    """Zeigt der gemessene Vektor (von der vorigen zur neuen Kante, quer zur Kante) in die Richtung der Vorlage?
+    Flansch: Zielrichtung heading+winkel. Umschlag (≥175°): massgebend ist die SEITE (links für +, rechts für −) der bisherigen Laufrichtung.
+    → True/False, None wenn nicht entscheidbar."""
+    if abs(winkel) >= 175:
+        links = richtung_in_ebene(laufwinkel_vorher + 90, u, v)
+        soll = links if winkel > 0 else tuple(-x for x in links)
+    else:
+        soll = richtung_in_ebene(laufwinkel_vorher + winkel, u, v)
+    d = _skal(tatsaechlich, soll)
+    return None if abs(d) < 1e-9 else d > 0
+
+
+def _kantenrahmen_quer(edge):
+    """→ (e, u): Kantenrichtung und Laufrichtung von der Blechfläche zur Kante (Einheitsvektoren, cm-Welt) oder None."""
+    try:
+        p0, d0 = _linie(edge)
+        e = _v(d0)
+        flaeche = max(list(edge.faces), key=lambda f: f.area)
+        w = _plus(_v(p0), _v(flaeche.pointOnFace), 1.0, -1.0)      # von der Flächenmitte zur Kante
+        u = _einheit(_ohne_komponente(w, e))
+        return (e, u) if u else None
+    except Exception as ex:
+        logger.warnung("Laufrichtung nicht bestimmbar", fehler=ex)
+        return None
+
+
+def _v(p):
+    return (p.x, p.y, p.z)
+
+
+def _gemessen(vorher, neu, e):
+    """Vektor von der vorigen zur neuen Kante, quer zur Kantenrichtung; None bei Nullvektor/Fehler."""
+    try:
+        p0, _ = _linie(vorher)
+        q, _ = _linie(neu)
+        w = _ohne_komponente(_plus(_v(q), _v(p0), 1.0, -1.0), e)
+        return w if math.sqrt(_skal(w, w)) > 1e-9 else None
+    except Exception as ex:
+        logger.warnung("Richtung nicht messbar", fehler=ex)
+        return None
+
+
+def _kante_aufloesen(token, alt):
+    try:
+        t = [x for x in design().findEntityByToken(token) if x and x.isValid]
+        return adsk.fusion.BRepEdge.cast(t[0]) if len(t) == 1 else alt
+    except Exception:
+        return alt
+
+
+def _schritt_bauen(edge, op, gespiegelt):
+    if op["typ"] == "umschlag":
+        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"))
+    return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt)
+
+
 def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None):
     """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler.
-    Hinweise (z. B. mögliche Einschnitte an runden Kanten) werden in die übergebene Liste geschrieben."""
+    Hinweise (z. B. mögliche Einschnitte an runden Kanten, automatisch umgekehrte Richtungen) werden in die übergebene Liste geschrieben.
+    Richtungsprüfung ab Schritt 2 (nach Fusion-Standard bei Schritt 1) – NICHT live geprüft."""
     hinweise = hinweise if hinweise is not None else []
     erzeugt = []
     aktuell = edge
     phase = "Schritt 1"
+    rahmen = _kantenrahmen_quer(edge)      # (e, u) – ohne: keine Richtungsprüfung
+    v = None                               # «oben»; entsteht aus dem Bau von Schritt 1 (Fusion-Standard bei Winkel +)
+    lauf = 0.0                             # Laufwinkel in Grad (0 = u)
+    geprueft = rahmen is not None
     try:
         for i, op in enumerate(ops, 1):
             phase = "Schritt %d" % i
-            if op["typ"] == "umschlag":
-                feat = umschlag(aktuell, op["laenge"], op["winkel"] < 0, op.get("radius"))
-            else:
-                feat = flansch(aktuell, op["winkel"], op["laenge"], op.get("radius"))
+            token = None
+            try:
+                token = aktuell.entityToken
+            except Exception:
+                pass
+            gespiegelt = op["winkel"] < 0 if i == 1 else False
+            feat = _schritt_bauen(aktuell, op, gespiegelt)
             erzeugt.append(feat)
+            neu = None
+            if i < len(ops):
+                phase = "Nach Schritt %d (Kante für Schritt %d suchen)" % (i, i + 1)
+                neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+                phase = "Schritt %d" % i
+            elif geprueft and i > 1:
+                try:
+                    neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+                except AdapterFehler:
+                    hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
+            gemessen = _gemessen(aktuell, neu, rahmen[0]) if (geprueft and neu is not None) else None
+            if geprueft and i == 1 and gemessen is not None and abs(op["winkel"]) < 175:
+                # Schritt 1 definiert «oben»: der Anteil quer zu u, mit dem Vorzeichen des Winkels
+                quer = _einheit(_ohne_komponente(gemessen, rahmen[1]))
+                v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
+            elif geprueft and i > 1 and v is not None and gemessen is not None:
+                stimmt = richtung_stimmt(lauf, op["winkel"], gemessen, rahmen[1], v)
+                if stimmt is False:
+                    logger.info("Richtung weicht ab – Schritt wird gespiegelt neu angelegt", schritt=i, typ=op["typ"])
+                    phase = "Schritt %d (gespiegelt neu anlegen)" % i
+                    erzeugt.pop()
+                    feat.deleteMe()
+                    aktuell = _kante_aufloesen(token, aktuell) if token else aktuell
+                    feat = _schritt_bauen(aktuell, op, True)
+                    erzeugt.append(feat)
+                    neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+                    nochmal = richtung_stimmt(lauf, op["winkel"], _gemessen(aktuell, neu, rahmen[0]) or gemessen, rahmen[1], v)
+                    if nochmal is False:
+                        raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab und liess sich auch gespiegelt nicht herstellen." % i)
+                    hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
+                elif stimmt is None:
+                    hinweise.append("Schritt %d: Richtung nicht eindeutig messbar – bitte Ergebnis prüfen." % i)
+            elif geprueft and i > 1 and (v is None or gemessen is None):
+                hinweise.append("Schritt %d: Richtung nicht geprüft (Messung nicht möglich) – bitte Ergebnis prüfen." % i)
+            lauf += op["winkel"]
             hinweise.extend(schlitze_pruefen(feat, aktuell, dicke_mm or 1.0))
             markieren(feat, dict(markierung, schritt=i))
             logger.info("Schritt erzeugt", nr=i, typ=op["typ"], winkel=op["winkel"], laenge=op["laenge"])
-            if i < len(ops):
-                phase = "Nach Schritt %d (Kante für Schritt %d suchen)" % (i, i + 1)
-                aktuell = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+            if neu is not None:
+                aktuell = neu
         return erzeugt
     except Exception as e:
         logger.ausnahme("Folge abgebrochen", phase=phase)
