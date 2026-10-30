@@ -106,7 +106,8 @@ def beschreibung(plan):
         for i, op in enumerate(plan["operations"], 1):
             art = "Umschlag" if op["typ"] == "umschlag" else "Flansch"
             r = "" if op.get("radius") is None else ", Ri %.2f mm" % op["radius"]
-            z.append("  %d. %s %g°, %.2f mm%s" % (i, art, op["winkel"], op["laenge"], r))
+            extra = "".join(", %s %s" % (n, op[k]) for k, n in (("bezug", "Mass"), ("lage", "Lage")) if op.get(k))
+            z.append("  %d. %s %g°, %.2f mm%s%s" % (i, art, op["winkel"], op["laenge"], r, extra))
     z.append("Kanten: %d gewählt, %d geeignet" % (len(plan["targets"]), sum(1 for t in plan["targets"] if t["geeignet"])))
     th = plan.get("theory") or {}
     if th.get("zugabe") is not None:

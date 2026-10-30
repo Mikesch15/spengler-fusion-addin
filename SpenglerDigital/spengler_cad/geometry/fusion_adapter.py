@@ -301,7 +301,7 @@ def _flange_features(comp):
     return ff
 
 
-def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
+def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None, lage=None):
     """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten.
 
     edge: eine Kante oder eine Liste zusammenhängender Kanten – in EINEM Feature gebaut, damit Fusion die Ecken auf Gehrung schneidet
@@ -333,6 +333,12 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
             raise AdapterFehler("Die Flanschrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
     if len(kanten) > 1:
         setze(inp, ["isMiteredCorners"], True)
+    if bezug:
+        if not setze(inp, ["heightDatumType"], getattr(adsk.fusion.FlangeHeightDatumTypes, BEZUEGE[bezug])):
+            raise AdapterFehler("Der Massbezug «%s» lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % bezug)
+    if lage:
+        if not setze(inp, ["bendPositionType"], _lage_enum(lage)):
+            raise AdapterFehler("Die Lage «%s» lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % lage)
     if radius_mm is not None:
         ov = getattr(inp, "bendRadiusOverride", None)
         try:
@@ -359,36 +365,61 @@ def _flansch_ablehnung(rund, fehler):
     return "Fusion hat den Flansch nicht erzeugt (Fusion: %s)." % fusion
 
 
-def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None):
+LAGEN = {"kante": "StartEdgeBendPositionType", "innen": "InsideBendPositionType", "aussen": "OutsideBendPositionType",
+         "tangential": "TangentToSideBendPositionType"}
+BEZUEGE = {"aussen": "OuterFacesFlangeHeightDatumType", "innen": "InnerFacesFlangeHeightDatumType", "tangential": "TangentToBendFlangeHeightDatumType"}
+
+
+def _lage_enum(lage):
+    return getattr(adsk.fusion.BendPositionTypes, LAGEN[lage])
+
+
+def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
     """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
 
     Echte API (help.autodesk.com, HemFeatureInput, ab September 2025): hf.createHemFeatureInput() ohne Argumente, danach
     setFlatHem(edge, length, isFlipped, bendPositionType) bzw. – mit Spalt – setOpenHem(edge, length, gap, isFlipped, bendPositionType);
     beide liefern True bei Erfolg. Ohne Radius: geschlossener Saum (Spalt 0); mit Radius: offener Saum mit Spalt = 2 × Radius (Annahme).
-    NICHT live geprüft."""
+    Live-Test 30.10.: Fusion nahm die Definition an, die Berechnung scheiterte («Failed to create Hem … SM_MODELING_ERROR») – welche
+    Kombination aus Biegelage und Richtung passt, hängt vom Körper ab. Ohne ausdrückliche Lage werden deshalb nacheinander Kante/innen/
+    aussen/tangential und dann die Gegenrichtung versucht; die erste, die Fusion rechnet, gilt (im Protokoll vermerkt). NICHT live bestätigt."""
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
         raise AdapterFehler("Diese Fusion-Version hat kein Saum-Werkzeug in der API (hemFeatures).")
-    inp = hf.createHemFeatureInput()
-    if inp is None:
-        raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
-    _eigenschaften_einmal("HemFeatureInput", inp)
-    bp = adsk.fusion.BendPositionTypes.StartEdgeBendPositionType
     L = _vi_mm(laenge_mm)
-    try:
-        if radius_mm is None:
-            ok = inp.setFlatHem(edge, L, bool(nach_hinten), bp)
-        else:
-            ok = inp.setOpenHem(edge, L, _vi_mm(2 * radius_mm), bool(nach_hinten), bp)
-    except Exception as e:
-        raise AdapterFehler("Der Umschlag lässt sich so nicht definieren: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__))
-    if not ok:
-        raise AdapterFehler("Fusion hat die Umschlag-Definition abgelehnt (Kante/Länge ungeeignet).")
-    feat = hf.add(inp)
-    if feat is None:
-        raise AdapterFehler("Fusion hat den Umschlag nicht erzeugt.")
-    return feat
+    lagen = [lage] if lage else ["kante", "innen", "aussen", "tangential"]
+    richtungen = [bool(nach_hinten)] if lage else [bool(nach_hinten), not nach_hinten]
+    versuche = []
+    for flip in richtungen:
+        for l in lagen:
+            inp = hf.createHemFeatureInput()
+            if inp is None:
+                raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
+            _eigenschaften_einmal("HemFeatureInput", inp)
+            name = "Lage %s%s" % (l, ", Gegenrichtung" if flip != bool(nach_hinten) else "")
+            try:
+                if radius_mm is None:
+                    ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
+                else:
+                    ok = inp.setOpenHem(edge, L, _vi_mm(2 * radius_mm), flip, _lage_enum(l))
+                if not ok:
+                    versuche.append("%s: von Fusion abgelehnt" % name)
+                    continue
+                feat = hf.add(inp)
+            except Exception as e:
+                versuche.append("%s: %s" % (name, (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)[:160]))
+                continue
+            if feat is None:
+                versuche.append("%s: nicht erzeugt" % name)
+                continue
+            logger.info("Umschlag erzeugt", variante=name, versuche=len(versuche) + 1)
+            if versuche:
+                logger.info("Umschlag: frühere Versuche scheiterten", versuche=" | ".join(versuche))
+            return feat
+    logger.warnung("Umschlag nicht möglich", versuche=" | ".join(versuche))
+    raise AdapterFehler("Fusion kann den Umschlag an dieser Kante nicht berechnen. Versucht (%d Varianten); erste Antwort: %s. "
+                        "Bitte Länge, Kante (freie Aussenkante?) und Blechregel prüfen." % (len(versuche), versuche[0] if versuche else "keine"))
 
 
 def markieren(obj, daten):
@@ -493,8 +524,8 @@ def _kante_aufloesen(token, alt):
 
 def _schritt_bauen(edge, op, gespiegelt):
     if op["typ"] == "umschlag":
-        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"))
-    return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt)
+        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"))
+    return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt, op.get("bezug"), op.get("lage"))
 
 
 def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
@@ -621,7 +652,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
     try:
         op = ops[0]
         rahmen = [_kantenrahmen_quer(e) for e in edges]
-        feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0)
+        feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
         markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
         logger.info("Gemeinsamer Flansch erzeugt", kanten=len(edges), winkel=op["winkel"], laenge=op["laenge"])

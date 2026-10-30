@@ -78,9 +78,9 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
       <span class="klein">In Ausdrücken zusätzlich verfügbar: t (Dicke), ri (Innenradius), k (K-Faktor) aus dem Materialprofil.</span>
     </fieldset>
     <fieldset><legend>Schritte – Flansch für Flansch <button class="hilfe" data-hilfe="kurzschrift">?</button></legend>
-      <div class="klein">Von der Blechkante aus: jeder Schritt ist ein Flansch (Winkel + Länge) oder ein Umschlag. Winkel + = zur Sichtseite, − = nach hinten. Statt Zahlen sind Parameternamen (z. B. H) und Ausdrücke erlaubt. Die Vorschau zeichnet mit.</div>
+      <div class="klein">Von der Blechkante aus: jeder Schritt ist ein Flansch (Winkel + Länge) oder ein Umschlag. Winkel + = zur Sichtseite, − = nach hinten. Statt Zahlen sind Parameternamen (z. B. H) und Ausdrücke erlaubt. <b>Mass</b>: Länge von aussen, innen oder tangential zur Biegung; <b>Lage</b>: wo die Biegung zur vorhandenen Fläche liegt (Kante, innen, aussen, tangential). «Standard» = Fusion-Voreinstellung (aussen / Kante). Die Vorschau zeichnet mit (theoretisch, Blechmitte).</div>
       <div class="zeile"><label>Vorschau</label><div id="eVorschau" class="vorschau"></div></div>
-      <table id="oTab"><thead><tr><th>#</th><th>Art</th><th>Winkel °</th><th>Länge mm</th><th>Radius mm</th><th></th></tr></thead><tbody></tbody></table>
+      <table id="oTab"><thead><tr><th>#</th><th>Art</th><th>Winkel °</th><th>Länge mm</th><th>Radius mm</th><th title="Wovon die Länge gemessen wird">Mass</th><th title="Wo die Biegung zur vorhandenen Fläche liegt">Lage</th><th></th></tr></thead><tbody></tbody></table>
       <div class="zeile"><button id="oNeu">+ Flansch</button><button id="oNeuU">+ Umschlag</button></div>
       <div class="zeile"><label>Kurzschrift</label><input id="eKurz" size="40" placeholder="z. B. 90 H U+ u"><button id="eKurzUeb">übernehmen</button><span class="klein">(Alternative zur Tabelle)</span></div>
     </fieldset>

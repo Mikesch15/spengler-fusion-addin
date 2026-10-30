@@ -310,7 +310,33 @@ class UmschlagTest(unittest.TestCase):
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.umschlag(kante_mit(hem=hf), 7, False)
             self.assertIn(text, str(cm.exception))
+            self.assertIn("8 Varianten", str(cm.exception), "4 Lagen × beide Richtungen wurden versucht")
             self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
+
+    def test_berechnung_scheitert_naechste_variante(self):
+        """Live-Test 30.10.: Fusion nahm die Definition an, hf.add scheiterte («SM_MODELING_ERROR») → andere Lage versuchen."""
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        echte_add = hf.add
+        zaehler = []
+
+        def add(i):
+            zaehler.append(1)
+            if len(zaehler) < 3:
+                raise RuntimeError("3 : Failed to create Hem: SM_MODELING_ERROR")
+            return echte_add(i)
+        hf.add = add
+        fa.umschlag(kante_mit(hem=hf), 12, False)
+        self.assertEqual(len(inp.aufrufe), 3, "dritte Lage hat funktioniert")
+        self.assertEqual(len(hf.hinzu), 1)
+
+    def test_ausdrueckliche_lage_wird_nicht_ueberstimmt(self):
+        inp = HemEingabe(ergebnis=False)
+        hf = Sammlung(inp)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(kante_mit(hem=hf), 12, False, None, "innen")
+        self.assertIn("1 Varianten", str(cm.exception))
+        self.assertEqual(len(inp.aufrufe), 1)
 
     def test_ohne_api(self):
         with self.assertRaises(fa.AdapterFehler):
@@ -326,7 +352,7 @@ class RueckbauTest(unittest.TestCase):
         fa.flansch, fa.umschlag, fa.neue_aussenkante = self.alt
 
     def _bauen(self, fehler_bei=None, kante_fehlt=False, loeschen_klappt=True):
-        def flansch(k, w, L, r=None, g=None):
+        def flansch(k, w, L, r=None, g=None, b=None, l=None):
             if fehler_bei == len(self.feats) + 1:
                 raise RuntimeError("Fusion: Flansch fehlgeschlagen\nInternal error 42")
             f = Feature([], "F%d" % (len(self.feats) + 1))
@@ -659,7 +685,7 @@ class FolgeRichtungTest(unittest.TestCase):
         fa._gemessen = lambda vorher, neu, e: self.messungen.pop(0)
         fa.neue_aussenkante = lambda feat, vorher, L, t: Kante((0, 0, 0), (0, 0, 50))
 
-        def bauen(kante, w, L, r=None, g=None):
+        def bauen(kante, w, L, r=None, g=None, b=None, l=None):
             f = Feature([], "F%d" % (len(self.feats) + 1))
             self.feats.append(f)
             self.aufrufe.append((w, g))
@@ -729,7 +755,7 @@ class GruppeTest(unittest.TestCase):
         fa._gemessen = lambda vorher, neu, e: (0, 1.0, 0) if neu is not None and getattr(neu, "erste", False) else (-1.0, 0, 0)
         fa.neue_aussenkante = lambda feat, vorher, L, t: self._neu(feat)
 
-        def bauen(kanten, w, L, r=None, g=None):
+        def bauen(kanten, w, L, r=None, g=None, b=None, l=None):
             f = Feature([], "F%d" % (len(self.feats) + 1))
             self.feats.append(f)
             self.aufrufe.append((kanten, w, g))
@@ -822,6 +848,44 @@ class PlanMerkenTest(unittest.TestCase):
         self.ec._plan = kaputt
         with self.assertRaises(RuntimeError):
             self.ec._plan_gemerkt(None)
+
+
+class MassUndLageTest(unittest.TestCase):
+    """Massbezug (Höhe von aussen/innen/tangential) und Lage der Biegung → Fusion-Aufzählungen (FlangeHeightDatumTypes, BendPositionTypes)."""
+    def setUp(self):
+        adsk.fusion.FlangeHeightDatumTypes.InnerFacesFlangeHeightDatumType = "H-INNEN"
+        adsk.fusion.FlangeHeightDatumTypes.OuterFacesFlangeHeightDatumType = "H-AUSSEN"
+        adsk.fusion.FlangeHeightDatumTypes.TangentToBendFlangeHeightDatumType = "H-TANGENT"
+        adsk.fusion.BendPositionTypes.StartEdgeBendPositionType = "B-KANTE"
+        adsk.fusion.BendPositionTypes.InsideBendPositionType = "B-INNEN"
+        adsk.fusion.BendPositionTypes.OutsideBendPositionType = "B-AUSSEN"
+        adsk.fusion.BendPositionTypes.TangentToSideBendPositionType = "B-TANGENT"
+
+    def test_flansch_setzt_bezug_und_lage(self):
+        for bezug, lage, h, b in (("innen", "aussen", "H-INNEN", "B-AUSSEN"), ("tangential", "tangential", "H-TANGENT", "B-TANGENT"),
+                                  ("aussen", "kante", "H-AUSSEN", "B-KANTE")):
+            inp = Eingabe("angle", "heightDatumType", "bendPositionType")
+            fa.flansch(kante_mit(Sammlung(inp)), 90, 20, None, None, bezug, lage)
+            self.assertEqual((inp.werte["heightDatumType"], inp.werte["bendPositionType"]), (h, b))
+
+    def test_ohne_angabe_bleibt_fusion_standard(self):
+        inp = Eingabe("angle", "heightDatumType", "bendPositionType")
+        fa.flansch(kante_mit(Sammlung(inp)), 90, 20)
+        self.assertNotIn("heightDatumType", inp.werte)
+        self.assertNotIn("bendPositionType", inp.werte)
+
+    def test_nicht_einstellbar_bricht_ab(self):
+        for eig, text in (("bendPositionType", "Massbezug"), ("heightDatumType", "Lage")):
+            ff = Sammlung(Eingabe("angle", eig))
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.flansch(kante_mit(ff), 90, 20, None, None, "innen", "aussen")
+            self.assertIn(text, str(cm.exception))
+            self.assertEqual(ff.hinzu, [])
+
+    def test_umschlag_lage(self):
+        inp = HemEingabe()
+        fa.umschlag(kante_mit(hem=Sammlung(inp)), 12, False, None, "aussen")
+        self.assertEqual(inp.aufrufe[0][-1], "B-AUSSEN")
 
 
 if __name__ == "__main__":

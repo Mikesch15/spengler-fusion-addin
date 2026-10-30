@@ -19,7 +19,7 @@ import adsk.fusion
 from .. import VERSION
 from ..diagnostics import logger
 from ..geometry import fusion_adapter as fa
-from ..manufacturing import dxf_writer, material_calculator, nesting, parts_list, workshop_sheet
+from ..manufacturing import dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, workshop_sheet
 from ..storage import json_store, paths
 from ..storage.material_library import MaterialBibliothek
 from ..storage.settings_service import Einstellungen
@@ -111,17 +111,19 @@ def _abw(self, args):
             nr = fa.teilnummer(body, True)
             zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s" % (nr, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "")
             basis = "%s_%s" % (nr, _dateiname(e, name, mat, t))
+            dxf_pfad = None
             if inp.itemById("dxf").value:
-                p = fa.dxf_abwicklung(fp, os.path.join(ordner, basis + ".dxf"))
+                dxf_pfad = fa.dxf_abwicklung(fp, os.path.join(ordner, basis + ".dxf"))
                 zeile += ", DXF ✓"
-                sammel.append(p)
+                sammel.append(dxf_pfad)
             if inp.itemById("blatt").value:
+                svg_abw, abw_hinweis = _abwicklung_zeichnen(fp, dxf_pfad)
                 m = next((x for x in mats if x["id"] == (q.get("material") or {}).get("id")), None)
                 logo = os.path.join(paths.ADDIN_ORDNER, "assets", "logo", "logo_256.png")
                 html = workshop_sheet.erstelle({
                     "bauteil": name, "teilnummer": nr, "objekt": e["order"].get("objekt"), "auftrag": e["order"].get("auftrag"),
                     "material": mat or "nicht zugeordnet", "dicke": t, "vorlage": q.get("vorlageName") or "–",
-                    "vorlagenVersion": q.get("vorlageVersion") or "–", "abwicklung": masse,
+                    "vorlagenVersion": q.get("vorlageVersion") or "–", "abwicklung": masse, "abwicklungSvg": svg_abw, "abwicklungHinweis": abw_hinweis,
                     "operationen": q.get("operationen"), "ri": (m or {}).get("innerRadius"), "k": (m or {}).get("kFactor"), "datum": datetime.date.today().isoformat(),
                     "addinVersion": VERSION, "logo": pathlib.Path(logo).as_uri() if os.path.exists(logo) else None,
                     "hinweise": ["Querschnitt/Biegeliste nur für Bauteile, die mit «Kanten bearbeiten» erzeugt wurden."] if not q else []})
@@ -142,6 +144,27 @@ def _abw(self, args):
             base.oeffnen(ordner)
         except Exception:
             pass
+
+
+def _abwicklung_zeichnen(fp, dxf_pfad):
+    """Abwicklung für das Werkstattblatt als SVG aus der Fusion-DXF (vorhandene oder kurz erzeugte). → (svg, Hinweis)."""
+    import shutil
+    import tempfile
+    tmp = None
+    try:
+        if dxf_pfad is None:
+            tmp = tempfile.mkdtemp(prefix="spengler_abw_")
+            dxf_pfad = fa.dxf_abwicklung(fp, os.path.join(tmp, "abwicklung.dxf"))
+        svg, ignoriert = dxf_lesen.svg_aus_datei(dxf_pfad)
+        if not svg:
+            return None, "die DXF enthält keine lesbaren Linien/Bögen"
+        return svg, ("%d Kurve(n) (Spline/Ellipse) nicht gezeichnet" % ignoriert if ignoriert else None)
+    except Exception as ex:
+        logger.ausnahme("Abwicklung zeichnen")
+        return None, "Zeichnen nicht möglich (%s)" % base.fehlertext(ex)
+    finally:
+        if tmp:
+            shutil.rmtree(tmp, ignore_errors=True)
 
 
 def abw_ausfuehren(args):

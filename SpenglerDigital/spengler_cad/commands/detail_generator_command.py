@@ -211,47 +211,72 @@ def anwenden_pruefen(args):
 
 
 def _einsetzen(inp, integrieren=False):
-    d = _detail(inp)
-    kante, gruende, hinweise = _passung(inp)
-    if gruende:
-        raise fa.AdapterFehler("\n".join(gruende))
-    fsel = inp.itemById("flaeche")
-    flaeche = adsk.fusion.BRepFace.cast(fsel.selection(0).entity) if fsel.selectionCount else None
-    ziel = fa.kantenrahmen(kante, flaeche)
-    if inp.itemById("drehen").value:
-        ende = [o + x * units.cm_zu_mm(kante.length) for o, x in zip(ziel["origin"], ziel["x"])]
-        ziel = frames.rahmen_aus_kante(ende, ziel["origin"], ziel["z"])
-    T = frames.ausrichtung(d["anchor"]["frame"], ziel)
-    repo = VorlagenRepository()
-    f3d = repo.geometrie_pfad(d["source"]["file"])
-    if not os.path.exists(f3d):
-        raise fa.AdapterFehler("Quellgeometrie fehlt: %s" % f3d)
-    root = fa.design().rootComponent
-    occ, neue_param = fa.detail_importieren(f3d, root)
-    occ.transform = fa.matrix_fusion(T)
-    werte = _werte(inp, d)
-    nach_fusion = {}
-    for p in d.get("parameters", []):
-        e = p.get("unit")
-        nach_fusion[p["fusionName"]] = units.fusion_ausdruck_mm(werte[p["name"]]) if e == "mm" else (
-            units.fusion_ausdruck_grad(werte[p["name"]]) if e == "deg" else str(werte[p["name"]]))
-    zuordnung, offen = detail_validation.parameter_zuordnen(list(nach_fusion), neue_param)
-    gesetzt, fehlend = fa.parameter_setzen({zuordnung[n]: a for n, a in nach_fusion.items() if n in zuordnung})
-    fehlend += offen
-    if any(zuordnung[n] != n for n in zuordnung):
-        hinweise = hinweise + ["Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n)]
-    fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
-    andere = [b for b in root.bRepBodies if b != kante.body]
-    koll = fa.kollision(occ, andere)
-    cf = None
-    if integrieren:
-        try:
-            cf, warn = fa.detail_integrieren(occ, kante.body, neue_param)
-        except fa.AdapterFehler:
-            fa.entfernen([occ])   # Import wieder entfernen; Basis-/Kombinieren-Feature hat detail_integrieren selbst zurückgebaut
+    """Detail importieren, ausrichten, Parameter setzen, optional ins Modell integrieren.
+
+    Live-Test 30.10.: «Access violation – no RTTI data» beim Anwenden. Wahrscheinliche Ursache: die gewählte Kante (BRepEdge) wurde nach dem
+    Import weiterbenutzt, obwohl der Import das Dokument verändert. Alles, was von Kante/Körper gebraucht wird, wird deshalb VOR dem Import
+    gelesen; danach wird der Zielkörper über seinen entityToken frisch geholt. Jede Phase steht in der Fehlermeldung."""
+    phase = "Prüfen"
+    try:
+        d = _detail(inp)
+        kante, gruende, hinweise = _passung(inp)
+        if gruende:
+            raise fa.AdapterFehler("\n".join(gruende))
+        phase = "Ziel bestimmen"
+        fsel = inp.itemById("flaeche")
+        flaeche = adsk.fusion.BRepFace.cast(fsel.selection(0).entity) if fsel.selectionCount else None
+        ziel = fa.kantenrahmen(kante, flaeche)
+        if inp.itemById("drehen").value:
+            ende = [o + x * units.cm_zu_mm(kante.length) for o, x in zip(ziel["origin"], ziel["x"])]
+            ziel = frames.rahmen_aus_kante(ende, ziel["origin"], ziel["z"])
+        ziel_body_token = kante.body.entityToken     # vor dem Import lesen – die Kante ist danach evtl. ungültig
+        werte = _werte(inp, d)
+        T = frames.ausrichtung(d["anchor"]["frame"], ziel)
+        repo = VorlagenRepository()
+        f3d = repo.geometrie_pfad(d["source"]["file"])
+        if not os.path.exists(f3d):
+            raise fa.AdapterFehler("Quellgeometrie fehlt: %s" % f3d)
+        phase = "Import"
+        root = fa.design().rootComponent
+        occ, neue_param = fa.detail_importieren(f3d, root)
+        phase = "Ausrichten"
+        occ.transform = fa.matrix_fusion(T)
+        phase = "Parameter setzen"
+        nach_fusion = {}
+        for p in d.get("parameters", []):
+            e = p.get("unit")
+            nach_fusion[p["fusionName"]] = units.fusion_ausdruck_mm(werte[p["name"]]) if e == "mm" else (
+                units.fusion_ausdruck_grad(werte[p["name"]]) if e == "deg" else str(werte[p["name"]]))
+        zuordnung, offen = detail_validation.parameter_zuordnen(list(nach_fusion), neue_param)
+        gesetzt, fehlend = fa.parameter_setzen({zuordnung[n]: a for n, a in nach_fusion.items() if n in zuordnung})
+        fehlend += offen
+        if any(zuordnung[n] != n for n in zuordnung):
+            hinweise = hinweise + ["Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n)]
+        phase = "Markieren"
+        fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
+        phase = "Kollisionsprüfung"
+        ziel_body = fa.koerper_neu(ziel_body_token)
+        andere = [b for b in root.bRepBodies if b.entityToken != ziel_body_token]
+        koll = fa.kollision(occ, andere)
+        cf = None
+        if integrieren:
+            phase = "Integration"
+            if ziel_body is None:
+                raise fa.AdapterFehler("Der Zielkörper ist nach dem Import nicht mehr auffindbar.")
+            try:
+                cf, warn = fa.detail_integrieren(occ, ziel_body, neue_param)
+            except fa.AdapterFehler:
+                fa.entfernen([occ])   # Import wieder entfernen; Basis-/Kombinieren-Feature hat detail_integrieren selbst zurückgebaut
+                raise
+            hinweise = hinweise + warn
+        return d, occ, gesetzt, fehlend, hinweise, koll, cf
+    except fa.AdapterFehler as e:
+        if phase in ("Prüfen", "Ziel bestimmen") or str(e).startswith(phase):
             raise
-        hinweise = hinweise + warn
-    return d, occ, gesetzt, fehlend, hinweise, koll, cf
+        raise fa.AdapterFehler("%s: %s" % (phase, e))
+    except Exception as e:
+        logger.ausnahme("Detail einsetzen", phase=phase)
+        raise fa.AdapterFehler("%s: Fusion meldet: %s" % (phase, (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)))
 
 
 def anwenden_vorschau(args):

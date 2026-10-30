@@ -32,6 +32,11 @@ def erstelle(daten):
     ab = daten.get("abwicklung")
     if ab:
         z.append("<h2>Abwicklung</h2><p>Umschliessendes Rechteck: <b>%.1f × %.1f mm</b> (Quelle: %s)</p>" % (ab["breite"], ab["laenge"], e(ab.get("quelle"))))
+        if daten.get("abwicklungSvg"):
+            z.append(daten["abwicklungSvg"])
+            z.append("<p style='font-size:9pt;color:#555'>Zeichnung aus der Fusion-DXF der Abwicklung; Biegelinien gestrichelt rot (sofern Fusion sie auf einer Ebene «Bend/Biege…» ablegt).</p>")
+        elif daten.get("abwicklungHinweis"):
+            z.append("<p class='theo'>Abwicklung nicht gezeichnet: %s</p>" % e(daten["abwicklungHinweis"]))
     ops = daten.get("operationen") or []
     if ops and daten.get("ri") is not None and daten.get("k") is not None:
         res, ab_kante = kanten_profil(ops, float(daten["dicke"]), float(daten["ri"]), float(daten["k"]))
