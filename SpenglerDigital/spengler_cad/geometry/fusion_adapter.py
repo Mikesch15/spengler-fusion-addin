@@ -374,6 +374,13 @@ def _lage_enum(lage):
     return getattr(adsk.fusion.BendPositionTypes, LAGEN[lage])
 
 
+def _kantenlaenge_mm(edge):
+    try:
+        return "%.1f" % (edge.length * 10.0)
+    except Exception:
+        return "?"
+
+
 def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
     """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
 
@@ -418,8 +425,16 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
                 logger.info("Umschlag: frühere Versuche scheiterten", versuche=" | ".join(versuche))
             return feat
     logger.warnung("Umschlag nicht möglich", versuche=" | ".join(versuche))
-    raise AdapterFehler("Fusion kann den Umschlag an dieser Kante nicht berechnen. Versucht (%d Varianten); erste Antwort: %s. "
-                        "Bitte Länge, Kante (freie Aussenkante?) und Blechregel prüfen." % (len(versuche), versuche[0] if versuche else "keine"))
+    antworten = []
+    for v in versuche:
+        a = v.split(": ", 1)[-1]
+        if a not in antworten:
+            antworten.append(a)
+    logger.warnung("Umschlag: Eingabe", laenge_mm=laenge_mm, radius_mm=radius_mm, nach_hinten=nach_hinten,
+                   kante_laenge_mm=_kantenlaenge_mm(edge))
+    raise AdapterFehler("Fusion kann den Umschlag an dieser Kante nicht berechnen (Länge %.1f mm, Kante %s mm; %d Varianten versucht). "
+                        "Fusion antwortet: %s. Bitte Länge, Kante (freie Aussenkante?) und Blechregel prüfen."
+                        % (laenge_mm, _kantenlaenge_mm(edge), len(versuche), " / ".join(antworten) if antworten else "keine"))
 
 
 def markieren(obj, daten):
