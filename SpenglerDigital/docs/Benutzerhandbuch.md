@@ -91,7 +91,7 @@ Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinat
 
 Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.
 
-**3D-Detail anwenden:** Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die **Passung** prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail als **eigene Komponente** importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Es wird nicht automatisch mit dem Blech vereinigt (damit der Blechkörper gültig bleibt). Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.
+**3D-Detail anwenden:** Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die **Passung** prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Standardmässig (Haken «Ins bestehende Modell integrieren») wird es danach in den Zielkörper übernommen (siehe Kapitel 16); ohne Haken bleibt es eine **eigene Komponente**. Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.
 
 ## 8. Standard- und Expertenmodus
 
@@ -207,7 +207,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 | «… FlangeFeatures.createEdgeFlangeInput fehlt» | Fusion aktualisieren; die Blech-API ist neu. |
 | «… lässt sich nicht einstellen – abgebrochen» | Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken. |
 | «Neue Aussenkante ist mehrdeutig» | Folge in Einzelschritten anwenden (je Schritt eine Vorlage). |
-| «ungeeignet: … gekrümmt» | Für runde Ränder den Befehl Rundblech verwenden. |
+| «ungeeignet: … Kurventyp» | Ellipsen und Splines werden nicht bearbeitet; Kreise, Bögen und gerade Kanten gehen. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden. |
 | «Materialwerte fehlen: ri, k» | Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne `ri`/`k` schreiben. |
 | «Parameter nicht gefunden» (3D-Detail) | Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen. |
 

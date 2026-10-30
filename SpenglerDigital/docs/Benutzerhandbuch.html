@@ -71,7 +71,7 @@
 <h2>7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]</h2>
 <p><b>Kanten bearbeiten:</b> Eine oder mehrere gerade oder runde (Kreis/Bogen) Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der <b>Bauplan</b> im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit <b>Vorschau</b> zeigt Fusion das Ergebnis vor der Bestätigung.</p>
 <p>Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.</p>
-<p><b>3D-Detail anwenden:</b> Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die <b>Passung</b> prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail als <b>eigene Komponente</b> importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Es wird nicht automatisch mit dem Blech vereinigt (damit der Blechkörper gültig bleibt). Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.</p>
+<p><b>3D-Detail anwenden:</b> Detailvorlage wählen, Zielkante (Falzende) und optional Bezugsfläche wählen, Werte eingeben. Die <b>Passung</b> prüft Kantentyp, Kantenlänge, Blechdicke und Wertebereiche. Mit «Um 180° wenden» wird die Richtung umgekehrt. Beim OK wird das Detail importiert, an der Kante ausgerichtet und die Parameter werden gesetzt. Standardmässig (Haken «Ins bestehende Modell integrieren») wird es danach in den Zielkörper übernommen (siehe Kapitel 16); ohne Haken bleibt es eine <b>eigene Komponente</b>. Überschneiden sich Begrenzungsrahmen mit anderen Körpern, erscheint ein Kollisionshinweis.</p>
 <h2>8. Standard- und Expertenmodus</h2>
 <p>Beide Modi benutzen dieselbe Rechen-Engine.</p>
 <ul>
@@ -164,7 +164,7 @@
 <tr><td>«… FlangeFeatures.createEdgeFlangeInput fehlt»</td><td>Fusion aktualisieren; die Blech-API ist neu.</td></tr>
 <tr><td>«… lässt sich nicht einstellen – abgebrochen»</td><td>Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken.</td></tr>
 <tr><td>«Neue Aussenkante ist mehrdeutig»</td><td>Folge in Einzelschritten anwenden (je Schritt eine Vorlage).</td></tr>
-<tr><td>«ungeeignet: … gekrümmt»</td><td>Für runde Ränder den Befehl Rundblech verwenden.</td></tr>
+<tr><td>«ungeeignet: … Kurventyp»</td><td>Ellipsen und Splines werden nicht bearbeitet; Kreise, Bögen und gerade Kanten gehen. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden.</td></tr>
 <tr><td>«Materialwerte fehlen: ri, k»</td><td>Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne <code>ri</code>/<code>k</code> schreiben.</td></tr>
 <tr><td>«Parameter nicht gefunden» (3D-Detail)</td><td>Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen.</td></tr>
 </table>
