@@ -397,8 +397,10 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
         raise AdapterFehler("Diese Fusion-Version hat kein Saum-Werkzeug in der API (hemFeatures).")
     L = _vi_mm(laenge_mm)
-    lagen = [lage] if lage else ["kante", "innen", "aussen", "tangential"]
-    richtungen = [bool(nach_hinten)] if lage else [bool(nach_hinten), not nach_hinten]
+    # Live-Test 30.10. (0.4.9): Eine in der Vorlage eingestellte Lage «tangential» scheiterte allein (Modellfehler), Standard (Kante) ging.
+    # Die eingestellte Lage wird deshalb zuerst versucht, danach die übrigen; die Richtung der Vorlage bleibt zuerst.
+    lagen = ([lage] if lage else []) + [l for l in ("kante", "innen", "aussen", "tangential") if l != lage]
+    richtungen = [bool(nach_hinten), not nach_hinten]
     versuche = []
     for flip in richtungen:
         for l in lagen:

@@ -329,13 +329,124 @@ class UmschlagTest(unittest.TestCase):
         self.assertEqual(len(inp.aufrufe), 3, "dritte Lage hat funktioniert")
         self.assertEqual(len(hf.hinzu), 1)
 
-    def test_ausdrueckliche_lage_wird_nicht_ueberstimmt(self):
-        inp = HemEingabe(ergebnis=False)
+    def test_ausdrueckliche_lage_zuerst_dann_die_uebrigen(self):
+        """Live 0.4.9: eingestellte Lage «tangential» scheiterte allein – sie wird zuerst versucht, dann geht es mit den anderen weiter."""
+        inp = HemEingabe()
         hf = Sammlung(inp)
+        zaehler = []
+        echte_add = hf.add
+
+        def add(i):
+            zaehler.append(1)
+            if len(zaehler) < 2:
+                raise RuntimeError("3 : Failed to create Hem: SM_MODELING_ERROR")
+            return echte_add(i)
+        hf.add = add
+        fa.umschlag(kante_mit(hem=hf), 12, False, None, "tangential")
+        self.assertEqual(len(inp.aufrufe), 2)
+
+    def test_ohne_api(self):
         with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.umschlag(kante_mit(hem=hf), 12, False, None, "innen")
-        self.assertIn("1 Varianten", str(cm.exception))
-        self.assertEqual(len(inp.aufrufe), 1)
+            fa.flansch(kante_mit(), 90, 20)
+        self.assertIn("Oktober 2026", str(cm.exception))
+
+    def test_runde_kante_wird_versucht_und_fusions_antwort_gemeldet(self):
+        class Wirft(Sammlung):
+            def createEdgeFlangeInput(self, kanten, hoehe):
+                raise RuntimeError("Edges must be linear")
+        k = kante_mit(Wirft(Eingabe("angle")))
+        k.geometry.curveType = "KREIS"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k, 90, 20)
+        self.assertIn("Edges must be linear", str(cm.exception))
+        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        ff = Sammlung(Eingabe("angle"))
+        ff.createEdgeFlangeInput = lambda kanten, hoehe: None     # Fusion liefert null
+        k2 = kante_mit(ff)
+        k2.geometry.curveType = "BOGEN"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k2, 90, 20)
+        self.assertIn("lehnt den Flansch an dieser runden Kante ab", str(cm.exception))
+
+    def test_runde_kante_klappt_wenn_fusion_sie_nimmt(self):
+        ff = Sammlung(Eingabe("angle"))
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        fa.flansch(k, 90, 20)
+        self.assertEqual(len(ff.hinzu), 1)
+
+    def test_mehrere_kanten_in_einem_feature_mit_gehrung(self):
+        inp = Eingabe("angle", "isMiteredCorners")
+        ff = Sammlung(inp)
+        k1 = kante_mit(ff)
+        k2 = Kante((0, 0, 0), (0, 30, 0))
+        k2.body = k1.body
+        fa.flansch([k1, k2], 90, 20)
+        self.assertEqual(ff.aufrufe[0][0], [k1, k2], "beide Kanten in einer Eingabe")
+        self.assertEqual(len(ff.hinzu), 1)
+        self.assertTrue(inp.werte["isMiteredCorners"])
+
+
+class HemEingabe(object):
+    """Nachbau HemFeatureInput: setFlatHem/setOpenHem merken die Argumente und liefern True/False."""
+    def __init__(self, ergebnis=True, wirft=None):
+        self.aufrufe, self.ergebnis, self.wirft = [], ergebnis, wirft
+
+    def _set(self, name, *a):
+        if self.wirft:
+            raise RuntimeError(self.wirft)
+        self.aufrufe.append((name,) + a)
+        return self.ergebnis
+
+    def setFlatHem(self, *a):
+        return self._set("flat", *a)
+
+    def setOpenHem(self, *a):
+        return self._set("open", *a)
+
+
+class UmschlagTest(unittest.TestCase):
+    """Nach der echten API: createHemFeatureInput() ohne Argumente, dann setFlatHem/setOpenHem (Fusion 2025-09, help.autodesk.com)."""
+    def test_geschlossener_saum_ohne_radius(self):
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        k = kante_mit(hem=hf)
+        fa.umschlag(k, 7, True)
+        self.assertEqual(hf.aufrufe[0], ())
+        name, kante, laenge, geflippt, position = inp.aufrufe[0]
+        self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
+        self.assertEqual(len(hf.hinzu), 1)
+
+    def test_radius_der_vorlage_macht_keinen_offenen_saum(self):
+        inp = HemEingabe()
+        fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
+        self.assertEqual(inp.aufrufe[0][0], "flat", "Live-Test: offener Saum scheiterte, Radius kommt aus der Blechregel")
+
+    def test_fusion_lehnt_ab_oder_wirft(self):
+        for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):
+            hf = Sammlung(inp)
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.umschlag(kante_mit(hem=hf), 7, False)
+            self.assertIn(text, str(cm.exception))
+            self.assertIn("8 Varianten", str(cm.exception), "4 Lagen × beide Richtungen wurden versucht")
+            self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
+
+    def test_berechnung_scheitert_naechste_variante(self):
+        """Live-Test 30.10.: Fusion nahm die Definition an, hf.add scheiterte («SM_MODELING_ERROR») → andere Lage versuchen."""
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        echte_add = hf.add
+        zaehler = []
+
+        def add(i):
+            zaehler.append(1)
+            if len(zaehler) < 3:
+                raise RuntimeError("3 : Failed to create Hem: SM_MODELING_ERROR")
+            return echte_add(i)
+        hf.add = add
+        fa.umschlag(kante_mit(hem=hf), 12, False)
+        self.assertEqual(len(inp.aufrufe), 3, "dritte Lage hat funktioniert")
+        self.assertEqual(len(hf.hinzu), 1)
 
     def test_ohne_api(self):
         with self.assertRaises(fa.AdapterFehler):
