@@ -91,7 +91,8 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Wert ändern → Vorschau → OK | Detail sitzt an der Kante, Meldung nennt gesetzte Parameter |
 | ☐ | «Um 180° wenden» | Detail andersherum |
 | ☐ | Gekrümmte Zielkante wählen | lässt sich nicht wählen (nur gerade Kanten) |
-| ☐ | **Kanten bearbeiten** an Kreiskante und an Bogenkante eines Blechs (Flansch 90°, dann Umschlag) | Flansch folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück; bei Hinweis «Einschnitte» Ergebnis prüfen |
+| ☐ | **Kanten bearbeiten** an Kreis- oder Bogenkante mit einer Vorlage **aus reinen Umschlägen** (`U+ 7`) | Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück |
+| ☐ | Dieselbe Kante mit einer Vorlage mit **Flansch** (`90 25`) | «ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze) |
 | ☐ | **3D-Detail anwenden** mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech) | Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen |
 | ☐ | Dasselbe mit Detail, das den Körper nicht berührt | klare Meldung, Modell unverändert |
 

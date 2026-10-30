@@ -89,7 +89,7 @@ Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinat
 
 ## 7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]
 
-**Kanten bearbeiten:** Eine oder mehrere gerade oder runde (Kreis/Bogen) Aussenkanten eines Blechkörpers wählen, Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
+**Kanten bearbeiten:** Eine oder mehrere Aussenkanten eines Blechkörpers wählen (Flansch: nur gerade Kanten; Umschlag zusätzlich Kreis/Bogen, dort nicht live geprüft), Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
 
 Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.
 
@@ -209,7 +209,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 | «… FlangeFeatures.createEdgeFlangeInput fehlt» | Fusion aktualisieren; die Blech-API ist neu. |
 | «… lässt sich nicht einstellen – abgebrochen» | Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken. |
 | «Neue Aussenkante ist mehrdeutig» | Folge in Einzelschritten anwenden (je Schritt eine Vorlage). |
-| «ungeeignet: … Kurventyp» | Ellipsen und Splines werden nicht bearbeitet; Kreise, Bögen und gerade Kanten gehen. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden. |
+| «ungeeignet: … rund / Kurventyp» | Flansch nur an geraden Kanten; Kreise/Bögen nur mit einer Vorlage aus reinen Umschlägen; Ellipse/Spline gar nicht. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden. |
 | «Materialwerte fehlen: ri, k» | Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne `ri`/`k` schreiben. |
 | «Parameter nicht gefunden» (3D-Detail) | Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen. |
 
@@ -217,7 +217,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 
 - Die Fusion-Blech-API ist bei Autodesk «Preview». Flansch und Umschlag sind **nicht in Fusion geprüft**; die Eigenschaftsnamen werden gesucht und protokolliert.
 - Freistellungen/Ecken erzeugt Fusion nach der Blechregel; eigene Freistellungen erzeugt das Add-in nicht.
-- Flansche über die ganze Kantenlänge; an runden Kanten (Kreis/Bogen) per Tangentenkette – nicht live geprüft, bei Hinweis auf Einschnitte Ergebnis prüfen.
+- Flansche über die ganze Kantenlänge und nur an **geraden** Kanten: Fusions Flansch-Schnittstelle (EdgeFlange, ab API Oktober 2026) nimmt laut Autodesk nur lineare Aussenkanten. An Kreis-/Bogenkanten ist nur ein **Umschlag** (Saum) vorgesehen – nicht live geprüft; Vorlagen mit Flansch werden dort mit Grund abgelehnt.
 - 3D-Details: Benutzerparameter gelten im ganzen Dokument; zweimal dasselbe Detail mit verschiedenen Werten im selben Dokument ist nicht geprüft.
 - Rundbleche als Drehkörper, nicht als Fusion-Blechkörper; Umformbarkeit nur mit eigenen Grenzwerten.
 - Keine automatische Fusion-Zeichnung (Werkstattblatt statt dessen).

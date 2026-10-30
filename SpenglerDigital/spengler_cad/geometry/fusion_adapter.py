@@ -283,38 +283,44 @@ def schlitze_pruefen(feature, kante, dicke_mm):
 
 
 # ------------------------------------------------------------------ Flansch / Umschlag
-def _tangentenkette(inp, edge):
-    """Bei runden Kanten die Tangentenkette einschalten, damit Fusion der ganzen Kontur folgt (Bogen + Anschlussstücke)."""
-    if _kurventyp(edge) not in ("kreis", "bogen"):
-        return
-    n = setze(inp, ["isTangentChain", "tangentChain", "isTangentChainEnabled"], True)
-    logger.info("Tangentenkette", gesetzt=n)
-
-
 def _flange_features(comp):
     ff = getattr(comp.features, "flangeFeatures", None)
     if ff is None or not hasattr(ff, "createEdgeFlangeInput"):
-        raise AdapterFehler("Diese Fusion-Version kann keine Flansche per Add-in erzeugen (FlangeFeatures.createEdgeFlangeInput fehlt). "
-                            "Bitte Fusion aktualisieren. Fusion %s" % app().version)
+        raise AdapterFehler("Diese Fusion-Version kann keine Flansche per Add-in erzeugen (FlangeFeatures.createEdgeFlangeInput fehlt; "
+                            "die Funktion gibt es laut Autodesk erst seit der API-Version Oktober 2026). Bitte Fusion aktualisieren. Fusion %s" % app().version)
     return ff
 
 
 def flansch(edge, winkel, laenge_mm, radius_mm=None):
-    """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten."""
+    """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten.
+
+    Echte API (help.autodesk.com, EdgeFlangeInput, Preview, ab Oktober 2026): createEdgeFlangeInput(edges, distance) nimmt NUR gerade
+    Aussenkanten; Eigenschaften angle (ValueInput), isFlipped, bendRadiusOverride.setOverride(ValueInput). NICHT live geprüft."""
+    if _kurventyp(edge) != "linie":
+        raise AdapterFehler("Der Fusion-Flansch (EdgeFlange-API) arbeitet nur an geraden Kanten, nicht an Kreisen/Bögen – "
+                            "laut Autodesk-Dokumentation «linear edges on the outside of a sheet metal body». Für runde Ränder bleibt der Umschlag (Saum) "
+                            "oder das Rundblech-Werkzeug.")
     comp = edge.body.parentComponent
     ff = _flange_features(comp)
     inp = ff.createEdgeFlangeInput([edge], _vi_mm(laenge_mm))
+    if inp is None:
+        raise AdapterFehler("Fusion konnte die Flansch-Eingabe nicht anlegen (Kante ungeeignet?).")
     logger.info("EdgeFlangeInput", eigenschaften=_namen(inp))
-    _tangentenkette(inp, edge)
     w = abs(winkel)
-    gesetzt = setze(inp, ["flangeAngle", "angle", "setAngle", "setFlangeAngle"], _vi_grad(w))
+    gesetzt = setze(inp, ["angle", "flangeAngle", "setAngle", "setFlangeAngle"], _vi_grad(w))
     if not gesetzt and abs(w - 90) > 1e-6:
         raise AdapterFehler("Der Flanschwinkel %g° lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % w)
     if winkel < 0:
         if not setze(inp, ["isFlipped", "isDirectionFlipped", "flipDirection", "isFlangeFlipped"], True):
             raise AdapterFehler("Die Flanschrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
     if radius_mm is not None:
-        if not setze(inp, ["bendRadiusOverride", "bendRadius", "setBendRadius"], _vi_mm(radius_mm)):
+        ov = getattr(inp, "bendRadiusOverride", None)
+        try:
+            ok = bool(ov is not None and ov.setOverride(_vi_mm(radius_mm)))
+        except Exception as e:
+            logger.warnung("Biegeradius-Override fehlgeschlagen", fehler=e)
+            ok = False
+        if not ok:
             raise AdapterFehler("Der Biegeradius lässt sich nicht einstellen – abgebrochen (Radius wird nicht stillschweigend ignoriert).")
     feat = ff.add(inp)
     if feat is None:
@@ -323,44 +329,31 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None):
 
 
 def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None):
-    """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion (Preview-API, Aufrufform wird gesucht)."""
+    """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
+
+    Echte API (help.autodesk.com, HemFeatureInput, ab September 2025): hf.createHemFeatureInput() ohne Argumente, danach
+    setFlatHem(edge, length, isFlipped, bendPositionType) bzw. – mit Spalt – setOpenHem(edge, length, gap, isFlipped, bendPositionType);
+    beide liefern True bei Erfolg. Ohne Radius: geschlossener Saum (Spalt 0); mit Radius: offener Saum mit Spalt = 2 × Radius (Annahme).
+    NICHT live geprüft."""
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
         raise AdapterFehler("Diese Fusion-Version hat kein Saum-Werkzeug in der API (hemFeatures).")
-    L = _vi_mm(laenge_mm)
-    inp, versuche = None, []
-    # 1. Stand Prototyp (Commit e8eea76): Eingabe ohne Argumente, Kante danach setzen
-    try:
-        inp = hf.createHemFeatureInput()
-        gesetzt = None
-        for wert in ([edge], edge, adsk.core.ObjectCollection.createWithArray([edge])):
-            gesetzt = setze(inp, ["edges", "setEdges", "inputEdges", "edge", "setEdge", "inputEntities", "entities"], wert)
-            if gesetzt:
-                break
-        if not gesetzt:
-            versuche.append("ohne Argumente: Kante nicht setzbar")
-            inp = None
-    except Exception as e:
-        versuche.append("ohne Argumente: %s" % e)
-        inp = None
-    # 2. Ältere Varianten aus Prototyp 0.1.2
+    inp = hf.createHemFeatureInput()
     if inp is None:
-        for args in (([edge],), ([edge], L), (edge,), (edge, L)):
-            try:
-                inp = hf.createHemFeatureInput(*args)
-                break
-            except Exception as e:
-                versuche.append(str(e).strip().replace("\n", " | "))
-    if inp is None:
-        raise AdapterFehler("Saum-Eingabe ging nicht: " + " // ".join(versuche))
+        raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
     logger.info("HemFeatureInput", eigenschaften=_namen(inp))
-    _tangentenkette(inp, edge)
-    if not setze(inp, ["length", "distance", "hemLength", "flangeLength", "setLength", "setDistance"], L):
-        raise AdapterFehler("Die Umschlaglänge lässt sich nicht einstellen – abgebrochen.")
-    setze(inp, ["gap", "hemGap", "setGap"], _vi_mm(0 if radius_mm is None else 2 * radius_mm))
-    if nach_hinten and not setze(inp, ["isFlipped", "isDirectionFlipped", "isHemFlipped", "flip"], True):
-        raise AdapterFehler("Die Umschlagrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
+    bp = adsk.fusion.BendPositionTypes.StartEdgeBendPositionType
+    L = _vi_mm(laenge_mm)
+    try:
+        if radius_mm is None:
+            ok = inp.setFlatHem(edge, L, bool(nach_hinten), bp)
+        else:
+            ok = inp.setOpenHem(edge, L, _vi_mm(2 * radius_mm), bool(nach_hinten), bp)
+    except Exception as e:
+        raise AdapterFehler("Der Umschlag lässt sich so nicht definieren: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__))
+    if not ok:
+        raise AdapterFehler("Fusion hat die Umschlag-Definition abgelehnt (Kante/Länge ungeeignet).")
     feat = hf.add(inp)
     if feat is None:
         raise AdapterFehler("Fusion hat den Umschlag nicht erzeugt.")

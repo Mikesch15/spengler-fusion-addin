@@ -18,9 +18,15 @@ def kante_eignung(kante, vorlage, material):
         gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)")
     typ = (vorlage or {}).get("connection", {}).get("edgeType", "gerade")
     kurve = kante.get("kurve")
-    # Flansch/Umschlag folgen auch runden Kanten (Kreis, Bogen). Andere Kurven (Ellipse, Spline) sind nicht zuverlässig → abgelehnt.
+    # Fusion-Flansch (EdgeFlange-API) nimmt nur gerade Kanten; der Saum (Umschlag) ist in der API nicht auf gerade Kanten beschränkt
+    # (an Kreis/Bogen nicht live geprüft). Ellipse/Spline: nicht zuverlässig → abgelehnt.
+    ops = (vorlage or {}).get("operations") or []
+    nur_umschlag = bool(ops) and all(o.get("typ") == "umschlag" for o in ops)
     if kurve not in ("linie", "kreis", "bogen"):
-        gruende.append("hat den Kurventyp «%s» – Flansch/Umschlag sind nur an geraden Kanten, Kreisen und Kreisbögen möglich" % kurve)
+        gruende.append("hat den Kurventyp «%s» – nur gerade Kanten (Flansch, Umschlag) sowie Kreise/Bögen (nur Umschlag) sind möglich" % kurve)
+    elif kurve in ("kreis", "bogen") and not nur_umschlag:
+        gruende.append("ist rund (%s) – Fusions Flansch-Werkzeug arbeitet nur an geraden Kanten; an runden Kanten ist nur eine Vorlage aus reinen "
+                       "Umschlägen möglich (Rundbleche: Befehl «Rundblech»)" % kurve)
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     if kante.get("flaechen", 2) != 2:

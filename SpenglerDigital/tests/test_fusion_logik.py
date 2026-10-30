@@ -187,19 +187,35 @@ def kante_mit(flange=None, hem=None):
     return k
 
 
+class Radiusueberschreibung(object):
+    """Nachbau BendRadiusOverride (echte API: setOverride(ValueInput) → bool)."""
+    def __init__(self, klappt=True):
+        self.klappt, self.wert = klappt, None
+
+    def setOverride(self, v):
+        self.wert = v
+        return self.klappt
+
+
 class FlanschTest(unittest.TestCase):
+    """Nach der echten API (EdgeFlangeInput: angle, isFlipped, bendRadiusOverride.setOverride) – ohne Fusion nachgebaut."""
     def test_werte_und_einheiten(self):
-        inp = Eingabe("flangeAngle", "isFlipped", "bendRadiusOverride")
+        inp = Eingabe("angle", "isFlipped", "bendRadiusOverride")
+        inp.werte["bendRadiusOverride"] = ov = Radiusueberschreibung()
         ff = Sammlung(inp)
         fa.flansch(kante_mit(ff), -45, 25, 5)
         self.assertEqual(ff.aufrufe[0][1], "25 mm")
-        self.assertEqual(inp.werte, {"flangeAngle": "45 deg", "isFlipped": True, "bendRadiusOverride": "5 mm"})
+        self.assertEqual((inp.werte["angle"], inp.werte["isFlipped"], ov.wert), ("45 deg", True, "5 mm"))
         self.assertEqual(len(ff.hinzu), 1)
 
     def test_kein_stilles_ersetzen(self):
-        for eig, args, text in ((("isFlipped",), (45, 20), "Flanschwinkel"), (("flangeAngle",), (-90, 20), "Flanschrichtung"),
-                                (("flangeAngle",), (90, 20, 3), "Biegeradius")):
-            ff = Sammlung(Eingabe(*eig))
+        def mit_radius(klappt):
+            e = Eingabe("angle", "bendRadiusOverride")
+            e.werte["bendRadiusOverride"] = Radiusueberschreibung(klappt)
+            return e
+        for inp, args, text in ((Eingabe("isFlipped"), (45, 20), "Flanschwinkel"), (Eingabe("angle"), (-90, 20), "Flanschrichtung"),
+                                (Eingabe("angle"), (90, 20, 3), "Biegeradius"), (mit_radius(False), (90, 20, 3), "Biegeradius")):
+            ff = Sammlung(inp)
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.flansch(kante_mit(ff), *args)
             self.assertIn(text, str(cm.exception))
@@ -211,33 +227,67 @@ class FlanschTest(unittest.TestCase):
         self.assertEqual(len(ff.hinzu), 1)
 
     def test_ohne_api(self):
-        with self.assertRaises(fa.AdapterFehler):
+        with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(kante_mit(), 90, 20)
+        self.assertIn("Oktober 2026", str(cm.exception))
+
+    def test_runde_kante_wird_klar_abgelehnt(self):
+        ff = Sammlung(Eingabe("angle"))
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k, 90, 20)
+        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        self.assertEqual(ff.aufrufe, [], "Fusion wird gar nicht erst aufgerufen")
+
+
+class HemEingabe(object):
+    """Nachbau HemFeatureInput: setFlatHem/setOpenHem merken die Argumente und liefern True/False."""
+    def __init__(self, ergebnis=True, wirft=None):
+        self.aufrufe, self.ergebnis, self.wirft = [], ergebnis, wirft
+
+    def _set(self, name, *a):
+        if self.wirft:
+            raise RuntimeError(self.wirft)
+        self.aufrufe.append((name,) + a)
+        return self.ergebnis
+
+    def setFlatHem(self, *a):
+        return self._set("flat", *a)
+
+    def setOpenHem(self, *a):
+        return self._set("open", *a)
 
 
 class UmschlagTest(unittest.TestCase):
-    def test_ohne_argumente_dann_kante(self):
-        inp = Eingabe("edges", "length", "gap", "isFlipped")
+    """Nach der echten API: createHemFeatureInput() ohne Argumente, dann setFlatHem/setOpenHem (Fusion 2025-09, help.autodesk.com)."""
+    def test_geschlossener_saum_ohne_radius(self):
+        inp = HemEingabe()
         hf = Sammlung(inp)
         k = kante_mit(hem=hf)
         fa.umschlag(k, 7, True)
         self.assertEqual(hf.aufrufe[0], ())
-        self.assertEqual(inp.werte["edges"], [k])
-        self.assertEqual((inp.werte["length"], inp.werte["gap"], inp.werte["isFlipped"]), ("7 mm", "0 mm", True))
-
-    def test_aeltere_aufrufform(self):
-        inp = Eingabe("length")
-        hf = Sammlung(inp, fehler_ohne_args=True)
-        fa.umschlag(kante_mit(hem=hf), 10, False, radius_mm=1.5)
-        self.assertEqual(len(hf.aufrufe[1]), 1, "Rückfall auf createHemFeatureInput([kante])")
+        name, kante, laenge, geflippt, position = inp.aufrufe[0]
+        self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
         self.assertEqual(len(hf.hinzu), 1)
 
-    def test_laenge_nicht_setzbar(self):
-        hf = Sammlung(Eingabe("edges"))
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.umschlag(kante_mit(hem=hf), 7, False)
-        self.assertIn("Umschlaglänge", str(cm.exception))
-        self.assertEqual(hf.hinzu, [])
+    def test_offener_saum_mit_radius(self):
+        inp = HemEingabe()
+        fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
+        name, _, laenge, spalt, geflippt, _ = inp.aufrufe[0]
+        self.assertEqual((name, laenge, spalt, geflippt), ("open", "10 mm", "3 mm", False))
+
+    def test_fusion_lehnt_ab_oder_wirft(self):
+        for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):
+            hf = Sammlung(inp)
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.umschlag(kante_mit(hem=hf), 7, False)
+            self.assertIn(text, str(cm.exception))
+            self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
+
+    def test_ohne_api(self):
+        with self.assertRaises(fa.AdapterFehler):
+            fa.umschlag(kante_mit(), 7, False)
 
 
 class RueckbauTest(unittest.TestCase):
@@ -437,17 +487,6 @@ class RundKanteTest(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.neue_aussenkante(feat, vorher, 25.0, 0.7)
         self.assertIn("mehrdeutig", str(cm.exception))
-
-    def test_tangentenkette_nur_bei_runden_kanten(self):
-        inp = Eingabe("isTangentChain")
-        ff = Sammlung(inp)
-        k = kante_mit(ff)
-        k.geometry.curveType = "KREIS"
-        fa.flansch(k, 90, 25)
-        self.assertEqual(inp.werte, {"isTangentChain": True})
-        inp2 = Eingabe("isTangentChain")
-        fa.flansch(kante_mit(Sammlung(inp2)), 90, 25)
-        self.assertEqual(inp2.werte, {})
 
     def test_schlitzhinweis(self):
         def flaeche(breiten):

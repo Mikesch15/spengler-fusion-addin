@@ -30,9 +30,14 @@ class BauplanTest(unittest.TestCase):
             self.assertTrue(p["validation"]["errors"], k)
             self.assertFalse(op.ist_ausfuehrbar(p))
 
-    def test_runde_kanten_sind_geeignet(self):
+    def test_runde_kanten_nur_fuer_reine_umschlag_vorlagen(self):
         for kurve in ("kreis", "bogen"):
-            p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])
+            p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])   # enthält Flansch → Fusion-Flansch nur an geraden Kanten
+            self.assertFalse(op.ist_ausfuehrbar(p), kurve)
+            self.assertIn("nur an geraden Kanten", " ".join(p["validation"]["errors"]))
+            v = testvorlage()
+            v["operations"] = [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+            p = op.erstelle(v, {}, test_material(), [kante(kurve=kurve)])
             self.assertFalse(p["validation"]["errors"], kurve)
             self.assertTrue(op.ist_ausfuehrbar(p))
 

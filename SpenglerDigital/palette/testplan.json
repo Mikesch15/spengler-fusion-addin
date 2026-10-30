@@ -305,16 +305,21 @@
     },
     {
      "id": "6.8",
-     "text": "Kanten bearbeiten an Kreiskante und an Bogenkante eines Blechs (Flansch 90°, dann Umschlag)",
-     "erwartet": "Flansch folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück; bei Hinweis «Einschnitte» Ergebnis prüfen"
+     "text": "Kanten bearbeiten an Kreis- oder Bogenkante mit einer Vorlage aus reinen Umschlägen (U+ 7)",
+     "erwartet": "Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück"
     },
     {
      "id": "6.9",
+     "text": "Dieselbe Kante mit einer Vorlage mit Flansch (90 25)",
+     "erwartet": "«ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze)"
+    },
+    {
+     "id": "6.10",
      "text": "3D-Detail anwenden mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech)",
      "erwartet": "Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen"
     },
     {
-     "id": "6.10",
+     "id": "6.11",
      "text": "Dasselbe mit Detail, das den Körper nicht berührt",
      "erwartet": "klare Meldung, Modell unverändert"
     }
