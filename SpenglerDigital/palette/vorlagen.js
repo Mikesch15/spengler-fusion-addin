@@ -7,12 +7,20 @@ let M = null;          // Material im Editor
 const $ = (id) => document.getElementById(id);
 const esc = (s) => String(s ?? "").replace(/[&<>"]/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;" }[c]));
 
+// Fusion legt adsk.fusionSendData teils erst NACH dem load-Ereignis an – bis zu 10 s darauf warten, statt sofort aufzugeben.
+async function verbindungAbwarten() {
+  for (let i = 0; i < 50; i++) {
+    if ((window.adsk && adsk.fusionSendData) || window.__testSenden) return;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+}
 async function senden(aktion, daten) {
   const json = JSON.stringify(daten || {});
   let antwort;
+  await verbindungAbwarten();
   if (window.adsk && adsk.fusionSendData) antwort = await adsk.fusionSendData(aktion, json);
   else if (window.__testSenden) antwort = await window.__testSenden(aktion, json);
-  else throw new Error("Keine Verbindung zu Fusion");
+  else throw new Error("Keine Verbindung zu Fusion (adsk.fusionSendData fehlt) – Palette bitte nur in Fusion öffnen, nicht im Browser; sonst Add-in neu starten.");
   const a = JSON.parse(antwort || "{}");
   if (!a.ok) throw new Error(a.fehler || "Unbekannter Fehler");
   if (a.abgleich) syncAnzeige(a.abgleich);
