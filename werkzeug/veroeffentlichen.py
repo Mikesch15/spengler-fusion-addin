@@ -107,6 +107,15 @@ def nachpruefen(db, hoch):
     return [h["pfad"] for h in hoch if h["sha256"] not in gut]
 
 
+def naechste_version(db):
+    """Höchste vorhandene Version + 1 in der letzten Stelle (0.4.6 → 0.4.7)."""
+    vorhanden = [r["version"] for r in db.abfrage("select version from public.cad_addin_releases")]
+    if not vorhanden:
+        raise Abbruch("Keine vorhandene Version – bitte eine Version angeben.")
+    a, b, c = max(versionszahl(v) for v in vorhanden)
+    return "%d.%d.%d" % (a, b, c + 1)
+
+
 def veroeffentlichen(db, version, text, mit_tests=True, log=print):
     log("1/8 Version prüfen")
     version_pruefen(db, version)
@@ -138,7 +147,7 @@ def veroeffentlichen(db, version, text, mit_tests=True, log=print):
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.split("\n")[0])
-    ap.add_argument("version")
+    ap.add_argument("version", help="z. B. 0.5.0 – oder «auto» für die nächste Nummer")
     ap.add_argument("text")
     ap.add_argument("--ohne-tests", action="store_true", help="nur für Testläufe")
     a = ap.parse_args(argv)
@@ -147,7 +156,11 @@ def main(argv=None):
         sys.exit("SUPABASE_ACCESS_TOKEN fehlt (GitHub: Settings → Secrets and variables → Actions).")
     db = VerwaltungsApi(token, os.environ.get("SUPABASE_PROJEKT", PROJEKT), os.environ.get("SUPABASE_API_URL", API))
     try:
-        veroeffentlichen(db, a.version.strip(), a.text.strip(), mit_tests=not a.ohne_tests)
+        v = a.version.strip()
+        if v.lower() in ("", "auto", "automatisch"):
+            v = naechste_version(db)
+            print("Automatische Version: %s" % v)
+        veroeffentlichen(db, v, a.text.strip(), mit_tests=not a.ohne_tests)
     except Abbruch as e:
         sys.exit("ABBRUCH: %s" % e)
 

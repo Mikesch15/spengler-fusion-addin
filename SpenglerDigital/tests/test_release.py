@@ -114,6 +114,13 @@ class ReleaseKnopfTest(unittest.TestCase):
         hochgeladen = json.loads(self.datei("releases", "hochgeladen.json"))
         self.assertTrue(set(db.blobs) <= set(hochgeladen), "alle hochgeladenen Dateien sind vermerkt")
 
+    def test_auto_nimmt_naechste_nummer(self):
+        db = Datenbank(releases=["0.4.5", "0.4.9"])
+        r = self.lauf(db, "auto")
+        self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
+        self.assertEqual(db.releases, ["0.4.5", "0.4.9", "0.4.10"])
+        self.assertIn('VERSION = "0.4.10"', self.datei("SpenglerDigital", "spengler_cad", "__init__.py"))
+
     def test_version_nicht_neuer(self):
         db = Datenbank(releases=["0.4.5"])
         for v in ("0.4.5", "0.4.4", "abc"):

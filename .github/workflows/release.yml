@@ -8,8 +8,9 @@ on:
   workflow_dispatch:
     inputs:
       version:
-        description: "Neue Version, z. B. 0.4.6 (muss höher sein als die letzte)"
-        required: true
+        description: "Version – leer lassen = automatisch die nächste (empfohlen)"
+        required: false
+        default: "auto"
         type: string
       text:
         description: "Was ist neu? (Kurztext, sieht der Anwender beim Update)"
@@ -39,9 +40,8 @@ jobs:
           TEXT: ${{ inputs.text }}
         run: python3 werkzeug/veroeffentlichen.py "$VERSION" "$TEXT"
       - name: Versionsänderung speichern
-        env:
-          VERSION: ${{ inputs.version }}
         run: |
+          VERSION=$(python3 -c "import re;print(re.search(r'VERSION = \"([^\"]*)\"',open('SpenglerDigital/spengler_cad/__init__.py').read()).group(1))")
           git config user.name "Release-Knopf"
           git config user.email "actions@users.noreply.github.com"
           git add SpenglerDigital/spengler_cad/__init__.py SpenglerDigital/SpenglerDigital.manifest SpenglerDigital/palette/testplan.json releases/hochgeladen.json
