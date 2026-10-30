@@ -45,6 +45,10 @@ class Einstellungen(object):
             raise EinstellungsFehler(" ".join(f))
         if d.get("ui", {}).get("mode") not in ("standard", "experte"):
             raise EinstellungsFehler("Modus muss «standard» oder «experte» sein.")
+        for k in ("minSchenkel", "minRadiusFaktor"):
+            v = (d.get("pruefung") or {}).get(k)
+            if v is not None and (not isinstance(v, (int, float)) or v < 0):
+                raise EinstellungsFehler("Prüfung vor Export: %s muss eine Zahl ≥ 0 sein." % k)
         from ..core import auftrag
         try:
             d["auftrag"] = auftrag.pruefe_einstellung(d.get("auftrag"))

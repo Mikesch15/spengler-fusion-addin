@@ -335,6 +335,11 @@ function zeigeEinstellungen() {
   $("sVerf").value = e.forming.defaultProcess;
   const au = e.auftrag || { wurzelOrdner: "Projekte", jahresordner: true, unterordner: ["Modelle", "Pläne", "Export"] };
   $("sAWurzel").value = au.wurzelOrdner || ""; $("sAJahr").checked = !!au.jahresordner; $("sAUnter").value = (au.unterordner || []).join(", ");
+  const ro = au.rollen || { modelle: "Modelle", plaene: "Pläne", export: "Export" };
+  $("sAMod").value = ro.modelle; $("sAPla").value = ro.plaene; $("sAExp").value = ro.export;
+  $("sALokal").value = au.lokalBasis || ""; $("sANr").checked = au.teilnummerMitAuftrag !== false;
+  const pr = e.pruefung || { minSchenkel: 10, minRadiusFaktor: 1 };
+  $("sPMin").value = pr.minSchenkel; $("sPRad").value = pr.minRadiusFaktor;
   const l = e.labels;
   [["sEsp", "spalten"], ["sEze", "zeilen"], ["sEbr", "breite"], ["sEho", "hoehe"], ["sEob", "oben"], ["sEli", "links"], ["sEax", "abstandX"], ["sEay", "abstandY"]].forEach(([id, k]) => { $(id).value = l[k]; });
   etikettenPruefen();
@@ -354,7 +359,9 @@ $("sSpeichern").onclick = async () => {
   e.nesting.kerf = zahlOderNull($("sFuge").value) ?? 0; e.nesting.margin = zahlOderNull($("sRand").value) ?? 0; e.nesting.rotationAllowed = $("sDreh").checked;
   e.export.layerContour = $("sLK").value || "ZUSCHNITT"; e.export.layerText = $("sLT").value || "TEXT"; e.export.fileNamePattern = $("sDN").value || "{bauteil}"; e.export.folder = $("sOrd").value.trim();
   e.forming.defaultProcess = $("sVerf").value;
-  e.auftrag = { wurzelOrdner: $("sAWurzel").value.trim(), jahresordner: $("sAJahr").checked, unterordner: $("sAUnter").value.split(",").map((x) => x.trim()).filter(Boolean) };
+  e.auftrag = { wurzelOrdner: $("sAWurzel").value.trim(), jahresordner: $("sAJahr").checked, unterordner: $("sAUnter").value.split(",").map((x) => x.trim()).filter(Boolean),
+    rollen: { modelle: $("sAMod").value.trim(), plaene: $("sAPla").value.trim(), export: $("sAExp").value.trim() }, lokalBasis: $("sALokal").value.trim(), teilnummerMitAuftrag: $("sANr").checked };
+  e.pruefung = { minSchenkel: zahlOderNull($("sPMin").value) ?? 10, minRadiusFaktor: zahlOderNull($("sPRad").value) ?? 1 };
   e.labels = etikettenLesen();
   if (await tun(() => senden("einstellungen_speichern", { einstellungen: e }), "Einstellungen gespeichert.")) await laden();
 };
@@ -422,3 +429,18 @@ $("tSenden").onclick = async () => {
 };
 
 window.addEventListener("load", () => tun(async () => { await laden(); await ladeTests(); }));
+
+
+// ------------------------------------------------------------------ Berichte: Fehlerberichte und Änderungsprotokoll
+$("fbLaden").onclick = async () => {
+  const r = await tun(() => senden("fehlerberichte"));
+  if (!r) return;
+  $("fbListe").innerHTML = r.length ? r.map((b, i) => `<details><summary>${esc((b.geaendert_am || "").replace("T", " ").slice(0, 16))} · v${esc(b.addin_version || "?")} · ${esc((b.text || "").slice(0, 110))}</summary>
+    <pre style="white-space:pre-wrap;font-size:11px">${esc(b.notiz || "")}\n\n${esc(b.protokoll || "")}</pre></details>`).join("") : "<p class='klein'>Keine Fehlerberichte.</p>";
+};
+async function aenderungenLaden() {
+  const r = await tun(() => senden("aenderungen", { max: 200 }));
+  if (!r) return;
+  $("acListe").innerHTML = r.map((a) => `<tr><td>${esc((a.zeit || "").replace("T", " "))}</td><td>${esc(a.benutzer)}</td><td>${esc(a.aktion)}</td><td>${esc(a.name)}</td><td>${esc(a.version ?? "")}</td></tr>`).join("") || "<tr><td colspan='5'>Noch keine Änderungen.</td></tr>";
+}
+$("acLaden").onclick = aenderungenLaden;

@@ -53,6 +53,7 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
   <button data-tab="sicherung">Sicherung</button>
   <button data-tab="konto">Konto</button>
   <button data-tab="tests">Tests</button>
+  <button data-tab="berichte">Berichte</button>
 </nav>
 <main>
 <div id="meldung"></div>
@@ -158,6 +159,10 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <div class="zeile"><label>Stammordner</label><input id="sAWurzel" size="30"> <span class="klein">Projekt oder Ordner, in dem die Aufträge liegen (z. B. Projekte)</span></div>
     <div class="zeile"><label>Jahresordner</label><input type="checkbox" id="sAJahr"> <span class="klein">Aufträge in einem Ordner je Jahr anlegen</span></div>
     <div class="zeile"><label>Unterordner</label><input id="sAUnter" size="50"> <span class="klein">mit Komma getrennt, z. B. Modelle, Pläne, Export</span></div>
+    <div class="zeile"><label>Ordner Modelle</label><input id="sAMod" size="14"> <label style="min-width:0">Pläne</label><input id="sAPla" size="14"> <label style="min-width:0">Export</label><input id="sAExp" size="14"></div>
+    <div class="zeile"><label>Exporte auf dem PC</label><input id="sALokal" size="50"> <span class="klein">Basisordner; leer = Exportordner oben. Daraus wird Basis/Jahr/«Nummer Objekt»/Export</span></div>
+    <div class="zeile"><label>Teilenummer</label><input type="checkbox" id="sANr"> <span class="klein">mit Auftragsnummer, z. B. 17642-01</span></div>
+    <div class="zeile"><label>Prüfung vor Export</label><input id="sPMin" size="5"> <span class="klein">mm: kürzester Schenkel</span> <input id="sPRad" size="5"> <span class="klein">× Dicke: kleinster Innenradius</span></div>
   </fieldset>
   <fieldset><legend>Umformung</legend>
     <div class="zeile"><label>Standardverfahren</label><select id="sVerf"><option value="manuell">Manuelle Werkstattumformung</option><option value="auto">Automatische Empfehlung</option><option value="stauchen">Stauchen/Schweifen</option><option value="strecken">Strecken/Schweifen</option></select></div>
@@ -171,6 +176,16 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="berichte">
+  <fieldset><legend>Fehlerberichte (automatisch übermittelt)</legend>
+    <div class="zeile"><button id="fbLaden">Fehlerberichte laden</button><span class="klein" id="fbHinweis">Nur mit Konto (Register Konto). Jede Fehlermeldung im Add-in schickt Meldung und Protokollauszug an die eigene Firma.</span></div>
+    <div id="fbListe"></div>
+  </fieldset>
+  <fieldset><legend>Änderungsprotokoll (Vorlagen, Materialien – dieser PC)</legend>
+    <div class="zeile"><button id="acLaden">Aktualisieren</button></div>
+    <table><thead><tr><th>Zeit</th><th>Benutzer</th><th>Aktion</th><th>Name</th><th>Version</th></tr></thead><tbody id="acListe"></tbody></table>
+  </fieldset>
 </section>
 <section id="tests">
   <div class="zeile"><b id="tFortschritt"></b><span style="flex:1"></span><button id="tSenden">Nicht gesendete Ergebnisse senden</button></div>

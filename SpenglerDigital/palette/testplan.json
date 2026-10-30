@@ -478,6 +478,46 @@
      "id": "9.11",
      "text": "Testordner wieder löschen (von Hand im Datenfenster)",
      "erwartet": ""
+    },
+    {
+     "id": "9.12",
+     "text": "Auftrag wählen: Suchfeld «Sonne», Auftrag wählen, Haken «Dokument im Ordner Modelle speichern» → OK",
+     "erwartet": "Meldung «Aktiver Auftrag …», Dokument liegt im Ordner «Modelle» des Auftrags"
+    },
+    {
+     "id": "9.13",
+     "text": "Dasselbe nochmals mit dem schon dort liegenden Dokument",
+     "erwartet": "Meldung «liegt schon im Ordner»"
+    },
+    {
+     "id": "9.14",
+     "text": "Einstellungen → Aufträge: «Exporte auf dem PC» auf einen Testordner setzen, speichern; Abwicklung & DXF",
+     "erwartet": "Dateien liegen in Basis/Jahr/Nummer Objekt/Export/<Datum>"
+    },
+    {
+     "id": "9.15",
+     "text": "Teile im Werkstattblatt/Stückliste",
+     "erwartet": "Teilenummern wie 17642-01"
+    },
+    {
+     "id": "9.16",
+     "text": "Stückliste & Zuschnitt mit «Abkantliste»",
+     "erwartet": "abkantliste.html mit Biegefolge je Teil; Prüfung zeigt Warnungen (z. B. Schenkel unter 10 mm)"
+    },
+    {
+     "id": "9.17",
+     "text": "In einem zweiten Dokument desselben Auftrags «Stückliste & Zuschnitt» mit «Bestellliste für den ganzen Auftrag»",
+     "erwartet": "bestellliste.txt nennt beide Dokumente"
+    },
+    {
+     "id": "9.18",
+     "text": "Register Berichte: Änderungsprotokoll → Aktualisieren, nach einer Vorlagenänderung",
+     "erwartet": "Eintrag mit Zeit, Benutzer, Aktion"
+    },
+    {
+     "id": "9.19",
+     "text": "Eine Fehlermeldung auslösen (z. B. Umschlag an ungeeigneter Kante), Berichte → Fehlerberichte laden",
+     "erwartet": "Bericht mit Protokollauszug erscheint"
     }
    ]
   },

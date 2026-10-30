@@ -330,8 +330,37 @@ class TestergebnisseTest(CloudBasis):
             self.assertFalse(base.fehlerbericht_senden("Kanten bearbeiten", "Umschlag geht nicht"), "ohne Anmeldung nichts senden, kein Fehler")
             Cloud(self.ordner[0], url=self.url, timeout=5).anmelden("chef", "geheim")
             self.assertTrue(base.fehlerbericht_senden("Kanten bearbeiten", "Umschlag geht nicht"))
-        zeile = [t for t in self.z.tests if t["test_id"] == base.FEHLERBERICHT_ID][0]
+        zeile = [t for t in self.z.tests if t["test_id"].startswith(base.FEHLERBERICHT_PRAEFIX + ".")][0]
         self.assertEqual((zeile["status"], zeile["notiz"]), ("fehler", "Umschlag geht nicht"))
+
+    def test_fehlerberichte_lesen(self):
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "fusion_stub"))
+        from unittest import mock
+        from spengler_cad.commands import base
+        os.environ["SPENGLER_CAD_CLOUD_URL"] = self.url
+        self.addCleanup(os.environ.pop, "SPENGLER_CAD_CLOUD_URL", None)
+        b = self.backend()
+        with mock.patch.object(base.paths, "daten_ordner", return_value=self.ordner[0]):
+            base.fehlerbericht_senden("Kanten bearbeiten", "Umschlag geht nicht")
+        liste = b.a_fehlerberichte({})
+        self.assertTrue(any(r["test_id"].startswith("98.") and r["notiz"] == "Umschlag geht nicht" for r in liste))
+        with self.assertRaises(RuntimeError):
+            self.backend(i=1, anmelden=False).a_fehlerberichte({})
+
+    def test_aenderungsprotokoll(self):
+        import json as _json
+        b = self.backend(anmelden=False)
+        v = testvorlage()
+        r = _json.loads(b.behandle("speichern", {"vorlage": v}))
+        self.assertTrue(r["ok"], r)
+        _json.loads(b.behandle("duplizieren", {"id": r["daten"]["id"]}))
+        liste = b.a_aenderungen({})
+        self.assertEqual([x["aktion"] for x in liste][:2], ["dupliziert", "gespeichert"], "neueste zuerst")
+        self.assertEqual(liste[1]["name"], v["name"])
+        self.assertEqual(liste[1]["benutzer"], "lokal")
+        _json.loads(b.behandle("konto", {}))
+        self.assertEqual(len(b.a_aenderungen({})), 2, "nur Änderungen werden protokolliert")
 
     def test_lokal_ohne_anmeldung(self):
         b = self.backend(anmelden=False)

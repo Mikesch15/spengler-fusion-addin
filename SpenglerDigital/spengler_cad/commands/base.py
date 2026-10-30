@@ -1,5 +1,6 @@
 """Gemeinsame Bausteine für alle Fusion-Befehle: Definition, Handler am Leben halten, Fehlerbehandlung."""
 import os
+import time
 import traceback
 
 import adsk.core
@@ -17,7 +18,7 @@ def ui():
     return adsk.core.Application.get().userInterface
 
 
-FEHLERBERICHT_ID = "98.1"      # Testpunkt-Nummer für den letzten automatisch übermittelten Fehler (je Firma eine Zeile, wird überschrieben)
+FEHLERBERICHT_PRAEFIX = "98"   # Testpunkte 98.000–98.999: automatisch übermittelte Fehlerberichte (je 10 Minuten ein Platz, nach rund 7 Tagen wiederverwendet)
 
 
 def fehlerbericht_senden(titel, text):
@@ -28,7 +29,7 @@ def fehlerbericht_senden(titel, text):
         c = Cloud(paths.daten_ordner(), timeout=6)
         if not c.angemeldet:
             return False
-        c.test_speichern({"test_id": FEHLERBERICHT_ID, "text": ("%s: %s" % (titel, text))[:1000], "status": "fehler", "notiz": text[:4000],
+        c.test_speichern({"test_id": "%s.%03d" % (FEHLERBERICHT_PRAEFIX, (int(time.time()) // 600) % 1000), "text": ("%s: %s" % (titel, text))[:1000], "status": "fehler", "notiz": text[:4000],
                           "protokoll": logger.ende(), "addin_version": VERSION, "fusion_version": logger.fusion_version(),
                           "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
         return True

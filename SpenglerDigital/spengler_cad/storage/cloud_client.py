@@ -225,5 +225,10 @@ class Cloud(object):
         self._anfrage("POST", "/rest/v1/cad_testergebnisse?on_conflict=company_id,test_id", [zeile],
                       kopf={"Prefer": "resolution=merge-duplicates,return=minimal"})
 
+    def fehlerberichte(self, anzahl=40):
+        """Automatisch übermittelte Fehlerberichte (Testpunkte 98.x) der eigenen Firma, neueste zuerst."""
+        return self._json("GET", "/rest/v1/cad_testergebnisse?select=test_id,text,notiz,protokoll,addin_version,fusion_version,geaendert_am"
+                                 "&test_id=like.98.*&order=geaendert_am.desc&limit=%d" % anzahl) or []
+
     def test_liste(self):
         return self._json("GET", "/rest/v1/cad_testergebnisse?select=test_id,status,notiz,geaendert_am&order=test_id") or []

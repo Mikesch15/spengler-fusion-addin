@@ -144,6 +144,19 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Dokument im Ordner «Modelle» eines Auftrags speichern, **Stückliste & Zuschnitt** öffnen | Auftrag und Objekt sind aus dem Ordnernamen vorbelegt |
 | ☐ | Testordner wieder löschen (von Hand im Datenfenster) | – |
 
+## 9b. Auftrag wählen, Export, Listen (8 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | **Auftrag wählen**: Suchfeld «Sonne», Auftrag wählen, Haken «Dokument im Ordner Modelle speichern» → OK | Meldung «Aktiver Auftrag …», Dokument liegt im Ordner «Modelle» des Auftrags |
+| ☐ | Dasselbe nochmals mit dem schon dort liegenden Dokument | Meldung «liegt schon im Ordner» |
+| ☐ | Einstellungen → Aufträge: «Exporte auf dem PC» auf einen Testordner setzen, speichern; **Abwicklung & DXF** | Dateien liegen in `Basis/Jahr/Nummer Objekt/Export/<Datum>` |
+| ☐ | Teile im Werkstattblatt/Stückliste | Teilenummern wie `17642-01` |
+| ☐ | **Stückliste & Zuschnitt** mit «Abkantliste» | `abkantliste.html` mit Biegefolge je Teil; Prüfung zeigt Warnungen (z. B. Schenkel unter 10 mm) |
+| ☐ | In einem zweiten Dokument desselben Auftrags «Stückliste & Zuschnitt» mit «Bestellliste für den ganzen Auftrag» | `bestellliste.txt` nennt beide Dokumente |
+| ☐ | Register **Berichte**: Änderungsprotokoll → Aktualisieren, nach einer Vorlagenänderung | Eintrag mit Zeit, Benutzer, Aktion |
+| ☐ | Eine Fehlermeldung auslösen (z. B. Umschlag an ungeeigneter Kante), Berichte → Fehlerberichte laden | Bericht mit Protokollauszug erscheint |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |

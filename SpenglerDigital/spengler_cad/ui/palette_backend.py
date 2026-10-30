@@ -33,6 +33,11 @@ def _ohne_intern(v):
     return {k: x for k, x in v.items() if k not in ("_datei",)}
 
 
+AENDERUNGEN = {"speichern": "gespeichert", "duplizieren": "dupliziert", "umbenennen": "umbenannt", "loeschen": "gelöscht",
+               "papierkorb_zurueck": "wiederhergestellt", "import": "importiert", "material_speichern": "Material gespeichert",
+               "material_loeschen": "Material gelöscht", "favorit": "Favorit geändert", "kategorie": "Kategorie geändert"}
+
+
 class Backend(object):
     def __init__(self, wurzel=None, timeout=15):
         self.wurzel = wurzel
@@ -283,6 +288,43 @@ class Backend(object):
         except Exception as e:
             return {"ok": False, "text": str(e)}
 
+    # ------------------------------------------------------------------ Änderungsprotokoll (wer hat wann was an Vorlagen/Material geändert)
+    def _aenderungsdatei(self):
+        return os.path.join(self.wurzel or paths.daten_ordner(), "aenderungen.json")
+
+    def _aenderung_merken(self, aktion, d, erg):
+        """Fehler beim Protokollieren verhindern nie die Aktion selbst. Gilt für diesen PC (kein Abgleich zwischen PCs)."""
+        import datetime
+        from ..storage import json_store
+        try:
+            e = erg if isinstance(erg, dict) else {}
+            vorlage = d.get("vorlage") if isinstance(d.get("vorlage"), dict) else {}
+            material = d.get("material") if isinstance(d.get("material"), dict) else {}
+            name = vorlage.get("name") or material.get("name") or e.get("name") or d.get("name") or d.get("id") or d.get("pfad") or ""
+            try:
+                konto = self._cloud().konto
+                benutzer = konto.get("name") or konto.get("benutzer") or konto.get("email") or "lokal"
+            except Exception:
+                benutzer = "lokal"
+            liste = json_store.lesen(self._aenderungsdatei()) or []
+            liste.append({"zeit": datetime.datetime.now().isoformat(timespec="seconds"), "benutzer": benutzer, "aktion": AENDERUNGEN[aktion],
+                          "name": str(name)[:200], "version": e.get("version"), "id": e.get("id") or d.get("id")})
+            json_store.schreiben(self._aenderungsdatei(), liste[-1000:])
+        except Exception:
+            from ..diagnostics import logger
+            logger.ausnahme("Änderungsprotokoll")
+
+    def a_aenderungen(self, d):
+        from ..storage import json_store
+        return list(reversed((json_store.lesen(self._aenderungsdatei()) or [])[-int(d.get("max") or 200):]))
+
+    def a_fehlerberichte(self, d):
+        """Automatisch übermittelte Fehlerberichte der eigenen Firma (neueste zuerst)."""
+        c = self._cloud()
+        if not c.angemeldet:
+            raise RuntimeError("Für die Fehlerberichte zuerst unter «Konto» anmelden.")
+        return c.fehlerberichte()
+
     def behandle(self, aktion, daten_json):
         try:
             d = json.loads(daten_json) if isinstance(daten_json, str) and daten_json else (daten_json or {})
@@ -290,6 +332,8 @@ class Backend(object):
             if f is None:
                 return json.dumps({"ok": False, "fehler": "Unbekannte Aktion %s" % aktion})
             erg = f(d)
+            if aktion in AENDERUNGEN:
+                self._aenderung_merken(aktion, d, erg)
             return json.dumps({"ok": True, "daten": erg, "abgleich": self._auto_abgleich(aktion)}, ensure_ascii=False, default=str)
         except Exception as e:  # jede Meldung verständlich zurück an die Palette
             from ..diagnostics import logger
