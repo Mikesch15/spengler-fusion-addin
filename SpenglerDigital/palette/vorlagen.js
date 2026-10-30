@@ -332,6 +332,8 @@ function zeigeEinstellungen() {
   $("sFuge").value = e.nesting.kerf; $("sRand").value = e.nesting.margin; $("sDreh").checked = !!e.nesting.rotationAllowed;
   $("sLK").value = e.export.layerContour; $("sLT").value = e.export.layerText; $("sDN").value = e.export.fileNamePattern; $("sOrd").value = e.export.folder || "";
   $("sVerf").value = e.forming.defaultProcess;
+  const au = e.auftrag || { wurzelOrdner: "Projekte", jahresordner: true, unterordner: ["Modelle", "Pläne", "Export"] };
+  $("sAWurzel").value = au.wurzelOrdner || ""; $("sAJahr").checked = !!au.jahresordner; $("sAUnter").value = (au.unterordner || []).join(", ");
   const l = e.labels;
   [["sEsp", "spalten"], ["sEze", "zeilen"], ["sEbr", "breite"], ["sEho", "hoehe"], ["sEob", "oben"], ["sEli", "links"], ["sEax", "abstandX"], ["sEay", "abstandY"]].forEach(([id, k]) => { $(id).value = l[k]; });
   etikettenPruefen();
@@ -351,6 +353,7 @@ $("sSpeichern").onclick = async () => {
   e.nesting.kerf = zahlOderNull($("sFuge").value) ?? 0; e.nesting.margin = zahlOderNull($("sRand").value) ?? 0; e.nesting.rotationAllowed = $("sDreh").checked;
   e.export.layerContour = $("sLK").value || "ZUSCHNITT"; e.export.layerText = $("sLT").value || "TEXT"; e.export.fileNamePattern = $("sDN").value || "{bauteil}"; e.export.folder = $("sOrd").value.trim();
   e.forming.defaultProcess = $("sVerf").value;
+  e.auftrag = { wurzelOrdner: $("sAWurzel").value.trim(), jahresordner: $("sAJahr").checked, unterordner: $("sAUnter").value.split(",").map((x) => x.trim()).filter(Boolean) };
   e.labels = etikettenLesen();
   if (await tun(() => senden("einstellungen_speichern", { einstellungen: e }), "Einstellungen gespeichert.")) await laden();
 };

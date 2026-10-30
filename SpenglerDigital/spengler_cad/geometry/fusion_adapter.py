@@ -1028,6 +1028,62 @@ def kollision(occ, andere_koerper):
 
 
 # ------------------------------------------------------------------ Teilenummern
+# ------------------------------------------------------------------ Auftragsordner (Fusion-Daten) – NICHT live geprüft
+def dokument_ordnerpfad():
+    """Namen der Ordner vom Stamm des Projekts bis zum Ordner des aktiven Dokuments; leer, wenn es noch nicht gespeichert ist."""
+    try:
+        datei = adsk.core.Application.get().activeDocument.dataFile
+        ordner, namen = datei.parentFolder if datei is not None else None, []
+        while ordner is not None and len(namen) < 30:
+            namen.insert(0, ordner.name)
+            ordner = ordner.parentFolder
+        return namen
+    except Exception:
+        logger.warnung("Ordnerpfad des Dokuments nicht lesbar")
+        return []
+
+
+def _unterordner(ordner, name):
+    for f in ordner.dataFolders:
+        if f.name == name:
+            return f
+    return None
+
+
+def auftrag_ordner_anlegen(plan):
+    """Legt Jahresordner/Auftragsordner/Unterordner im aktiven Projekt an (aus core.auftrag.plan). Vorhandene Ordner werden wiederverwendet,
+    nichts wird gelöscht oder umbenannt. → (Pfadtext, Hinweise). Der Stammordner «wurzel» ist das aktive Projekt selbst oder ein Ordner darin."""
+    app = adsk.core.Application.get()
+    projekt = app.data.activeProject
+    if projekt is None:
+        raise AdapterFehler("Kein aktives Projekt in Fusion. Bitte zuerst im Datenfenster das Projekt öffnen.")
+    wurzel = projekt.rootFolder
+    hinweise = []
+    if plan["wurzel"] and projekt.name != plan["wurzel"]:
+        w = _unterordner(wurzel, plan["wurzel"])
+        if w is None:
+            raise AdapterFehler("Der Stammordner «%s» wurde im aktiven Projekt «%s» nicht gefunden. Bitte das richtige Projekt öffnen oder "
+                                "den Stammordner in den Einstellungen anpassen." % (plan["wurzel"], projekt.name))
+        wurzel = w
+    ordner = wurzel
+    pfad = [plan["wurzel"] or projekt.name]
+    for name in plan["pfad"]:
+        n = _unterordner(ordner, name)
+        if n is None:
+            n = ordner.dataFolders.add(name)
+        elif name == plan["pfad"][-1]:
+            hinweise.append("Der Auftragsordner «%s» gab es schon – vorhandene Ordner wurden weiterverwendet." % name)
+        if n is None:
+            raise AdapterFehler("Fusion hat den Ordner «%s» nicht angelegt." % name)
+        ordner = n
+        pfad.append(name)
+    for u in plan["unterordner"]:
+        if _unterordner(ordner, u) is None and ordner.dataFolders.add(u) is None:
+            raise AdapterFehler("Fusion hat den Unterordner «%s» nicht angelegt." % u)
+    logger.info("Auftragsordner angelegt", pfad="/".join(pfad), unterordner=",".join(plan["unterordner"]))
+    return "/".join(pfad), hinweise
+
+
 def teilnummer(body, vergeben=True):
     """Teilenummer eines Körpers (Attribut am nativen Körper). Fehlt sie und vergeben=True: nächste freie Nummer im Dokument."""
     body = body.nativeObject or body

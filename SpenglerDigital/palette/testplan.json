@@ -433,6 +433,31 @@
      "id": "9.6",
      "text": "zuschnittplan.svg ansehen",
      "erwartet": "keine Überlappungen, Teile beschriftet"
+    },
+    {
+     "id": "9.7",
+     "text": "Neuer Auftrag: Nummer 99999, Objekt «Testweg 1, Bern», Jahr → OK",
+     "erwartet": "Meldung «Ordner angelegt», im Datenfenster Stammordner/Jahr/«99999 Testweg 1, Bern» mit Modelle, Pläne, Export"
+    },
+    {
+     "id": "9.8",
+     "text": "Denselben Auftrag nochmals anlegen",
+     "erwartet": "Hinweis «gab es schon», keine doppelten Ordner"
+    },
+    {
+     "id": "9.9",
+     "text": "Einstellungen → Aufträge: Jahresordner aus, Unterordner ändern → speichern, neuen Auftrag anlegen",
+     "erwartet": "Struktur entsprechend den Einstellungen"
+    },
+    {
+     "id": "9.10",
+     "text": "Dokument im Ordner «Modelle» eines Auftrags speichern, Stückliste & Zuschnitt öffnen",
+     "erwartet": "Auftrag und Objekt sind aus dem Ordnernamen vorbelegt"
+    },
+    {
+     "id": "9.11",
+     "text": "Testordner wieder löschen (von Hand im Datenfenster)",
+     "erwartet": ""
     }
    ]
   },

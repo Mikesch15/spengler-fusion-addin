@@ -1,7 +1,7 @@
 """Werkzeugleiste: eigenes Register «SPENGLER» im Konstruktionsarbeitsbereich mit allen Befehlen.
 Falls die Register-API fehlt: Befehle im Blech- bzw. Volumenkörper-Panel «Erstellen» (wie Prototyp 0.1)."""
 from ..diagnostics import logger
-from . import base, detail_generator_command, edge_apply_command, export_command, forming_command, settings_command
+from . import auftrag_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, settings_command
 
 TAB_ID = "SpenglerDigitalTab"
 GRUPPEN = [  # (Panel-ID, Titel, Befehle)
@@ -15,7 +15,7 @@ _angelegt = []   # (panel, control-id)
 
 def _definitionen():
     kanten = [edge_apply_command.registrieren()] + detail_generator_command.registrieren() + [forming_command.registrieren()]
-    fertigung = export_command.registrieren()
+    fertigung = export_command.registrieren() + auftrag_command.registrieren()
     verwaltung = settings_command.registrieren()
     return [kanten, fertigung, verwaltung]
 

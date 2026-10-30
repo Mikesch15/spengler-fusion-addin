@@ -52,6 +52,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | A Kanten bearbeiten: Einzel-/Mehrfachauswahl, Vorlage, Parameter, Vorschau, ungeeignete Kanten, Ergebnisprüfung | TEIL | Bauplan/Eignung AUTO (test_operation_plan), Ablauf/Rückbau als Logik-Test; in Fusion nicht live |
 | B 3D-Details anwenden | TEIL | siehe Kap. 4 |
 | C Vorlagen verwalten (neu, bearbeiten, duplizieren, umbenennen, löschen, Kategorien, Favoriten, Import/Export, Versionen) | AUTO | test_templates, test_palette inkl. **Browsertest der echten Palette**; Palette in Fusion nicht live bestätigt |
+| Aufträge als Ordner (Neuer Auftrag, Ableitung Nummer/Objekt) | AUTO/NEIN-LIVE | Logik und Nachbau getestet; Fusion-Daten-API nicht live |
 | D Rundblech/Umformwerkzeuge | TEIL | Beurteilung AUTO; Drehkörper **LIVE** (Selbsttest); Falze an gekrümmten Rändern NEIN (Kap. 8) |
 | E Abwicklung, DXF, Zeichnungen, Material, Zuschnitt | TEIL | siehe Kap. 10–12 |
 | F Einstellungen, Backup/Restore, Hilfe | AUTO | test_migrations, test_validation, test_palette; Hilfe-Dialog in Fusion **LIVE** |

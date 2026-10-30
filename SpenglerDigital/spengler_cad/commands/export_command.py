@@ -18,6 +18,7 @@ import adsk.fusion
 
 from .. import VERSION
 from ..diagnostics import logger
+from ..core import auftrag
 from ..geometry import fusion_adapter as fa
 from ..manufacturing import dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, workshop_sheet
 from ..storage import json_store, paths
@@ -121,7 +122,7 @@ def _abw(self, args):
                 m = next((x for x in mats if x["id"] == (q.get("material") or {}).get("id")), None)
                 logo = os.path.join(paths.ADDIN_ORDNER, "assets", "logo", "logo_256.png")
                 html = workshop_sheet.erstelle({
-                    "bauteil": name, "teilnummer": nr, "objekt": e["order"].get("objekt"), "auftrag": e["order"].get("auftrag"),
+                    "bauteil": name, "teilnummer": nr, "objekt": auftrag_angaben(e)["objekt"], "auftrag": auftrag_angaben(e)["auftrag"],
                     "material": mat or "nicht zugeordnet", "dicke": t, "vorlage": q.get("vorlageName") or "–",
                     "vorlagenVersion": q.get("vorlageVersion") or "–", "abwicklung": masse, "abwicklungSvg": svg_abw, "abwicklungHinweis": abw_hinweis,
                     "operationen": q.get("operationen"), "ri": (m or {}).get("innerRadius"), "k": (m or {}).get("kFactor"), "datum": datetime.date.today().isoformat(),
@@ -189,8 +190,9 @@ def zus_erstellt(args):
     inp.addValueInput("fuge", "Schnittfuge", "mm", adsk.core.ValueInput.createByString("%s mm" % e["nesting"]["kerf"]))
     inp.addValueInput("rand", "Randabstand", "mm", adsk.core.ValueInput.createByString("%s mm" % e["nesting"]["margin"]))
     inp.addBoolValueInput("drehen", "Drehen erlaubt", True, "", bool(e["nesting"]["rotationAllowed"]))
-    inp.addStringValueInput("objekt", "Objekt", e["order"].get("objekt", ""))
-    inp.addStringValueInput("auftrag", "Auftrag Nr.", e["order"].get("auftrag", ""))
+    vorbelegt = auftrag_angaben(e)
+    inp.addStringValueInput("objekt", "Objekt", vorbelegt["objekt"])
+    inp.addStringValueInput("auftrag", "Auftrag Nr.", vorbelegt["auftrag"])
     inp.addBoolValueInput("nummern", "Teilenummern vergeben (fehlende)", True, "", True)
     inp.addBoolValueInput("liste", "Stückliste (CSV + HTML)", True, "", True)
     inp.addBoolValueInput("etiketten", "Etiketten (A4-Bogen, HTML)", True, "", True)
@@ -279,6 +281,17 @@ def _zus(self, args):
 
 def zus_ausfuehren(args):
     _zus(None, args)
+
+
+def auftrag_angaben(e):
+    """Objekt/Auftrag: aus dem Ordner des aktiven Fusion-Dokuments («17642 Nägeligasse 1a, Bern»), sonst zuletzt verwendet."""
+    try:
+        z = auftrag.aus_pfad(fa.dokument_ordnerpfad())
+    except Exception:
+        z = None
+    if z:
+        return {"auftrag": z[0], "objekt": z[1], "quelle": "Fusion-Ordner"}
+    return {"auftrag": e["order"].get("auftrag", ""), "objekt": e["order"].get("objekt", ""), "quelle": "zuletzt verwendet"}
 
 
 def registrieren():

@@ -129,6 +129,16 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | `etiketten.html` drucken (Ränder: keine, 100 %) auf Etikettenbogen | Etiketten sitzen auf den Feldern |
 | ☐ | `zuschnittplan.svg` ansehen | keine Überlappungen, Teile beschriftet |
 
+## 9a. Aufträge als Ordner (5 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | **Neuer Auftrag**: Nummer 99999, Objekt «Testweg 1, Bern», Jahr → OK | Meldung «Ordner angelegt», im Datenfenster Stammordner/Jahr/«99999 Testweg 1, Bern» mit Modelle, Pläne, Export |
+| ☐ | Denselben Auftrag nochmals anlegen | Hinweis «gab es schon», keine doppelten Ordner |
+| ☐ | Einstellungen → Aufträge: Jahresordner aus, Unterordner ändern → speichern, neuen Auftrag anlegen | Struktur entsprechend den Einstellungen |
+| ☐ | Dokument im Ordner «Modelle» eines Auftrags speichern, **Stückliste & Zuschnitt** öffnen | Auftrag und Objekt sind aus dem Ordnernamen vorbelegt |
+| ☐ | Testordner wieder löschen (von Hand im Datenfenster) | – |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |

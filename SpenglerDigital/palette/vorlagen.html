@@ -154,6 +154,11 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <div class="zeile"><label>Dateiname</label><input id="sDN" size="40"> <span class="klein">{bauteil} {material} {dicke}</span></div>
     <div class="zeile"><label>Exportordner</label><input id="sOrd" size="50"></div>
   </fieldset>
+  <fieldset><legend>Aufträge (Ordner in Fusion)</legend>
+    <div class="zeile"><label>Stammordner</label><input id="sAWurzel" size="30"> <span class="klein">Projekt oder Ordner, in dem die Aufträge liegen (z. B. Projekte)</span></div>
+    <div class="zeile"><label>Jahresordner</label><input type="checkbox" id="sAJahr"> <span class="klein">Aufträge in einem Ordner je Jahr anlegen</span></div>
+    <div class="zeile"><label>Unterordner</label><input id="sAUnter" size="50"> <span class="klein">mit Komma getrennt, z. B. Modelle, Pläne, Export</span></div>
+  </fieldset>
   <fieldset><legend>Umformung</legend>
     <div class="zeile"><label>Standardverfahren</label><select id="sVerf"><option value="manuell">Manuelle Werkstattumformung</option><option value="auto">Automatische Empfehlung</option><option value="stauchen">Stauchen/Schweifen</option><option value="strecken">Strecken/Schweifen</option></select></div>
   </fieldset>

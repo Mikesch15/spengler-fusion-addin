@@ -45,6 +45,11 @@ class Einstellungen(object):
             raise EinstellungsFehler(" ".join(f))
         if d.get("ui", {}).get("mode") not in ("standard", "experte"):
             raise EinstellungsFehler("Modus muss «standard» oder «experte» sein.")
+        from ..core import auftrag
+        try:
+            d["auftrag"] = auftrag.pruefe_einstellung(d.get("auftrag"))
+        except auftrag.AuftragsFehler as ex:
+            raise EinstellungsFehler("Aufträge: %s" % ex)
         d = kopie(d)
         d["schemaVersion"] = SCHEMA["einstellungen"]
         d["typ"] = "einstellungen"

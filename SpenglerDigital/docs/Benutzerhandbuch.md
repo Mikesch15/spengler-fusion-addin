@@ -128,6 +128,14 @@ Die angegebene Dehnung ist die reine Umfangsänderung (Geometrie) – keine Gara
 
 **Abwicklung & DXF:** Blechkörper wählen. Hat die Komponente noch keine Abwicklung, eine feststehende Fläche wählen – dann erzeugt Fusion die Abwicklung. Das Add-in liest das umschliessende Rechteck der Abwicklung und exportiert die DXF mit dem **Fusion-Exporter** (Ebenen und Biegelinien legt Fusion fest). Dateiname nach Muster `{bauteil}_{material}_{dicke}mm`, Ablage in einem Ordner mit Datum/Uhrzeit (Einzel- und Sammelexport). Erfolg wird nur gemeldet, wenn die Datei tatsächlich geschrieben wurde. «Abwickelbar» in Fusion heisst noch nicht «werkstattgerecht umformbar» (siehe Kapitel 9).
 
+## 10a. Aufträge als Ordner in Fusion [nicht in Fusion geprüft]
+
+Befehl **Neuer Auftrag** (Register SPENGLER → Fertigung): Auftragsnummer, Objekt (z. B. «Nägeligasse 1a, Bern») und Jahr eingeben. Das Add-in legt im aktiven Fusion-Projekt `Stammordner / Jahr / «17642 Nägeligasse 1a, Bern»` mit den Unterordnern (Standard: Modelle, Pläne, Export) an. Vorhandene Ordner werden wiederverwendet, nichts wird gelöscht oder umbenannt.
+
+Einstellungen (Vorlagen & Einstellungen → Einstellungen → «Aufträge»): Stammordner (Projekt oder Ordner darin, Standard «Projekte»), Jahresordner ein/aus, Unterordner (Komma getrennt).
+
+**Ableiten:** Liegt das aktive Dokument in einem Ordner nach dem Muster «Nummer Objekt» (mindestens 3 Ziffern, dann Leerzeichen), übernehmen **Stückliste & Zuschnitt**, Etiketten und das Werkstattblatt Auftragsnummer und Objekt automatisch aus dem Ordnernamen. Ohne passenden Ordner gelten die zuletzt verwendeten Angaben. Das Dokument speicherst du selbst im Ordner «Modelle» (die Fusion-Schnittstelle legt Dateien nicht automatisch dort ab).
+
 ## 11. Fertigungszeichnungen
 
 Fusion bietet per API keine zuverlässige automatische Zeichnungserstellung mit Ansichten. Das Add-in erstellt deshalb ein **Werkstattblatt** (HTML, druckbar) mit Logo, Bauteilkennung, Material, Dicke, Vorlage und Version, Abwicklungsmassen aus Fusion sowie – für Bauteile aus «Kanten bearbeiten» mit Innenradius/K-Faktor im Material – Teilenummer, Objekt/Auftrag sowie – für Bauteile aus «Kanten bearbeiten» mit Innenradius/K-Faktor im Material – **Querschnitt mit Schenkelmassen und Biegungen**, **Abwicklung der Kante mit Biegelinien** (Masse ab Biegebeginn) und **Biegeliste**. Alles daraus ist als *theoretisch* gekennzeichnet (Blechmitte, K-Faktor des Materialprofils); die Zeichenlogik stammt aus dem CAD-Programm. Normgerechte Fusion-Zeichnungen erstellen Sie weiterhin im Arbeitsbereich Zeichnung.
