@@ -1,0 +1,516 @@
+{
+ "schema": 1,
+ "bloecke": [
+  {
+   "nr": 0,
+   "titel": "Vorbereitung (5 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "0.1",
+     "text": "Fusion aktualisieren (Konto-Menü oben rechts → Nach Updates suchen). Fusion-Version notieren (Hilfe → Info): ________",
+     "erwartet": ""
+    },
+    {
+     "id": "0.2",
+     "text": "Alten Prototyp stoppen: Shift+S → Add-Ins → «SpenglerDigital» → Stoppen",
+     "erwartet": ""
+    },
+    {
+     "id": "0.3",
+     "text": "ZIP SpenglerDigitalCAD_<Version>.zip entpacken, Ordner SpenglerDigital an seinen Platz kopieren (siehe README)",
+     "erwartet": ""
+    },
+    {
+     "id": "0.4",
+     "text": "Ein Lineal/Massband und einen Probestreifen Blech mit bekannter Dicke bereitlegen (für den K-Faktor in Block 3)",
+     "erwartet": ""
+    }
+   ]
+  },
+  {
+   "nr": 1,
+   "titel": "Installation und Start (5 Min.) – sonst abbrechen",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "1.1",
+     "text": "Shift+S → Add-Ins → SpenglerDigital → Ausführen, «Beim Start ausführen» ankreuzen",
+     "erwartet": "keine Fehlermeldung"
+    },
+    {
+     "id": "1.2",
+     "text": "Arbeitsbereich Konstruktion",
+     "erwartet": "Register SPENGLER mit «Kanten & Details», «Fertigung», «Verwaltung» und 8 Befehlen, Logo als Symbol"
+    },
+    {
+     "id": "1.3",
+     "text": "Falls kein Register: Befehle unter Blech → Erstellen?",
+     "erwartet": "notieren, wo sie stehen"
+    },
+    {
+     "id": "1.4",
+     "text": "Fusion schliessen und neu starten",
+     "erwartet": "Add-in startet von selbst"
+    },
+    {
+     "id": "1.5",
+     "text": "Ordner %APPDATA%\\SpenglerDigitalCAD (Mac: ~/Library/Application Support/SpenglerDigitalCAD)",
+     "erwartet": "existiert, enthält protokoll und datenformat.json"
+    }
+   ]
+  },
+  {
+   "nr": 2,
+   "titel": "Selbsttest und Fähigkeiten (5 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "2.1",
+     "text": "SPENGLER → Hilfe → Fusion-Fähigkeiten prüfen",
+     "erwartet": "Versionsnummer = installierte Version und richtiger Ladeordner; Liste mit ✓/✗ – Bildschirmfoto"
+    },
+    {
+     "id": "2.2",
+     "text": "Hilfe → Selbsttest in neuem Dokument",
+     "erwartet": "neues Dokument; ✓ Einheiten, ✓ Rundblech (Ø ca. 200.7 mm), ✓ 3D-Detail (Ursprung ca. (0, 100, 0) mm, «neu beim Import: SD_H_1», «Original SD_H unverändert») – Bildschirmfoto"
+    },
+    {
+     "id": "2.3",
+     "text": "Testdokument ohne Speichern schliessen",
+     "erwartet": ""
+    },
+    {
+     "id": "2.4",
+     "text": "Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen»",
+     "erwartet": "Texte erscheinen, PDF öffnet"
+    }
+   ]
+  },
+  {
+   "nr": 3,
+   "titel": "Materialien und K-Faktor (10 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "3.1",
+     "text": "SPENGLER → Vorlagen & Einstellungen",
+     "erwartet": "Palette öffnet rechts; Kantenvorlagen leer mit Hinweis"
+    },
+    {
+     "id": "3.2",
+     "text": "Register Materialien",
+     "erwartet": "leer, Hinweis «keine Fertigungswerte vorgegeben»"
+    },
+    {
+     "id": "3.3",
+     "text": "Neues Materialprofil: Name, Dicke, Innenradius, Dichte, Tafeln (z. B. 1000x2000), Rollen (z. B. 670)",
+     "erwartet": ""
+    },
+    {
+     "id": "3.4",
+     "text": "Probestreifen: Zuschnitt messen, eine 90°-Biegung, beide Schenkel aussen messen → Zuschnitt, a, b eintragen → K-Faktor berechnen",
+     "erwartet": "Wert zwischen 0.3 und 0.5, Knopf «In K-Faktor übernehmen»"
+    },
+    {
+     "id": "3.5",
+     "text": "Übernehmen → Speichern",
+     "erwartet": "Profil in der Liste mit K-Faktor"
+    },
+    {
+     "id": "3.6",
+     "text": "Probe mit Unsinn (Zuschnitt grösser als a + b)",
+     "erwartet": "rote Meldung, nichts übernommen"
+    },
+    {
+     "id": "3.7",
+     "text": "Gleichen K-Faktor in der Fusion-Blechregel eintragen (Ändern → Blechregeln) und Dicke wie im Profil",
+     "erwartet": ""
+    }
+   ]
+  },
+  {
+   "nr": 4,
+   "titel": "Kantenvorlagen in der Palette (10 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "4.1",
+     "text": "Neue Vorlage erstellen, Name eingeben, Kurzschrift 90 H U+ u → übernehmen",
+     "erwartet": "Parameter H und u erscheinen"
+    },
+    {
+     "id": "4.2",
+     "text": "Statt Kurzschrift: neue Vorlage, Schritte mit + Flansch / + Umschlag anlegen, Winkel und Länge in der Tabelle ändern",
+     "erwartet": "Vorschau zeichnet jeden Schritt sofort mit; Kurzschrift-Zeile folgt der Tabelle"
+    },
+    {
+     "id": "4.3",
+     "text": "Standardwerte H = 25, u = 7",
+     "erwartet": "Vorschau zeigt Querschnitt mit 25 und 7, Kante grün; ändert sich beim Tippen"
+    },
+    {
+     "id": "4.4",
+     "text": "Testmaterial wählen → Prüfen & Trockenlauf",
+     "erwartet": "«Vorlage ist gültig», Abwicklungszugabe, Bauplan"
+    },
+    {
+     "id": "4.5",
+     "text": "Speichern",
+     "erwartet": "«Version 1», Vorschaubild in der Liste"
+    },
+    {
+     "id": "4.6",
+     "text": "Expertenmodus ankreuzen → Operation hinzufügen, mit ↑ verschieben → Speichern",
+     "erwartet": "Kurzschrift folgt der Tabelle, «Version 2»"
+    },
+    {
+     "id": "4.7",
+     "text": "Versionen",
+     "erwartet": "Version 1 wird angezeigt"
+    },
+    {
+     "id": "4.8",
+     "text": "Duplizieren, Kopie umbenennen, Kategorie und Favorit setzen, Kategoriefilter",
+     "erwartet": "Kopie unabhängig, Favorit steht oben"
+    },
+    {
+     "id": "4.9",
+     "text": "Kopie löschen → Rückfrage → Nein",
+     "erwartet": "bleibt"
+    },
+    {
+     "id": "4.10",
+     "text": "Löschen → Ja → Register Sicherung → Papierkorb → Zurückholen",
+     "erwartet": "Vorlage wieder da"
+    },
+    {
+     "id": "4.11",
+     "text": "Vorlage mit leerem Namen speichern",
+     "erwartet": "rote Fehlermeldung, nichts gespeichert"
+    },
+    {
+     "id": "4.12",
+     "text": "Zwei Vorlagen ankreuzen → Gewählte exportieren… → Datei speichern → Importieren… dieselbe Datei",
+     "erwartet": "Import «als Kopie» (nichts überschrieben)"
+    }
+   ]
+  },
+  {
+   "nr": 5,
+   "titel": "Kanten bearbeiten (15 Min.) – Kernfunktion",
+   "hinweis": "Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 200 skizzieren → Lasche (Grundlasche).",
+   "punkte": [
+    {
+     "id": "5.1",
+     "text": "SPENGLER → Kanten bearbeiten, eine obere Aussenkante wählen, Ihre Vorlage, Material",
+     "erwartet": "Bauplan: «Kanten: 1 gewählt, 1 geeignet», Folge mit Werten"
+    },
+    {
+     "id": "5.2",
+     "text": "Vorschau an",
+     "erwartet": "Flansch + Umschlag sichtbar vor OK"
+    },
+    {
+     "id": "5.3",
+     "text": "Wert H im Dialog ändern",
+     "erwartet": "Vorschau passt sich an"
+    },
+    {
+     "id": "5.4",
+     "text": "OK",
+     "erwartet": "Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________"
+    },
+    {
+     "id": "5.5",
+     "text": "Strg+Z",
+     "erwartet": "alles dieses Befehls in einem Schritt weg"
+    },
+    {
+     "id": "5.6",
+     "text": "Zwei gegenüberliegende Kanten zugleich → OK",
+     "erwartet": "beide bearbeitet"
+    },
+    {
+     "id": "5.7",
+     "text": "Zwei aneinanderstossende Kanten (Ecke) → OK",
+     "erwartet": "notieren, wie Fusion die Ecke löst (Bildschirmfoto)"
+    },
+    {
+     "id": "5.8",
+     "text": "Eine Biegekante bzw. Kante eines normalen Volumenkörpers wählen",
+     "erwartet": "«ungeeignet» mit Grund, OK gesperrt"
+    },
+    {
+     "id": "5.9",
+     "text": "Expertenmodus im Dialog, Folge -90 20 → OK",
+     "erwartet": "Abkantung nach hinten; gespeicherte Vorlage unverändert"
+    },
+    {
+     "id": "5.10",
+     "text": "Expertenmodus, Folge 90r5 20, «als neue Vorlage speichern» → OK",
+     "erwartet": "Radius 5; neue Vorlage «… (angepasst)» in der Palette"
+    },
+    {
+     "id": "5.11",
+     "text": "Vorlage mit zu grossem Wert (Maximum setzen, darüber eingeben)",
+     "erwartet": "Bauplan meldet Bereich, OK gesperrt"
+    },
+    {
+     "id": "5.12",
+     "text": "Bei jeder Fehlermeldung",
+     "erwartet": "Text notieren: ________"
+    }
+   ]
+  },
+  {
+   "nr": 6,
+   "titel": "Eigene 3D-Details (10 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "6.1",
+     "text": "Neue Komponente, darin ein kleines Detail; Benutzerparameter z. B. SD_Laenge anlegen und im Feature verwenden",
+     "erwartet": ""
+    },
+    {
+     "id": "6.2",
+     "text": "3D-Detail erfassen: Komponente, gerade Anschlusskante, Parameter ankreuzen, Name → OK",
+     "erwartet": "«Gespeichert … Version 1»"
+    },
+    {
+     "id": "6.3",
+     "text": "Palette → 3D-Details",
+     "erwartet": "Detail in der Liste"
+    },
+    {
+     "id": "6.4",
+     "text": "Anderes Bauteil: 3D-Detail anwenden, Zielkante wählen",
+     "erwartet": "Passung «✓ passt» bzw. Gründe"
+    },
+    {
+     "id": "6.5",
+     "text": "Wert ändern → Vorschau → OK",
+     "erwartet": "Detail sitzt an der Kante, Meldung nennt gesetzte Parameter"
+    },
+    {
+     "id": "6.6",
+     "text": "«Um 180° wenden»",
+     "erwartet": "Detail andersherum"
+    },
+    {
+     "id": "6.7",
+     "text": "Gekrümmte Zielkante wählen",
+     "erwartet": "lässt sich nicht wählen (nur gerade Kanten)"
+    },
+    {
+     "id": "6.8",
+     "text": "Kanten bearbeiten an Kreiskante und an Bogenkante eines Blechs (Flansch 90°, dann Umschlag)",
+     "erwartet": "Flansch folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück; bei Hinweis «Einschnitte» Ergebnis prüfen"
+    },
+    {
+     "id": "6.9",
+     "text": "3D-Detail anwenden mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech)",
+     "erwartet": "Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen"
+    },
+    {
+     "id": "6.10",
+     "text": "Dasselbe mit Detail, das den Körper nicht berührt",
+     "erwartet": "klare Meldung, Modell unverändert"
+    }
+   ]
+  },
+  {
+   "nr": 7,
+   "titel": "Rundblech (5 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "7.1",
+     "text": "Rundblech / Umformung: Scheibe r 100, Rand 20 → OK",
+     "erwartet": "Drehkörper; «Herstellbar: nicht beurteilbar», Rohling Ø 240"
+    },
+    {
+     "id": "7.2",
+     "text": "Im Materialprofil Stauchen max. z. B. 20 % mit Quelle eintragen, erneut",
+     "erwartet": "«Herstellbar: ja» bzw. «nein» nach Grenzwert"
+    },
+    {
+     "id": "7.3",
+     "text": "Kragen r 50, Höhe 10",
+     "erwartet": "nur Beurteilung «gestreckt», kein Körper"
+    },
+    {
+     "id": "7.4",
+     "text": "Kegel r 100 / 50, Höhe 100 → OK",
+     "erwartet": "Drehkörper, Abwicklung Kreisringsektor"
+    }
+   ]
+  },
+  {
+   "nr": 8,
+   "titel": "Abwicklung, DXF und Werkstattblatt (8 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "8.1",
+     "text": "Abwicklung & DXF, Blechkörper aus Block 5 (noch ohne Abwicklung: feststehende Fläche wählen) → OK",
+     "erwartet": "Ordner öffnet sich, Nr_…dxf und …_werkstattblatt.html"
+    },
+    {
+     "id": "8.2",
+     "text": "DXF in einem CAD-Programm öffnen",
+     "erwartet": "Kontur und Biegelinien, Masse stimmen"
+    },
+    {
+     "id": "8.3",
+     "text": "Werkstattblatt öffnen",
+     "erwartet": "Teilenummer, Material, Vorlage + Version, Querschnitt mit Massen, Abwicklung mit Biegelinien, Biegeliste"
+    },
+    {
+     "id": "8.4",
+     "text": "Zwei Körper gleichzeitig",
+     "erwartet": "beide exportiert, Zusammenfassung «2 von 2»"
+    },
+    {
+     "id": "8.5",
+     "text": "Normaler Volumenkörper",
+     "erwartet": "«✗ … kein Blechkörper»"
+    }
+   ]
+  },
+  {
+   "nr": 9,
+   "titel": "Stückliste, Etiketten, Zuschnitt (8 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "9.1",
+     "text": "Einstellungen → Etikettenbogen: Masse Ihres Bogens eintragen",
+     "erwartet": "«Belegt … von 210 × 297 mm» bzw. «Passt nicht auf A4»"
+    },
+    {
+     "id": "9.2",
+     "text": "Stückliste & Zuschnitt: 2–3 Blechkörper, Stück 2, Objekt, Auftrag → OK",
+     "erwartet": "Ordner mit stueckliste.csv/.html, etiketten.html, zuschnittplan.svg/.csv/.dxf, bericht.txt"
+    },
+    {
+     "id": "9.3",
+     "text": "Befehl erneut ausführen",
+     "erwartet": "gleiche Teilenummern; Objekt/Auftrag vorausgefüllt"
+    },
+    {
+     "id": "9.4",
+     "text": "stueckliste.csv in Excel öffnen",
+     "erwartet": "Spalten richtig, Umlaute richtig"
+    },
+    {
+     "id": "9.5",
+     "text": "etiketten.html drucken (Ränder: keine, 100 %) auf Etikettenbogen",
+     "erwartet": "Etiketten sitzen auf den Feldern"
+    },
+    {
+     "id": "9.6",
+     "text": "zuschnittplan.svg ansehen",
+     "erwartet": "keine Überlappungen, Teile beschriftet"
+    }
+   ]
+  },
+  {
+   "nr": 10,
+   "titel": "Sicherung, Wiederherstellung, Update (5 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "10.1",
+     "text": "Palette → Sicherung → Sicherung erstellen",
+     "erwartet": "erscheint in der Liste"
+    },
+    {
+     "id": "10.2",
+     "text": "Eine Vorlage löschen, dann die Sicherung Wiederherstellen",
+     "erwartet": "Rückfrage; Vorlage wieder da"
+    },
+    {
+     "id": "10.3",
+     "text": "Update simulieren: Add-in stoppen, Ordner SpenglerDigital löschen und aus dem ZIP neu kopieren, starten",
+     "erwartet": "Vorlagen, Materialien, Einstellungen alle noch da"
+    },
+    {
+     "id": "10.4",
+     "text": "Palette → Sicherung → Protokoll öffnen",
+     "erwartet": "Textdatei öffnet sich"
+    }
+   ]
+  },
+  {
+   "nr": 11,
+   "titel": "Konto, Abgleich und Updates (10 Min.) – ab 0.4.0",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "11.1",
+     "text": "Palette → Register Konto → mit App-Benutzername und Passwort anmelden",
+     "erwartet": "«Angemeldet als …, Firma …», Recht «dürfen Vorlagen ändern» (Admin)"
+    },
+    {
+     "id": "11.2",
+     "text": "Falsches Passwort versuchen",
+     "erwartet": "«Benutzername oder Passwort falsch.»"
+    },
+    {
+     "id": "11.3",
+     "text": "Jetzt abgleichen",
+     "erwartet": "Bericht: Vorlagen/Materialien «in die App hochgeladen»"
+    },
+    {
+     "id": "11.4",
+     "text": "Eine Vorlage ändern und speichern",
+     "erwartet": "oben «✓ mit der App abgeglichen»"
+    },
+    {
+     "id": "11.5",
+     "text": "Zweiter PC (oder zweites Windows-Konto): Add-in installieren, anmelden",
+     "erwartet": "dieselben Vorlagen und Materialien erscheinen"
+    },
+    {
+     "id": "11.6",
+     "text": "Mit einem Mitarbeiter-Konto anmelden, Vorlage ändern",
+     "erwartet": "Hinweis «nur auf diesem PC», in der App unverändert"
+    },
+    {
+     "id": "11.7",
+     "text": "Fusion ohne Internet starten (WLAN aus)",
+     "erwartet": "Add-in startet normal, kein Fehler; nach Wiederverbindung «Jetzt abgleichen»"
+    },
+    {
+     "id": "11.8",
+     "text": "Nach Updates suchen",
+     "erwartet": "Rückfrage «Version x.y.z verfügbar» (nur wenn eine neuere bereitliegt) → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt die neue Version"
+    },
+    {
+     "id": "11.9",
+     "text": "Abmelden",
+     "erwartet": "Anmeldemaske; Vorlagen bleiben lokal"
+    }
+   ]
+  },
+  {
+   "nr": 12,
+   "titel": "Tests in der Palette (3 Min.)",
+   "hinweis": "",
+   "punkte": [
+    {
+     "id": "12.1",
+     "text": "Palette → Register Tests: einen Punkt mit ✓ abhaken, bei einem anderen ✗ mit Notiz, bei einem dritten –",
+     "erwartet": "Farbe wechselt, Fortschritt oben zählt mit; Zeile zeigt «gesendet» (wenn angemeldet) bzw. «nur lokal»"
+    },
+    {
+     "id": "12.2",
+     "text": "Ohne Anmeldung abhaken, dann anmelden, «nicht gesendete Ergebnisse senden»",
+     "erwartet": "Meldung «n Ergebnis(se) gesendet»"
+    }
+   ]
+  }
+ ]
+}

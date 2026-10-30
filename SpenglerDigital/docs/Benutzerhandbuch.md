@@ -52,6 +52,8 @@ Eine Kantenvorlage besteht aus:
 - **Operationen** – Folge ab der Kante: Flansch (Winkel, Länge, optional Radius) oder Umschlag (±180°, Länge)
 - **Anschluss und Grenzen** (Expertenmodus) – Kantentyp, Dickenbereich, Mindestkantenlänge, Einschnitte ausdrücklich erlauben
 
+**Schritt für Schritt:** Im Abschnitt **Schritte** der Vorlage legen Sie mit **+ Flansch** und **+ Umschlag** jeden Schritt einzeln an und tragen Winkel, Länge und optional den Radius in die Tabelle ein (Zahlen, Parameternamen wie `H` oder Ausdrücke). Winkel + = zur Sichtseite, − = nach hinten. Die **Vorschau** darüber zeichnet nach jeder Änderung den Querschnitt neu; Pfeile verschieben Schritte, ✕ löscht sie. Die Kurzschrift bleibt als Alternative erhalten und folgt der Tabelle.
+
 Die schnellste Eingabe ist die **Kurzschrift**:
 
 | Eingabe | Bedeutung |
@@ -224,3 +226,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 
 
 **3D-Detail anwenden – Integration:** Mit Haken «Ins bestehende Modell integrieren» (Standard) wird das Detail als Basis-Feature plus «Kombinieren» in den Zielkörper übernommen, ohne eigene Komponente; ein Rückgängig-Schritt. Berührt das Detail den Körper nicht oder ändert es das Volumen nicht, wird alles zurückgenommen und der Grund gemeldet. Ohne Haken bleibt es eine eigene Komponente. Die Masse sind danach fest. Nicht live geprüft.
+
+## 17. Tests in Fusion abhaken
+
+Palette → Register **Tests**: Die Testanleitung steht dort Punkt für Punkt. Pro Punkt **✓** (ok), **✗** (Fehler, mit Notiz – Meldungstext oder Messwert) oder **–** (übersprungen); nochmal klicken nimmt zurück. Die Ergebnisse werden auf diesem PC gespeichert (`testergebnisse.json` im Benutzerdatenordner) und, wenn Sie im Register Konto angemeldet sind, sofort an die Spengler-Digital-App übermittelt, damit die Entwicklung sie sieht. Bei ✗ wird zusätzlich der Protokollauszug (letzte Zeilen) mitgesendet; sonst werden keine Kundendaten übertragen. Ohne Netz oder Anmeldung bleibt alles lokal; **Nicht gesendete Ergebnisse senden** holt das nach.

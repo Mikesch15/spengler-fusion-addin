@@ -33,6 +33,10 @@ th{color:var(--grau);font-weight:600}
 .klein{font-size:11px;color:var(--grau)}
 main .experte{display:none}body.experte main .experte{display:block}
 .vorschau{color:#1b1f24;min-height:40px}.vorschau svg{max-width:100%;height:auto;border:1px solid #e3e6ea;background:#fff}.mini svg{width:90px;height:auto}
+.tblock{border:1px solid var(--rand);border-radius:3px;margin:6px 0;background:#fff}.tblock>summary{padding:5px 8px;cursor:pointer;font-weight:600;background:var(--hg)}
+.tpunkt{padding:6px 8px;border-top:1px solid #e3e6ea}.tpunkt.s-ok{background:#f1f9f1}.tpunkt.s-fehler{background:#fdf1f1}.tpunkt.s-uebersprungen{background:#f4f4f4;color:var(--grau)}
+.tstatus button{min-width:34px}.tstatus button.an-ok{background:var(--ok);color:#fff}.tstatus button.an-fehler{background:var(--fehler);color:#fff}.tstatus button.an-uebersprungen{background:var(--grau);color:#fff}
+.tpunkt input.tnotiz{flex:1;min-width:140px}
 fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:var(--akzent);font-weight:600}
 </style>
 </head>
@@ -48,6 +52,7 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
   <button data-tab="einstellungen">Einstellungen</button>
   <button data-tab="sicherung">Sicherung</button>
   <button data-tab="konto">Konto</button>
+  <button data-tab="tests">Tests</button>
 </nav>
 <main>
 <div id="meldung"></div>
@@ -72,13 +77,12 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
       <button id="pNeu">Parameter hinzufügen</button>
       <span class="klein">In Ausdrücken zusätzlich verfügbar: t (Dicke), ri (Innenradius), k (K-Faktor) aus dem Materialprofil.</span>
     </fieldset>
-    <fieldset><legend>Operationen</legend>
-      <div class="zeile"><label>Kurzschrift</label><input id="eKurz" size="40" placeholder="z. B. 90 H U+ u"><button id="eKurzUeb">übernehmen</button></div>
+    <fieldset><legend>Schritte – Flansch für Flansch <button class="hilfe" data-hilfe="kurzschrift">?</button></legend>
+      <div class="klein">Von der Blechkante aus: jeder Schritt ist ein Flansch (Winkel + Länge) oder ein Umschlag. Winkel + = zur Sichtseite, − = nach hinten. Statt Zahlen sind Parameternamen (z. B. H) und Ausdrücke erlaubt. Die Vorschau zeichnet mit.</div>
       <div class="zeile"><label>Vorschau</label><div id="eVorschau" class="vorschau"></div></div>
-      <div class="experte">
-        <table id="oTab"><thead><tr><th>#</th><th>Art</th><th>Winkel °</th><th>Länge mm</th><th>Radius mm</th><th></th></tr></thead><tbody></tbody></table>
-        <button id="oNeu">Operation hinzufügen</button>
-      </div>
+      <table id="oTab"><thead><tr><th>#</th><th>Art</th><th>Winkel °</th><th>Länge mm</th><th>Radius mm</th><th></th></tr></thead><tbody></tbody></table>
+      <div class="zeile"><button id="oNeu">+ Flansch</button><button id="oNeuU">+ Umschlag</button></div>
+      <div class="zeile"><label>Kurzschrift</label><input id="eKurz" size="40" placeholder="z. B. 90 H U+ u"><button id="eKurzUeb">übernehmen</button><span class="klein">(Alternative zur Tabelle)</span></div>
     </fieldset>
     <fieldset class="experte"><legend>Anschluss, Grenzen, Fertigung</legend>
       <div class="zeile"><label>Kantentyp</label><select id="eKante"><option value="gerade">gerade</option><option value="gekruemmt">gekrümmt</option><option value="beliebig">beliebig</option></select></div>
@@ -162,6 +166,11 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="tests">
+  <div class="zeile"><b id="tFortschritt"></b><span style="flex:1"></span><button id="tSenden">Nicht gesendete Ergebnisse senden</button></div>
+  <div class="klein" id="tHinweis">Je Punkt: ✓ ok, ✗ Fehler (mit Notiz; das Protokoll wird mitgeschickt) oder – übersprungen. Ergebnisse werden auf diesem PC gespeichert und, wenn angemeldet (Register Konto), direkt an die Spengler-Digital-App übermittelt.</div>
+  <div id="tListe"></div>
 </section>
 </main>
 <section id="konto">

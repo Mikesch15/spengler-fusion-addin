@@ -217,3 +217,13 @@ class Cloud(object):
             for b in self._json("GET", "/rest/v1/cad_addin_blobs?select=sha256,kodierung,inhalt&sha256=in.(%s)" % teil) or []:
                 out[b["sha256"]] = b
         return out
+
+    # ------------------------------------------------------------------ Testergebnisse (Palette → Tests)
+    def test_speichern(self, zeile):
+        """Stand eines Testpunkts hochladen (je Firma und test_id eine Zeile, wird überschrieben)."""
+        zeile = dict(zeile, company_id=self._konto["company_id"])
+        self._anfrage("POST", "/rest/v1/cad_testergebnisse?on_conflict=company_id,test_id", [zeile],
+                      kopf={"Prefer": "resolution=merge-duplicates,return=minimal"})
+
+    def test_liste(self):
+        return self._json("GET", "/rest/v1/cad_testergebnisse?select=test_id,status,notiz,geaendert_am&order=test_id") or []

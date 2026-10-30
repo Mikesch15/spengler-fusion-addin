@@ -21,7 +21,8 @@ HILFE = {
     "vorlagen": (
         "Vorlagen verwalten",
         "Die Vorlagenbibliothek beginnt leer – es gibt bewusst keine mitgelieferten Profile. Sie legen alle Vorlagen selbst an.\n"
-        "Neue Vorlage: Name, Kategorie, Parameter (Name, Einheit, Standardwert, Bereich) und Operationen. Jede gespeicherte Änderung erhöht die "
+        "Neue Vorlage: Name, Kategorie, Parameter (Name, Einheit, Standardwert, Bereich) und Schritte: mit «+ Flansch» / «+ Umschlag» "
+        "Schritt für Schritt Winkel und Länge eintragen – die Vorschau zeichnet mit (alternativ Kurzschrift). Jede gespeicherte Änderung erhöht die "
         "Vorlagenversion; frühere Versionen bleiben erhalten. Kopieren erzeugt eine unabhängige Vorlage. Löschen verschiebt nach Bestätigung in den "
         "Papierkorb. Export/Import: JSON-Datei (Format «bibliothek_export», siehe Handbuch). Bereits erzeugte Bauteile ändern sich nicht, "
         "wenn eine Vorlage später geändert wird."),

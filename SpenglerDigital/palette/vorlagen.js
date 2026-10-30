@@ -220,7 +220,9 @@ $("experte").addEventListener("change", async () => {
 $("vFilter").addEventListener("change", zeigeVorlagen);
 $("vNeu").onclick = async () => { const v = await tun(() => senden("neue_vorlage", { name: "Neue Vorlage" })); if (v) { oeffneEditor(v); $("eName").select(); } };
 $("pNeu").onclick = () => { V.parameters.push({ name: "", label: "", unit: "mm", default: null, min: null, max: null, description: "", variable: true }); zeigeParameter(); };
-$("oNeu").onclick = () => { V.operations.push({ typ: "flansch", winkel: 90, laenge: 10, radius: null }); zeigeOps(); $("eKurz").value = kurzText(V.operations); };
+const schrittNeu = (op) => { V.operations.push(op); zeigeOps(); $("eKurz").value = kurzText(V.operations); vorschau(); };
+$("oNeu").onclick = () => schrittNeu({ typ: "flansch", winkel: 90, laenge: 10, radius: null });
+$("oNeuU").onclick = () => schrittNeu({ typ: "umschlag", winkel: 180, laenge: 7, radius: null });
 $("eKurzUeb").onclick = async () => {
   const r = await tun(() => senden("kurzschrift", { text: $("eKurz").value }));
   if (!r) return;
@@ -360,4 +362,56 @@ $("bSichernUnter").onclick = async () => { const p = await tun(() => senden("sic
 $("bAusDatei").onclick = async () => { const p = await tun(() => senden("wiederherstellen_dialog", {})); if (p) { await laden(); meldung("Wiederhergestellt. Vorheriger Stand gesichert:\n" + p, "ok"); } };
 $("bProto").onclick = () => tun(() => senden("protokoll", {}));
 
-window.addEventListener("load", () => tun(laden));
+// ------------------------------------------------------------------ Tests
+let T = null;
+const tOffen = new Set(["0"]);
+const tZeichen = { ok: "✓", fehler: "✗", uebersprungen: "–" };
+function tFortschritt() {
+  const alle = T.plan.flatMap((b) => b.punkte), e = T.ergebnisse;
+  const n = (s) => alle.filter((p) => (e[p.id] || {}).status === s).length;
+  const bearbeitet = alle.filter((p) => e[p.id] && e[p.id].status !== "offen").length;
+  $("tFortschritt").textContent = `${bearbeitet} von ${alle.length} bearbeitet · ✓ ${n("ok")} · ✗ ${n("fehler")} · – ${n("uebersprungen")}`;
+  const ungesendet = alle.filter((p) => e[p.id] && !e[p.id].gesendet).length;
+  $("tSenden").style.display = ungesendet ? "" : "none";
+  $("tSenden").textContent = `${ungesendet} nicht gesendete Ergebnisse senden`;
+}
+function zeigeTests() {
+  if (!T) return;
+  $("tListe").innerHTML = T.plan.map((b) => `<details class="tblock" data-block="${b.nr}" ${tOffen.has(String(b.nr)) ? "open" : ""}>
+    <summary>${b.nr}. ${esc(b.titel)} <span class="klein">(${b.punkte.filter((p) => (T.ergebnisse[p.id] || {}).status && T.ergebnisse[p.id].status !== "offen").length}/${b.punkte.length})</span></summary>
+    ${b.hinweis ? `<div class="klein" style="padding:4px 8px">${esc(b.hinweis)}</div>` : ""}
+    ${b.punkte.map((p) => { const e = T.ergebnisse[p.id] || {}; return `<div class="tpunkt s-${e.status || "offen"}" data-tid="${p.id}">
+      <div>${esc(p.text)}</div>${p.erwartet ? `<div class="klein">Erwartet: ${esc(p.erwartet)}</div>` : ""}
+      <div class="zeile tstatus">${["ok", "fehler", "uebersprungen"].map((s) => `<button data-tstatus="${s}" class="${e.status === s ? "an-" + s : ""}" title="${s}">${tZeichen[s]}</button>`).join("")}
+        <input class="tnotiz" placeholder="Notiz / Meldungstext / Messwert" value="${esc(e.notiz || "")}">
+        <span class="klein">${e.status && e.status !== "offen" ? (e.gesendet ? "gesendet" : "nur lokal") : ""}</span></div></div>`; }).join("")}
+  </details>`).join("");
+  tFortschritt();
+}
+async function ladeTests() { try { T = await senden("testplan"); zeigeTests(); } catch (e) { $("tListe").textContent = "Testplan nicht lesbar: " + e.message; } }
+async function testSpeichern(zeile, status) {
+  const id = zeile.dataset.tid, p = T.plan.flatMap((b) => b.punkte).find((x) => x.id === id);
+  const notiz = zeile.querySelector(".tnotiz").value;
+  const r = await tun(() => senden("test_speichern", { test_id: id, text: p.text, status, notiz }));
+  if (!r) return;
+  T.ergebnisse[id] = r.ergebnis; zeigeTests();
+  meldung(r.gesendet ? "" : "Gespeichert, noch nicht übermittelt: " + r.hinweis, r.gesendet ? "info" : "info");
+}
+$("tListe").addEventListener("click", (e) => {
+  const b = e.target.closest("[data-tstatus]"); if (!b) return;
+  const zeile = b.closest(".tpunkt"), alt = (T.ergebnisse[zeile.dataset.tid] || {}).status;
+  testSpeichern(zeile, alt === b.dataset.tstatus ? "offen" : b.dataset.tstatus);   // nochmal klicken = zurücknehmen
+});
+$("tListe").addEventListener("change", (e) => {
+  if (!e.target.classList.contains("tnotiz")) return;
+  const zeile = e.target.closest(".tpunkt"), alt = (T.ergebnisse[zeile.dataset.tid] || {}).status;
+  if (alt) testSpeichern(zeile, alt);   // Notiz ändern, Status behalten
+});
+$("tListe").addEventListener("toggle", (e) => { const d = e.target; if (d.dataset && d.dataset.block !== undefined) d.open ? tOffen.add(d.dataset.block) : tOffen.delete(d.dataset.block); }, true);
+$("tSenden").onclick = async () => {
+  const r = await tun(() => senden("tests_senden")); if (!r) return;
+  T.ergebnisse = r.ergebnisse; zeigeTests();
+  meldung(r.offen ? `${r.gesendet} gesendet, ${r.offen} noch offen: ${r.hinweis}` : `${r.gesendet} Ergebnis(se) gesendet.`, r.offen ? "fehler" : "ok");
+};
+
+window.addEventListener("load", () => tun(async () => { await laden(); await ladeTests(); }));

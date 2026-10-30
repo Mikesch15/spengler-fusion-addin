@@ -1,12 +1,12 @@
 <!doctype html><html lang="de"><head><meta charset="utf-8"><title>Spengler Digital CAD – Testanleitung</title><style>body{font-family:Segoe UI,Arial,sans-serif;max-width:900px;margin:24px auto;padding:0 16px;color:#1b1f24;line-height:1.45}h1{color:#1b1f24}h2{color:#1d4f7a;margin-top:28px}table{border-collapse:collapse;width:100%;margin:8px 0}td,th{border:1px solid #c8ced6;padding:4px 6px;text-align:left;vertical-align:top}th{background:#e6eef6}code,pre{background:#f2f4f6;padding:1px 4px}.hinweis{background:#fff6e0;border:1px solid #e0b040;padding:8px}</style></head><body><h1>Spengler Digital CAD – Testanleitung</h1>
-<p>Live-Test in Fusion · Version 0.4.2 · zum Ausdrucken und Abhaken</p>
+<p>Live-Test in Fusion · zum Abhaken in der Palette (Register <b>Tests</b>) oder zum Ausdrucken</p>
 <p class="hinweis"><b>So vorgehen:</b> Blöcke der Reihe nach, je Zeile ☐ abhaken. Wenn etwas nicht wie erwartet ist: <b>Meldungstext notieren oder Bildschirmfoto</b>, weitertesten (ausser ein Block sagt «sonst abbrechen»). Am Ende das <b>Protokoll</b> und die Notizen schicken. Dauer gesamt ca. 60–75 Minuten; die Blöcke lassen sich auf mehrere Tage verteilen.</p>
 <h2>0. Vorbereitung (5 Min.)</h2>
 <table>
 <tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
 <tr><td>☐</td><td>Fusion aktualisieren (Konto-Menü oben rechts → Nach Updates suchen). Fusion-Version notieren (Hilfe → Info): ________</td><td>–</td></tr>
 <tr><td>☐</td><td>Alten Prototyp stoppen: Shift+S → Add-Ins → «SpenglerDigital» → Stoppen</td><td>–</td></tr>
-<tr><td>☐</td><td>ZIP <code>SpenglerDigitalCAD_0.4.2.zip</code> entpacken, Ordner <code>SpenglerDigital</code> an seinen Platz kopieren (siehe README)</td><td>–</td></tr>
+<tr><td>☐</td><td>ZIP <code>SpenglerDigitalCAD_&lt;Version&gt;.zip</code> entpacken, Ordner <code>SpenglerDigital</code> an seinen Platz kopieren (siehe README)</td><td>–</td></tr>
 <tr><td>☐</td><td>Ein Lineal/Massband und einen Probestreifen Blech mit bekannter Dicke bereitlegen (für den K-Faktor in Block 3)</td><td>–</td></tr>
 </table>
 <h2>1. Installation und Start (5 Min.) – sonst abbrechen</h2>
@@ -21,7 +21,7 @@
 <h2>2. Selbsttest und Fähigkeiten (5 Min.)</h2>
 <table>
 <tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
-<tr><td>☐</td><td>SPENGLER → Hilfe → <b>Fusion-Fähigkeiten prüfen</b></td><td><b>Versionsnummer = 0.4.2</b> und richtiger Ladeordner; Liste mit ✓/✗ – <b>Bildschirmfoto</b></td></tr>
+<tr><td>☐</td><td>SPENGLER → Hilfe → <b>Fusion-Fähigkeiten prüfen</b></td><td><b>Versionsnummer = installierte Version</b> und richtiger Ladeordner; Liste mit ✓/✗ – <b>Bildschirmfoto</b></td></tr>
 <tr><td>☐</td><td>Hilfe → <b>Selbsttest in neuem Dokument</b></td><td>neues Dokument; ✓ Einheiten, ✓ Rundblech (Ø ca. 200.7 mm), ✓ 3D-Detail (Ursprung ca. (0, 100, 0) mm, «neu beim Import: SD_H_1», «Original SD_H unverändert») – <b>Bildschirmfoto</b></td></tr>
 <tr><td>☐</td><td>Testdokument ohne Speichern schliessen</td><td>–</td></tr>
 <tr><td>☐</td><td>Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen»</td><td>Texte erscheinen, PDF öffnet</td></tr>
@@ -41,6 +41,7 @@
 <table>
 <tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
 <tr><td>☐</td><td>Neue Vorlage erstellen, Name eingeben, Kurzschrift <code>90 H U+ u</code> → <b>übernehmen</b></td><td>Parameter H und u erscheinen</td></tr>
+<tr><td>☐</td><td>Statt Kurzschrift: neue Vorlage, Schritte mit <b>+ Flansch</b> / <b>+ Umschlag</b> anlegen, Winkel und Länge in der Tabelle ändern</td><td>Vorschau zeichnet jeden Schritt sofort mit; Kurzschrift-Zeile folgt der Tabelle</td></tr>
 <tr><td>☐</td><td>Standardwerte H = 25, u = 7</td><td><b>Vorschau</b> zeigt Querschnitt mit 25 und 7, Kante grün; ändert sich beim Tippen</td></tr>
 <tr><td>☐</td><td>Testmaterial wählen → <b>Prüfen &amp; Trockenlauf</b></td><td>«Vorlage ist gültig», Abwicklungszugabe, Bauplan</td></tr>
 <tr><td>☐</td><td>Speichern</td><td>«Version 1», Vorschaubild in der Liste</td></tr>
@@ -128,10 +129,16 @@
 <tr><td>☐</td><td>Zweiter PC (oder zweites Windows-Konto): Add-in installieren, anmelden</td><td>dieselben Vorlagen und Materialien erscheinen</td></tr>
 <tr><td>☐</td><td>Mit einem <b>Mitarbeiter</b>-Konto anmelden, Vorlage ändern</td><td>Hinweis «nur auf diesem PC», in der App unverändert</td></tr>
 <tr><td>☐</td><td>Fusion ohne Internet starten (WLAN aus)</td><td>Add-in startet normal, kein Fehler; nach Wiederverbindung «Jetzt abgleichen»</td></tr>
-<tr><td>☐</td><td><b>Nach Updates suchen</b></td><td>Rückfrage «Version 0.4.3 verfügbar» → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt <b>0.4.3</b></td></tr>
+<tr><td>☐</td><td><b>Nach Updates suchen</b></td><td>Rückfrage «Version x.y.z verfügbar» (nur wenn eine neuere bereitliegt) → Ja → «installiert (2 Dateien)» → Add-in stoppen/ausführen → Hilfe → Fähigkeiten zeigt die neue Version</td></tr>
 <tr><td>☐</td><td>Abmelden</td><td>Anmeldemaske; Vorlagen bleiben lokal</td></tr>
 </table>
-<h2>12. Rückmeldung</h2>
+<h2>12. Tests in der Palette (3 Min.)</h2>
+<table>
+<tr><th>☐</th><th>Schritt</th><th>Erwartet</th></tr>
+<tr><td>☐</td><td>Palette → Register <b>Tests</b>: einen Punkt mit ✓ abhaken, bei einem anderen ✗ mit Notiz, bei einem dritten –</td><td>Farbe wechselt, Fortschritt oben zählt mit; Zeile zeigt «gesendet» (wenn angemeldet) bzw. «nur lokal»</td></tr>
+<tr><td>☐</td><td>Ohne Anmeldung abhaken, dann anmelden, «nicht gesendete Ergebnisse senden»</td><td>Meldung «n Ergebnis(se) gesendet»</td></tr>
+</table>
+<h2>13. Rückmeldung</h2>
 <table>
 <tr><th>☐</th><th>Was schicken</th></tr>
 <tr><td>☐</td><td>Datei <code>…\SpenglerDigitalCAD\protokoll\spengler_cad.log</code></td></tr>
