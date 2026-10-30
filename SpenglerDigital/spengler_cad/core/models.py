@@ -166,8 +166,10 @@ def standard_einstellungen():
         "backup": {"autoBeforeMigration": True, "keepAutomatic": 20},
         # Etikettenbogen A4 – Druckformat (wie im CAD-Programm), kein Fertigungswert; vom Bogen des Herstellers ablesen
         "labels": {"spalten": 3, "zeilen": 8, "breite": 70.0, "hoehe": 37.0, "oben": 0.0, "links": 0.0, "abstandX": 0.0, "abstandY": 0.0},
-        "auftrag": {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"]},   # Ordnerstruktur in Fusion
-        "order": {"objekt": "", "auftrag": ""},   # zuletzt verwendete Angaben für Stückliste/Etiketten
+        "auftrag": {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"],   # Ordnerstruktur in Fusion
+                    "rollen": {"modelle": "Modelle", "plaene": "Pläne", "export": "Export"}, "lokalBasis": "", "teilnummerMitAuftrag": True},
+        "pruefung": {"minSchenkel": 10.0, "minRadiusFaktor": 1.0},   # Warnschwellen vor dem Export (Schenkel in mm, Radius × Blechdicke)
+        "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",
         "cloud": {"syncOnStart": True, "updateCheckOnStart": True},   # Spengler-Digital-App (nur wenn angemeldet)
     }

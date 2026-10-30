@@ -15,7 +15,7 @@ _angelegt = []   # (panel, control-id)
 
 def _definitionen():
     kanten = [edge_apply_command.registrieren()] + detail_generator_command.registrieren() + [forming_command.registrieren()]
-    fertigung = export_command.registrieren() + auftrag_command.registrieren()
+    fertigung = export_command.registrieren() + auftrag_command.registrieren() + auftrag_command.registrieren_wahl()
     verwaltung = settings_command.registrieren()
     return [kanten, fertigung, verwaltung]
 

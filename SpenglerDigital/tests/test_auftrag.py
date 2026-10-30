@@ -50,7 +50,7 @@ class NamenTest(unittest.TestCase):
         p = auftrag.plan(None, "17999", "Testweg 1, Bern", 2026)
         self.assertEqual((p["wurzel"], p["pfad"], p["unterordner"]), ("Projekte", ["2026", "17999 Testweg 1, Bern"], ["Modelle", "Pläne", "Export"]))
         p = auftrag.plan({"jahresordner": False, "unterordner": "A, B"}, "17999", "X", 2026)
-        self.assertEqual((p["pfad"], p["unterordner"]), (["17999 X"], ["A", "B"]))
+        self.assertEqual((p["pfad"], p["unterordner"]), (["17999 X"], ["A", "B", "Modelle", "Pläne", "Export"]))   # Rollenordner gehören immer dazu
         with self.assertRaises(auftrag.AuftragsFehler):
             auftrag.pruefe_einstellung({"unterordner": ["A", "a"]})
 
@@ -89,6 +89,54 @@ class AnlegenTest(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.auftrag_ordner_anlegen(auftrag.plan(None, "17999", "X", 2026))
         self.assertIn("nicht gefunden", str(cm.exception))
+
+
+class LesenSpeichernTest(AnlegenTest):
+    def struktur(self):
+        w = self.fusion("Projekte")
+        for jahr, namen in (("2025", ["17642 Nägeligasse 1a, Bern", "17747 Talstrasse 23, Kehrsatz"]), ("2026", ["18162 Sonneggweg 9, Bern"])):
+            j = w.add(jahr)
+            for n in namen:
+                j.add(n).add("Modelle")
+        w.add("Allgemein").add("Vorlagen")
+        return w
+
+    def test_auftraege_lesen_neueste_zuerst(self):
+        self.struktur()
+        liste = fa.auftraege_lesen("Projekte")
+        self.assertEqual([a["nummer"] for a in liste], ["18162", "17747", "17642"])
+        self.assertEqual((liste[0]["objekt"], liste[0]["jahr"]), ("Sonneggweg 9, Bern", 2026))
+
+    def dokument(self, w, gespeichert_in=None):
+        gespeichert = []
+        datei = type("DF", (), {"parentFolder": gespeichert_in})() if gespeichert_in is not None else None
+        doc = type("Doc", (), {"name": "Dach v1", "dataFile": datei, "saveAs": lambda s, n, ordner, b, t: gespeichert.append((n, ordner.name)) or True})()
+        app = adsk.core.Application.get()
+        app.activeDocument = doc
+        return gespeichert
+
+    def test_neues_dokument_wird_in_modelle_gespeichert(self):
+        w = self.struktur()
+        for i, o in enumerate([w] + w.kinder + [k for j in w.kinder for k in j.kinder]):
+            o.id = i
+        g = self.dokument(w)
+        text = fa.dokument_im_auftrag_speichern("Projekte", "18162 Sonneggweg 9, Bern", "Modelle")
+        self.assertEqual(g, [("Dach v1", "Modelle")])
+        self.assertIn("wurde im Ordner «Modelle» gespeichert", text)
+
+    def test_liegt_schon_dort_oder_kopie(self):
+        w = self.struktur()
+        auftragsordner = w.kinder[1].kinder[0]
+        for i, o in enumerate([w] + w.kinder + w.kinder[0].kinder + w.kinder[1].kinder + auftragsordner.kinder):
+            o.id = i
+        modelle = auftragsordner.kinder[0]
+        g = self.dokument(w, gespeichert_in=modelle)
+        self.assertIn("liegt schon", fa.dokument_im_auftrag_speichern("Projekte", "18162 Sonneggweg 9, Bern", "Modelle"))
+        self.assertEqual(g, [])
+        g = self.dokument(w, gespeichert_in=w.kinder[2])
+        self.assertIn("Kopie", fa.dokument_im_auftrag_speichern("Projekte", "18162 Sonneggweg 9, Bern", "Modelle"))
+        with self.assertRaises(fa.AdapterFehler):
+            fa.dokument_im_auftrag_speichern("Projekte", "99999 Gibt es nicht", "Modelle")
 
 
 class EinstellungTest(unittest.TestCase):

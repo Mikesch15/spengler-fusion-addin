@@ -20,7 +20,7 @@ from .. import VERSION
 from ..diagnostics import logger
 from ..core import auftrag
 from ..geometry import fusion_adapter as fa
-from ..manufacturing import dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, workshop_sheet
+from ..manufacturing import bend_list, bestellung, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
 from ..storage import json_store, paths
 from ..storage.material_library import MaterialBibliothek
 from ..storage.settings_service import Einstellungen
@@ -32,8 +32,15 @@ BID_ZUS = "spenglerMaterialZuschnitt"
 Z = {}
 
 
-def _exportordner(e):
-    o = (e.get("export") or {}).get("folder") or paths.unterordner("export")
+def _exportordner(e, angaben=None):
+    """Exportordner: mit eingestelltem lokalen Auftragsordner <Basis>/[Jahr]/<Nummer Objekt>/Export, sonst der allgemeine Exportordner."""
+    o = None
+    if angaben:
+        try:
+            o = auftrag.lokaler_exportpfad(e.get("auftrag"), angaben.get("auftrag"), angaben.get("objekt"), angaben.get("jahr") or e["order"].get("jahr"))
+        except auftrag.AuftragsFehler:
+            o = None
+    o = o or (e.get("export") or {}).get("folder") or paths.unterordner("export")
     o = os.path.join(o, datetime.datetime.now().strftime("%Y-%m-%d_%H%M%S"))
     os.makedirs(o, exist_ok=True)
     return o
@@ -91,14 +98,18 @@ def abw_erstellt(args):
 def _abw(self, args):
     inp = args.command.commandInputs
     e = Einstellungen().laden()
-    ordner = _exportordner(e)
+    angaben = auftrag_angaben(e)
+    ordner = _exportordner(e, angaben)
+    mit_auftrag = bool((e.get("auftrag") or {}).get("teilnummerMitAuftrag", True))
+    pruef = []
     fsel = inp.itemById("flaeche")
     flaeche = adsk.fusion.BRepFace.cast(fsel.selection(0).entity) if fsel.selectionCount else None
     if flaeche is not None:
         flaeche = flaeche.nativeObject or flaeche
     z, ok_n, sammel = [], 0, []
     mats = MaterialBibliothek().liste()
-    for nr, body in enumerate(_koerper(inp), 1):
+    koerper_liste = _koerper(inp)
+    for nr, body in enumerate(koerper_liste, 1):
         comp = body.parentComponent
         name = body.name or comp.name
         try:
@@ -110,8 +121,11 @@ def _abw(self, args):
             q = _quelle(body) or {}
             mat = (q.get("material") or {}).get("name") or next((m["name"] for m in mats if t and abs(m["thickness"] - t) < 0.005), "")
             nr = fa.teilnummer(body, True)
-            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s" % (nr, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "")
-            basis = "%s_%s" % (nr, _dateiname(e, name, mat, t))
+            nr_text = auftrag.teil_label(angaben["auftrag"], nr, mit_auftrag)
+            pruef.append({"name": name, "nr": nr, "material": {"name": mat} if mat else None, "dicke": t, "abwicklung": True,
+                          "operationen": q.get("operationen"), "ri": None})
+            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s" % (nr_text, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "")
+            basis = "%s_%s" % (nr_text, _dateiname(e, name, mat, t))
             dxf_pfad = None
             if inp.itemById("dxf").value:
                 dxf_pfad = fa.dxf_abwicklung(fp, os.path.join(ordner, basis + ".dxf"))
@@ -122,7 +136,7 @@ def _abw(self, args):
                 m = next((x for x in mats if x["id"] == (q.get("material") or {}).get("id")), None)
                 logo = os.path.join(paths.ADDIN_ORDNER, "assets", "logo", "logo_256.png")
                 html = workshop_sheet.erstelle({
-                    "bauteil": name, "teilnummer": nr, "objekt": auftrag_angaben(e)["objekt"], "auftrag": auftrag_angaben(e)["auftrag"],
+                    "bauteil": name, "teilnummer": nr_text, "objekt": angaben["objekt"], "auftrag": angaben["auftrag"],
                     "material": mat or "nicht zugeordnet", "dicke": t, "vorlage": q.get("vorlageName") or "–",
                     "vorlagenVersion": q.get("vorlageVersion") or "–", "abwicklung": masse, "abwicklungSvg": svg_abw, "abwicklungHinweis": abw_hinweis,
                     "operationen": q.get("operationen"), "ri": (m or {}).get("innerRadius"), "k": (m or {}).get("kFactor"), "datum": datetime.date.today().isoformat(),
@@ -138,7 +152,10 @@ def _abw(self, args):
         except Exception as ex:
             logger.ausnahme("Abwicklung", koerper=name)
             z.append("✗ %s: Fusion meldet: %s" % (name, base.fehlertext(ex)))
-    z.append("\n%d von %d Körpern erfolgreich. Ordner:\n%s" % (ok_n, len(z), ordner))
+    warn = pruefung.pruefe_teile(pruef, e.get("pruefung"))
+    if warn:
+        z.append("\nPrüfung:\n" + "\n".join("⚠ " + w for w in warn))
+    z.append("\n%d von %d Körpern erfolgreich. Ordner:\n%s" % (ok_n, len(koerper_liste), ordner))
     base.melden("Abwicklung & DXF", "\n".join(z), ok_n == 0)
     if ok_n:
         try:
@@ -197,6 +214,8 @@ def zus_erstellt(args):
     inp.addBoolValueInput("liste", "Stückliste (CSV + HTML)", True, "", True)
     inp.addBoolValueInput("etiketten", "Etiketten (A4-Bogen, HTML)", True, "", True)
     inp.addBoolValueInput("zuschnitt", "Materialbedarf & Zuschnittplan", True, "", True)
+    inp.addBoolValueInput("abkant", "Abkantliste für die Werkstatt (HTML)", True, "", True)
+    inp.addBoolValueInput("bestell", "Bestellliste für den ganzen Auftrag (alle Dokumente)", True, "", False)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged,
                  lambda a: a.input.id == "hilfe" and base.melden("Hilfe", help_content.text("stueckliste") + "\n\n" + help_content.text("zuschnitt")))
@@ -207,7 +226,7 @@ def zus_erstellt(args):
 def _zus(self, args):
     from ..core import units
     inp = args.command.commandInputs
-    objekt, auftrag = inp.itemById("objekt").value.strip(), inp.itemById("auftrag").value.strip()
+    objekt, auftrag_nr = inp.itemById("objekt").value.strip(), inp.itemById("auftrag").value.strip()
     if not Z["mat"]:
         raise fa.AdapterFehler("Kein Materialprofil vorhanden. Bitte unter «Vorlagen & Einstellungen → Materialien» anlegen.")
     m = Z["mat"][inp.itemById("material").selectedItem.index]
@@ -220,36 +239,58 @@ def _zus(self, args):
             continue
         masse = fa.abwicklung_masse(fp)
         nr = fa.teilnummer(body, inp.itemById("nummern").value)
+        q = _quelle(body) or {}
         teile.append({"nr": nr if nr is not None else "", "name": body.name, "materialId": m["id"], "material": m, "flaeche": masse["flaeche"],
-                      "breite": masse["breite"], "laenge": masse["laenge"], "stueck": stueck})
+                      "breite": masse["breite"], "laenge": masse["laenge"], "stueck": stueck, "dicke": m.get("thickness"), "abwicklung": True,
+                      "operationen": q.get("operationen"), "ri": m.get("innerRadius")})
     if not teile:
         raise fa.AdapterFehler("Keiner der gewählten Körper hat eine Abwicklung. Zuerst «Abwicklung & DXF» ausführen.")
     teile.sort(key=lambda t: (t["nr"] == "", t["nr"] if t["nr"] != "" else 0, t["name"]))
     e = Einstellungen().laden()
     try:   # Objekt/Auftrag für das nächste Mal merken – Fehler hier verhindern die Ausgabe nicht
-        e["order"] = {"objekt": objekt, "auftrag": auftrag}
+        e["order"] = {"objekt": objekt, "auftrag": auftrag_nr, "jahr": auftrag_angaben(e).get("jahr")}
         Einstellungen().speichern(e)
     except Exception:
         logger.ausnahme("Auftragsangaben nicht gespeichert")
     e["nesting"].update({"kerf": units.cm_zu_mm(inp.itemById("fuge").value), "margin": units.cm_zu_mm(inp.itemById("rand").value),
                          "rotationAllowed": inp.itemById("drehen").value})
-    ordner = _exportordner(e)
+    angaben = {"auftrag": auftrag_nr, "objekt": objekt, "jahr": auftrag_angaben(e).get("jahr")}
+    ordner = _exportordner(e, angaben)
+    mit_auftrag = bool((e.get("auftrag") or {}).get("teilnummerMitAuftrag", True))
+    warn = pruefung.pruefe_teile(teile, e.get("pruefung"))
+    for t in teile:      # Anzeige: «17642-01»; Sortierung und Speicherung bleiben bei der laufenden Nummer
+        t["nr_zahl"], t["nr"] = t["nr"], auftrag.teil_label(auftrag_nr, t["nr"], mit_auftrag)
     text, dateien = "", []
     logo = os.path.join(paths.ADDIN_ORDNER, "assets", "logo", "logo_256.png")
     logo = pathlib.Path(logo).as_uri() if os.path.exists(logo) else None
     liste = parts_list.stueckliste(teile)
     if inp.itemById("liste").value:
-        kopf = [["Objekt", objekt], ["Auftrag", auftrag], ["Datum", datetime.date.today().isoformat()], []]
+        kopf = [["Objekt", objekt], ["Auftrag", auftrag_nr], ["Datum", datetime.date.today().isoformat()], []]
         with open(os.path.join(ordner, "stueckliste.csv"), "w", encoding="utf-8", newline="") as f:
             f.write(parts_list.stueckliste_csv(liste, kopf))
         with open(os.path.join(ordner, "stueckliste.html"), "w", encoding="utf-8") as f:
-            f.write(parts_list.stueckliste_html(liste, objekt, auftrag, datetime.date.today().isoformat(), logo, VERSION))
+            f.write(parts_list.stueckliste_html(liste, objekt, auftrag_nr, datetime.date.today().isoformat(), logo, VERSION))
         dateien += ["stueckliste.csv", "stueckliste.html"]
     if inp.itemById("etiketten").value:
-        seite, n = parts_list.etiketten_html(liste, e["labels"], objekt, auftrag)
+        seite, n = parts_list.etiketten_html(liste, e["labels"], objekt, auftrag_nr)
         with open(os.path.join(ordner, "etiketten.html"), "w", encoding="utf-8") as f:
             f.write(seite)
         dateien.append("etiketten.html (%d Etiketten)" % n)
+    if inp.itemById("abkant").value:
+        with open(os.path.join(ordner, "abkantliste.html"), "w", encoding="utf-8") as fh:
+            fh.write(bend_list.abkantliste_html(teile, objekt, auftrag_nr, datetime.date.today().isoformat(), VERSION))
+        dateien.append("abkantliste.html")
+    try:    # Stand dieses Dokuments für die Bestellliste des Auftrags merken
+        bestellung.teile_merken(auftrag_nr, fa.dokument_name(), teile)
+    except Exception:
+        logger.ausnahme("Teile für die Bestellliste nicht gespeichert")
+    if inp.itemById("bestell").value:
+        b = bestellung.bestellung(auftrag_nr, Z["mat"], e)
+        with open(os.path.join(ordner, "bestellliste.txt"), "w", encoding="utf-8") as fh:
+            fh.write(b["text"])
+        dateien.append("bestellliste.txt (%d Dokument(e))" % len(b["dokumente"]))
+    if warn:
+        text += "Prüfung:\n" + "\n".join("⚠ " + w for w in warn) + "\n\n"
     text += "Teile: " + ", ".join("%s %s" % (t["nr"], t["name"]) for t in teile) + "\n"
     erg = material_calculator.berechne(teile, [m], e) if inp.itemById("zuschnitt").value else {"materialien": []}
     if erg["materialien"]:
@@ -286,12 +327,12 @@ def zus_ausfuehren(args):
 def auftrag_angaben(e):
     """Objekt/Auftrag: aus dem Ordner des aktiven Fusion-Dokuments («17642 Nägeligasse 1a, Bern»), sonst zuletzt verwendet."""
     try:
-        z = auftrag.aus_pfad(fa.dokument_ordnerpfad())
+        z = auftrag.aus_pfad_voll(fa.dokument_ordnerpfad())
     except Exception:
         z = None
     if z:
-        return {"auftrag": z[0], "objekt": z[1], "quelle": "Fusion-Ordner"}
-    return {"auftrag": e["order"].get("auftrag", ""), "objekt": e["order"].get("objekt", ""), "quelle": "zuletzt verwendet"}
+        return {"auftrag": z[0], "objekt": z[1], "jahr": z[2], "quelle": "Fusion-Ordner"}
+    return {"auftrag": e["order"].get("auftrag", ""), "objekt": e["order"].get("objekt", ""), "jahr": e["order"].get("jahr"), "quelle": "zuletzt verwendet"}
 
 
 def registrieren():

@@ -11,7 +11,10 @@ class AuftragsFehler(ValueError):
 
 
 def standard():
-    return {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"]}
+    return {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"],
+            "rollen": {"modelle": "Modelle", "plaene": "Pläne", "export": "Export"},   # welcher Unterordner wofür dient
+            "lokalBasis": "",                                                          # Ordner auf dem PC für Exporte je Auftrag (leer = Exportordner)
+            "teilnummerMitAuftrag": True}                                              # Teilenummern als «17642-01»
 
 
 def zerlegen(name):
@@ -47,6 +50,17 @@ def aus_pfad(namen):
     return None
 
 
+def aus_pfad_voll(namen):
+    """Wie aus_pfad, zusätzlich das Jahr (ein Ordner direkt davor, der nur aus 4 Ziffern besteht) → (Nummer, Objekt, Jahr oder None) oder None."""
+    namen = list(namen or [])
+    for i in range(len(namen) - 1, -1, -1):
+        z = zerlegen(namen[i])
+        if z:
+            jahr = int(namen[i - 1]) if i > 0 and re.match(r"^\d{4}$", namen[i - 1] or "") else None
+            return z[0], z[1], jahr
+    return None
+
+
 def pruefe_einstellung(a):
     """→ bereinigte Einstellung; wirft AuftragsFehler."""
     a = dict(standard(), **(a or {}))
@@ -59,8 +73,17 @@ def pruefe_einstellung(a):
     sub = [_teil_pruefen(s, "Unterordner") for s in sub if str(s).strip()]
     if len(set(s.lower() for s in sub)) != len(sub):
         raise AuftragsFehler("Unterordner dürfen nicht doppelt vorkommen.")
+    rollen = dict(standard()["rollen"], **(a.get("rollen") or {}))
+    for k, v in list(rollen.items()):
+        rollen[k] = _teil_pruefen(v, "Ordnername für %s" % k) if str(v or "").strip() else standard()["rollen"][k]
+    for v in rollen.values():          # die Rollen-Ordner gehören immer zur Struktur
+        if v.lower() not in [x.lower() for x in sub]:
+            sub.append(v)
+    a["rollen"] = rollen
     a["unterordner"] = sub
     a["jahresordner"] = bool(a.get("jahresordner"))
+    a["lokalBasis"] = (a.get("lokalBasis") or "").strip()
+    a["teilnummerMitAuftrag"] = bool(a.get("teilnummerMitAuftrag", True))
     return a
 
 
@@ -70,3 +93,25 @@ def plan(einstellung, nummer, objekt, jahr):
     name = ordnername(nummer, objekt)
     pfad = ([str(int(jahr))] if a["jahresordner"] else []) + [name]
     return {"wurzel": a["wurzelOrdner"], "pfad": pfad, "unterordner": a["unterordner"], "name": name}
+
+
+def teil_label(nummer, nr, mit_auftrag=True):
+    """Teilenummer für Ausgaben: «17642-01», sonst die laufende Nummer."""
+    if nr in (None, ""):
+        return ""
+    if mit_auftrag and nummer:
+        try:
+            return "%s-%02d" % (nummer, int(nr))
+        except (TypeError, ValueError):
+            pass
+    return str(nr)
+
+
+def lokaler_exportpfad(einstellung, nummer, objekt, jahr=None):
+    """Ordner für Exporte eines Auftrags auf dem PC: <Basis>/[Jahr]/<Nummer Objekt>/<Export>; None ohne Basis oder Auftrag."""
+    import os
+    a = pruefe_einstellung(einstellung)
+    if not a["lokalBasis"] or not nummer or not objekt:
+        return None
+    teile = [a["lokalBasis"]] + ([str(int(jahr))] if a["jahresordner"] and jahr else []) + [ordnername(nummer, objekt), a["rollen"]["export"]]
+    return os.path.join(*teile)

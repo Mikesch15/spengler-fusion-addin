@@ -1215,6 +1215,68 @@ def auftrag_ordner_anlegen(plan):
     return "/".join(pfad), hinweise
 
 
+def dokument_name():
+    try:
+        return adsk.core.Application.get().activeDocument.name
+    except Exception:
+        return ""
+
+
+def _ordner_rekursiv(ordner, tiefe, pfad, ausgabe):
+    if tiefe < 0:
+        return
+    for f in ordner.dataFolders:
+        ausgabe.append((f, pfad + [f.name]))
+        _ordner_rekursiv(f, tiefe - 1, pfad + [f.name], ausgabe)
+
+
+def _stamm_ordner(wurzel_name):
+    projekt = adsk.core.Application.get().data.activeProject
+    if projekt is None:
+        raise AdapterFehler("Kein aktives Projekt in Fusion. Bitte zuerst im Datenfenster das Projekt öffnen.")
+    wurzel = projekt.rootFolder
+    if wurzel_name and projekt.name != wurzel_name:
+        w = _unterordner(wurzel, wurzel_name)
+        if w is None:
+            raise AdapterFehler("Der Stammordner «%s» wurde im aktiven Projekt «%s» nicht gefunden." % (wurzel_name, projekt.name))
+        wurzel = w
+    return wurzel
+
+
+def auftraege_lesen(wurzel_name, tiefe=2):
+    """Vorhandene Auftragsordner («Nummer Objekt») unterhalb des Stammordners, neueste Nummer zuerst → [{'name','nummer','objekt','jahr'}].
+    NICHT live geprüft."""
+    from ..core import auftrag
+    alle = []
+    _ordner_rekursiv(_stamm_ordner(wurzel_name), tiefe, [], alle)
+    out = []
+    for f, pfad in alle:
+        z = auftrag.aus_pfad_voll(pfad[-2:]) if auftrag.zerlegen(f.name) else None
+        if z and auftrag.zerlegen(pfad[-1]):
+            out.append({"name": f.name, "nummer": z[0], "objekt": z[1], "jahr": z[2]})
+    out.sort(key=lambda a: (int(a["nummer"]), a["name"]), reverse=True)
+    return out
+
+
+def dokument_im_auftrag_speichern(wurzel_name, auftragsname, unterordner_name, tiefe=2):
+    """Aktives Dokument im Unterordner (z. B. «Modelle») des Auftrags speichern. Ungespeichert: saveAs. Schon dort: nichts. Sonst eine KOPIE
+    (die offene Datei lässt sich nicht verschieben). → Text. NICHT live geprüft."""
+    alle = []
+    _ordner_rekursiv(_stamm_ordner(wurzel_name), tiefe, [], alle)
+    ziel = next((f for f, pfad in alle if f.name == auftragsname), None)
+    if ziel is None:
+        raise AdapterFehler("Der Auftragsordner «%s» wurde nicht gefunden." % auftragsname)
+    sub = _unterordner(ziel, unterordner_name) or ziel.dataFolders.add(unterordner_name)
+    doc = adsk.core.Application.get().activeDocument
+    datei = doc.dataFile
+    if datei is not None and datei.parentFolder is not None and datei.parentFolder.id == sub.id:
+        return "Das Dokument liegt schon im Ordner «%s»." % unterordner_name
+    if not doc.saveAs(doc.name, sub, "", ""):
+        raise AdapterFehler("Fusion hat das Dokument nicht gespeichert.")
+    return ("Das Dokument wurde im Ordner «%s» gespeichert." % unterordner_name) if datei is None else (
+        "Eine Kopie wurde im Ordner «%s» gespeichert (die bisherige Datei bleibt, wo sie war)." % unterordner_name)
+
+
 def teilnummer(body, vergeben=True):
     """Teilenummer eines Körpers (Attribut am nativen Körper). Fehlt sie und vergeben=True: nächste freie Nummer im Dokument."""
     body = body.nativeObject or body

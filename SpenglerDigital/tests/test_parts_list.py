@@ -106,7 +106,7 @@ class EtikettenTest(DatenTest):
         json_store.schreiben(s.pfad, e)
         e = s.laden()
         self.assertEqual(e["labels"]["spalten"], 3)
-        self.assertEqual(e["order"], {"objekt": "", "auftrag": ""})
+        self.assertEqual(e["order"], {"objekt": "", "auftrag": "", "jahr": None})
 
 
 if __name__ == "__main__":
