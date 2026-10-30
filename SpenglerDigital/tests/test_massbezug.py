@@ -41,6 +41,16 @@ class MassbezugTest(unittest.TestCase):
         text = operation_plan.beschreibung(operation_plan.erstelle(v, {}, test_material(), [k]))
         self.assertIn("Mass innen, Lage aussen", text)
 
+    def test_radius_standard_aus_material(self):
+        from _basis import test_material
+        from test_templates import testvorlage
+        v = testvorlage()
+        v["operations"] = [op(), op(radius=2.0), {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+        k = {"ref": 1, "text": "Kante 1", "kurve": "linie", "laenge": 500.0, "flaechen": 2, "blech": True, "dicke": 0.7, "frei": True}
+        m = test_material()
+        ops = operation_plan.erstelle(v, {}, m, [k])["operations"]
+        self.assertEqual([o["radius"] for o in ops], [m["innerRadius"], 2.0, None], "Flansch: Materialradius, eigener Radius gilt, Umschlag unberührt")
+
 
 if __name__ == "__main__":
     unittest.main()

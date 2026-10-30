@@ -298,11 +298,10 @@ class UmschlagTest(unittest.TestCase):
         self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
         self.assertEqual(len(hf.hinzu), 1)
 
-    def test_offener_saum_mit_radius(self):
+    def test_radius_der_vorlage_macht_keinen_offenen_saum(self):
         inp = HemEingabe()
         fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
-        name, _, laenge, spalt, geflippt, _ = inp.aufrufe[0]
-        self.assertEqual((name, laenge, spalt, geflippt), ("open", "10 mm", "3 mm", False))
+        self.assertEqual(inp.aufrufe[0][0], "flat", "Live-Test: offener Saum scheiterte, Radius kommt aus der Blechregel")
 
     def test_fusion_lehnt_ab_oder_wirft(self):
         for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):

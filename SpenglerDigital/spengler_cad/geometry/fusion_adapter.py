@@ -390,6 +390,8 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
     Live-Test 30.10.: Fusion nahm die Definition an, die Berechnung scheiterte («Failed to create Hem … SM_MODELING_ERROR») – welche
     Kombination aus Biegelage und Richtung passt, hängt vom Körper ab. Ohne ausdrückliche Lage werden deshalb nacheinander Kante/innen/
     aussen/tangential und dann die Gegenrichtung versucht; die erste, die Fusion rechnet, gilt (im Protokoll vermerkt). NICHT live bestätigt."""
+    # Live-Test 30.10.: mit Radius (offener Saum, Spalt 2 × Radius) scheiterte Fusion, ohne Radius (geschlossener Saum) klappt es.
+    # Der Radius des Umschlags kommt deshalb aus der Blechregel; ein Radius in der Vorlage wird hier bewusst nicht verwendet.
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -406,10 +408,7 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
             _eigenschaften_einmal("HemFeatureInput", inp)
             name = "Lage %s%s" % (l, ", Gegenrichtung" if flip != bool(nach_hinten) else "")
             try:
-                if radius_mm is None:
-                    ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
-                else:
-                    ok = inp.setOpenHem(edge, L, _vi_mm(2 * radius_mm), flip, _lage_enum(l))
+                ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
                 if not ok:
                     versuche.append("%s: von Fusion abgelehnt" % name)
                     continue
