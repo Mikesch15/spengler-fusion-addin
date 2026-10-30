@@ -63,6 +63,11 @@ def _erfassen(self, args):
     inp = args.command.commandInputs
     occ = adsk.fusion.Occurrence.cast(inp.itemById("komp").selection(0).entity)
     kante = adsk.fusion.BRepEdge.cast(inp.itemById("kante").selection(0).entity)
+    if occ is None:   # Live-Test 30.10.: gewählt war keine Komponente (Occurrence) – Ausnahme «NoneType hat kein component»
+        occ = getattr(kante, "assemblyContext", None)
+    if occ is None:
+        raise fa.AdapterFehler("Als «Detail-Komponente» bitte die Komponente (Eintrag im Browser links oder im Modell) wählen, in der das Detail liegt – "
+                               "gewählt wurde etwas anderes, z. B. ein Körper oder das oberste Dokument. Das Detail muss in einer eigenen Komponente stehen.")
     fsel = inp.itemById("flaeche")
     flaeche = adsk.fusion.BRepFace.cast(fsel.selection(0).entity) if fsel.selectionCount else None
     # Koordinaten im System der Komponente (so liegt sie nach dem Export/Import im eigenen Ursprung)

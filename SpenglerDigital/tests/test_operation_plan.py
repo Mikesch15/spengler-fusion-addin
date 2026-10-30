@@ -30,16 +30,17 @@ class BauplanTest(unittest.TestCase):
             self.assertTrue(p["validation"]["errors"], k)
             self.assertFalse(op.ist_ausfuehrbar(p))
 
-    def test_runde_kanten_nur_fuer_reine_umschlag_vorlagen(self):
+    def test_runde_kanten_werden_versucht_flansch_mit_warnung(self):
         for kurve in ("kreis", "bogen"):
-            p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])   # enthält Flansch → Fusion-Flansch nur an geraden Kanten
-            self.assertFalse(op.ist_ausfuehrbar(p), kurve)
-            self.assertIn("nur an geraden Kanten", " ".join(p["validation"]["errors"]))
+            p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])   # Vorlage mit Flansch
+            self.assertFalse(p["validation"]["errors"], kurve)
+            self.assertTrue(op.ist_ausfuehrbar(p))
+            self.assertIn("nennt in der Dokumentation nur gerade Kanten", " ".join(p["validation"]["warnings"]))
             v = testvorlage()
             v["operations"] = [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
             p = op.erstelle(v, {}, test_material(), [kante(kurve=kurve)])
-            self.assertFalse(p["validation"]["errors"], kurve)
             self.assertTrue(op.ist_ausfuehrbar(p))
+            self.assertNotIn("nur gerade Kanten", " ".join(p["validation"]["warnings"]), "Umschlag: keine Warnung")
 
     def test_dicken_und_laengenbereich(self):
         v = testvorlage()

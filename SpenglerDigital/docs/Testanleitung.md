@@ -70,10 +70,10 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | SPENGLER → **Kanten bearbeiten**, eine obere Aussenkante wählen, Ihre Vorlage, Material | Bauplan: «Kanten: 1 gewählt, 1 geeignet», Folge mit Werten |
 | ☐ | Vorschau an | Flansch + Umschlag sichtbar **vor** OK |
 | ☐ | Wert H im Dialog ändern | Vorschau passt sich an |
-| ☐ | OK | Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________ |
+| ☐ | OK (auch bei eingeschalteter **Vorschau** muss OK klickbar sein) | Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________ |
 | ☐ | Strg+Z | **alles** dieses Befehls in einem Schritt weg |
 | ☐ | Zwei gegenüberliegende Kanten zugleich → OK | beide bearbeitet |
-| ☐ | Zwei aneinanderstossende Kanten (Ecke) → OK | notieren, wie Fusion die Ecke löst (Bildschirmfoto) |
+| ☐ | Zwei aneinanderstossende Kanten (Ecke) → OK | erster Flansch gemeinsam, Ecke auf **Gehrung** («gemeinsamer Flansch mit Gehrung» im Bericht); bei Hinweis «einzeln gebaut» Grund notieren |
 | ☐ | Eine Biegekante bzw. Kante eines normalen Volumenkörpers wählen | «ungeeignet» mit Grund, OK gesperrt |
 | ☐ | Expertenmodus im Dialog, Folge `-90 20` → OK | Abkantung nach hinten; gespeicherte Vorlage unverändert |
 | ☐ | Expertenmodus, Folge `90r5 20`, «als neue Vorlage speichern» → OK | Radius 5; neue Vorlage «… (angepasst)» in der Palette |
@@ -91,8 +91,8 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Wert ändern → Vorschau → OK | Detail sitzt an der Kante, Meldung nennt gesetzte Parameter |
 | ☐ | «Um 180° wenden» | Detail andersherum |
 | ☐ | Gekrümmte Zielkante wählen | lässt sich nicht wählen (nur gerade Kanten) |
-| ☐ | **Kanten bearbeiten** an Kreis- oder Bogenkante mit einer Vorlage **aus reinen Umschlägen** (`U+ 7`) | Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück |
-| ☐ | Dieselbe Kante mit einer Vorlage mit **Flansch** (`90 25`) | «ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze) |
+| ☐ | **Kanten bearbeiten** an Kreis- oder Bogenkante mit einer Vorlage **aus reinen Umschlägen** (`U+ 7`) | Umschlag folgt der Kontur, keine Schlitze/Lappen; Strg+Z nimmt alles zurück – sonst die Meldung wörtlich notieren |
+| ☐ | Dieselbe Kante mit einer Vorlage mit **Flansch** (`90 25`) | Fusion nimmt den Flansch **oder** meldet «Fusion lehnt den Flansch an dieser runden Kante ab» mit seiner Antwort; nichts halb gebaut |
 | ☐ | **3D-Detail anwenden** mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech) | Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen |
 | ☐ | Dasselbe mit Detail, das den Körper nicht berührt | klare Meldung, Modell unverändert |
 

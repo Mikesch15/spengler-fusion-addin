@@ -42,6 +42,16 @@ def design():
 
 
 # ------------------------------------------------------------------ Hilfen für Preview-API
+_GELOGGT = set()
+
+
+def _eigenschaften_einmal(name, obj):
+    """Die Eigenschaftsliste einer Preview-API-Eingabe nur beim ersten Mal protokollieren (hält das Protokoll lesbar)."""
+    if name not in _GELOGGT:
+        _GELOGGT.add(name)
+        logger.info(name, eigenschaften=_namen(obj))
+
+
 def _namen(obj):
     try:
         return sorted(n for n in dir(obj) if not n.startswith("_") and n not in ("this", "thisown", "cast", "classType", "objectType", "isValid"))
@@ -184,7 +194,7 @@ def neue_aussenkante(feature, vorher, erwartet_mm, dicke_mm):
             q, d = _linie(k)
             if abs(abs(d.dotProduct(d0)) - 1) > 1e-4:
                 continue
-            if abs(k.length - L0) > max(0.05, 0.02 * L0):   # Flansch über ganze Kantenlänge
+            if abs(k.length - L0) > max(0.05, 0.02 * L0, 0.4 * dicke_mm):   # Flansch über ganze Kantenlänge (Gehrung ändert sie um ~Blechdicke)
                 continue
             abstand = units.cm_zu_mm(p0.vectorTo(q).crossProduct(d0).length)
             kandidaten.append((abstand, k))
@@ -294,18 +304,24 @@ def _flange_features(comp):
 def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
     """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten.
 
-    Echte API (help.autodesk.com, EdgeFlangeInput, Preview, ab Oktober 2026): createEdgeFlangeInput(edges, distance) nimmt NUR gerade
-    Aussenkanten; Eigenschaften angle (ValueInput), isFlipped, bendRadiusOverride.setOverride(ValueInput). NICHT live geprüft."""
-    if _kurventyp(edge) != "linie":
-        raise AdapterFehler("Der Fusion-Flansch (EdgeFlange-API) arbeitet nur an geraden Kanten, nicht an Kreisen/Bögen – "
-                            "laut Autodesk-Dokumentation «linear edges on the outside of a sheet metal body». Für runde Ränder bleibt der Umschlag (Saum) "
-                            "oder das Rundblech-Werkzeug.")
-    comp = edge.body.parentComponent
+    edge: eine Kante oder eine Liste zusammenhängender Kanten – in EINEM Feature gebaut, damit Fusion die Ecken auf Gehrung schneidet
+    (isMiteredCorners, Standard true).
+    Echte API (help.autodesk.com, EdgeFlangeInput, Preview, ab Oktober 2026): createEdgeFlangeInput(edges, distance) nimmt laut Doku NUR
+    gerade Aussenkanten; bei Kreis/Bogen wird es trotzdem versucht und Fusions Antwort wörtlich gemeldet. Eigenschaften angle (ValueInput),
+    isFlipped, bendRadiusOverride.setOverride(ValueInput). gespiegelt: None → Richtung nach Vorzeichen des Winkels (− = isFlipped);
+    True/False setzt isFlipped ausdrücklich."""
+    kanten = list(edge) if isinstance(edge, (list, tuple)) else [edge]
+    erste = kanten[0]
+    comp = erste.body.parentComponent
     ff = _flange_features(comp)
-    inp = ff.createEdgeFlangeInput([edge], _vi_mm(laenge_mm))
+    rund = any(_kurventyp(k) in ("kreis", "bogen") for k in kanten)
+    try:
+        inp = ff.createEdgeFlangeInput(kanten, _vi_mm(laenge_mm))
+    except Exception as e:
+        raise AdapterFehler(_flansch_ablehnung(rund, e))
     if inp is None:
-        raise AdapterFehler("Fusion konnte die Flansch-Eingabe nicht anlegen (Kante ungeeignet?).")
-    logger.info("EdgeFlangeInput", eigenschaften=_namen(inp))
+        raise AdapterFehler(_flansch_ablehnung(rund, None))
+    _eigenschaften_einmal("EdgeFlangeInput", inp)
     w = abs(winkel)
     gesetzt = setze(inp, ["angle", "flangeAngle", "setAngle", "setFlangeAngle"], _vi_grad(w))
     if not gesetzt and abs(w - 90) > 1e-6:
@@ -315,6 +331,8 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
     if gespiegelt:
         if not setze(inp, ["isFlipped", "isDirectionFlipped", "flipDirection", "isFlangeFlipped"], True):
             raise AdapterFehler("Die Flanschrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
+    if len(kanten) > 1:
+        setze(inp, ["isMiteredCorners"], True)
     if radius_mm is not None:
         ov = getattr(inp, "bendRadiusOverride", None)
         try:
@@ -324,10 +342,21 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None):
             ok = False
         if not ok:
             raise AdapterFehler("Der Biegeradius lässt sich nicht einstellen – abgebrochen (Radius wird nicht stillschweigend ignoriert).")
-    feat = ff.add(inp)
+    try:
+        feat = ff.add(inp)
+    except Exception as e:
+        raise AdapterFehler(_flansch_ablehnung(rund, e))
     if feat is None:
-        raise AdapterFehler("Fusion hat den Flansch nicht erzeugt.")
+        raise AdapterFehler(_flansch_ablehnung(rund, None))
     return feat
+
+
+def _flansch_ablehnung(rund, fehler):
+    fusion = (str(fehler).strip().splitlines()[-1] if fehler is not None and str(fehler).strip() else "keine Angabe")
+    if rund:
+        return ("Fusion lehnt den Flansch an dieser runden Kante ab (Fusion: %s). Laut Autodesk-Dokumentation arbeitet die Flansch-Schnittstelle nur an "
+                "geraden Kanten." % fusion)
+    return "Fusion hat den Flansch nicht erzeugt (Fusion: %s)." % fusion
 
 
 def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None):
@@ -344,7 +373,7 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None):
     inp = hf.createHemFeatureInput()
     if inp is None:
         raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
-    logger.info("HemFeatureInput", eigenschaften=_namen(inp))
+    _eigenschaften_einmal("HemFeatureInput", inp)
     bp = adsk.fusion.BendPositionTypes.StartEdgeBendPositionType
     L = _vi_mm(laenge_mm)
     try:
@@ -468,7 +497,7 @@ def _schritt_bauen(edge, op, gespiegelt):
     return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt)
 
 
-def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None):
+def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
     """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler.
     Hinweise (z. B. mögliche Einschnitte an runden Kanten, automatisch umgekehrte Richtungen) werden in die übergebene Liste geschrieben.
     Richtungsprüfung ab Schritt 2 (nach Fusion-Standard bei Schritt 1) – NICHT live geprüft."""
@@ -479,9 +508,14 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None):
     rahmen = _kantenrahmen_quer(edge)      # (e, u) – ohne: keine Richtungsprüfung
     v = None                               # «oben»; entsteht aus dem Bau von Schritt 1 (Fusion-Standard bei Winkel +)
     lauf = 0.0                             # Laufwinkel in Grad (0 = u)
+    erster = 1                             # bei start: ab diesem Schritt weiterbauen (Schritt 1 war ein gemeinsamer Flansch, siehe Gruppe)
+    if start:
+        erster, lauf, v, rahmen = start["i"], start["lauf"], start["v"], start["rahmen"]
     geprueft = rahmen is not None
     try:
         for i, op in enumerate(ops, 1):
+            if i < erster:
+                continue
             phase = "Schritt %d" % i
             token = None
             try:
@@ -540,6 +574,77 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None):
             text += (" – die %d bereits erzeugten Schritte wurden wieder entfernt." % len(erzeugt) if zurueck else
                      " – ACHTUNG: die bereits erzeugten Schritte liessen sich nicht vollständig entfernen. Bitte mit Strg+Z zurücknehmen.")
         raise AdapterFehler("%s: %s" % (phase, text), rueckbau_ok=zurueck)
+
+
+def gruppen_bilden(kanten, tol_cm=1e-4):
+    """Zusammenhängende Kanten (gemeinsamer Eckpunkt, gleicher Körper) → Liste von Indexlisten, in Auswahlreihenfolge."""
+    n = len(kanten)
+    punkte = []
+    for k in kanten:
+        try:
+            punkte.append((_v(k.startVertex.geometry), _v(k.endVertex.geometry)))
+        except Exception:
+            punkte.append(None)
+    eltern = list(range(n))
+
+    def wurzel(i):
+        while eltern[i] != i:
+            eltern[i] = eltern[eltern[i]]
+            i = eltern[i]
+        return i
+
+    def koerper(k):
+        try:
+            return k.body.entityToken
+        except Exception:
+            return id(getattr(k, "body", None))
+    for i in range(n):
+        for j in range(i + 1, n):
+            if punkte[i] and punkte[j] and koerper(kanten[i]) == koerper(kanten[j]) and any(
+                    math.sqrt(sum((x - y) ** 2 for x, y in zip(a, b))) < tol_cm for a in punkte[i] for b in punkte[j]):
+                eltern[wurzel(i)] = wurzel(j)
+    gruppen = {}
+    for i in range(n):
+        gruppen.setdefault(wurzel(i), []).append(i)
+    return sorted(gruppen.values(), key=lambda g: g[0])
+
+
+def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
+    """Wie folge_anbringen für MEHRERE zusammenhängende Kanten: Schritt 1 (Flansch) als ein Feature – Fusion schneidet die Ecken auf
+    Gehrung –, die weiteren Schritte je Kante. → Liste erzeugter Features. Jeder Fehler baut ALLES wieder zurück und meldet AdapterFehler
+    (der Aufrufer baut dann einzeln). NICHT live geprüft."""
+    hinweise = hinweise if hinweise is not None else []
+    if len(edges) < 2 or ops[0]["typ"] == "umschlag":
+        raise AdapterFehler("Gemeinsamer Flansch nur für mehrere Kanten und einen Flansch als ersten Schritt.")
+    erzeugt = []
+    phase = "Gemeinsamer Flansch (Gehrung)"
+    try:
+        op = ops[0]
+        rahmen = [_kantenrahmen_quer(e) for e in edges]
+        feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0)
+        erzeugt.append(feat)
+        markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
+        logger.info("Gemeinsamer Flansch erzeugt", kanten=len(edges), winkel=op["winkel"], laenge=op["laenge"])
+        if len(ops) == 1:
+            return erzeugt
+        phase = "Nach dem gemeinsamen Flansch (Kanten für Schritt 2 suchen)"
+        neue = [neue_aussenkante(feat, e, op["laenge"], dicke_mm or 1.0) for e in edges]
+        v = None
+        if rahmen[0] is not None and abs(op["winkel"]) < 175:
+            gemessen = _gemessen(edges[0], neue[0], rahmen[0][0])
+            quer = _einheit(_ohne_komponente(gemessen, rahmen[0][1])) if gemessen is not None else None
+            v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
+        for nr, (e, n) in enumerate(zip(edges, neue), 1):
+            phase = "Kante %d, weitere Schritte" % nr
+            erzeugt.extend(folge_anbringen(n, ops, dicke_mm, markierung, hinweise,
+                                           start={"i": 2, "lauf": op["winkel"], "v": v, "rahmen": rahmen[nr - 1]}))
+        return erzeugt
+    except Exception as e:
+        logger.ausnahme("Gemeinsamer Flansch abgebrochen", phase=phase)
+        zurueck = entfernen(erzeugt)
+        text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)
+        raise AdapterFehler("%s: %s%s" % (phase, text, "" if zurueck else " – ACHTUNG: Rückbau unvollständig, bitte mit Strg+Z zurücknehmen."),
+                            rueckbau_ok=zurueck)
 
 
 def koerper_neu(token):

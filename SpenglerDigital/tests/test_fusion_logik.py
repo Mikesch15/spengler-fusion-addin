@@ -231,14 +231,41 @@ class FlanschTest(unittest.TestCase):
             fa.flansch(kante_mit(), 90, 20)
         self.assertIn("Oktober 2026", str(cm.exception))
 
-    def test_runde_kante_wird_klar_abgelehnt(self):
-        ff = Sammlung(Eingabe("angle"))
-        k = kante_mit(ff)
+    def test_runde_kante_wird_versucht_und_fusions_antwort_gemeldet(self):
+        class Wirft(Sammlung):
+            def createEdgeFlangeInput(self, kanten, hoehe):
+                raise RuntimeError("Edges must be linear")
+        k = kante_mit(Wirft(Eingabe("angle")))
         k.geometry.curveType = "KREIS"
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(k, 90, 20)
+        self.assertIn("Edges must be linear", str(cm.exception))
         self.assertIn("nur an geraden Kanten", str(cm.exception))
-        self.assertEqual(ff.aufrufe, [], "Fusion wird gar nicht erst aufgerufen")
+        ff = Sammlung(Eingabe("angle"))
+        ff.createEdgeFlangeInput = lambda kanten, hoehe: None     # Fusion liefert null
+        k2 = kante_mit(ff)
+        k2.geometry.curveType = "BOGEN"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k2, 90, 20)
+        self.assertIn("lehnt den Flansch an dieser runden Kante ab", str(cm.exception))
+
+    def test_runde_kante_klappt_wenn_fusion_sie_nimmt(self):
+        ff = Sammlung(Eingabe("angle"))
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        fa.flansch(k, 90, 20)
+        self.assertEqual(len(ff.hinzu), 1)
+
+    def test_mehrere_kanten_in_einem_feature_mit_gehrung(self):
+        inp = Eingabe("angle", "isMiteredCorners")
+        ff = Sammlung(inp)
+        k1 = kante_mit(ff)
+        k2 = Kante((0, 0, 0), (0, 30, 0))
+        k2.body = k1.body
+        fa.flansch([k1, k2], 90, 20)
+        self.assertEqual(ff.aufrufe[0][0], [k1, k2], "beide Kanten in einer Eingabe")
+        self.assertEqual(len(ff.hinzu), 1)
+        self.assertTrue(inp.werte["isMiteredCorners"])
 
 
 class HemEingabe(object):
@@ -679,6 +706,122 @@ class FolgeRichtungTest(unittest.TestCase):
         r, h = self.lauf(ops)
         self.assertEqual(self.aufrufe, [(-90, True), (-90, False)])
         self.assertFalse([x for x in h if "umgekehrt" in x])
+
+
+class GruppeTest(unittest.TestCase):
+    """Zusammenhängende Kanten: ein gemeinsamer Flansch (Gehrung), weitere Schritte je Kante – mit nachgespielten Messwerten."""
+    def kanten(self):
+        body = type("B", (), {"entityToken": "tok-body", "name": "Körper1"})()
+        k1, k2, k3 = Kante((0, 0, 0), (10, 0, 0), body=body), Kante((10, 0, 0), (10, 10, 0), body=body), Kante((50, 50, 0), (60, 50, 0), body=body)
+        return k1, k2, k3
+
+    def test_gruppen_bilden(self):
+        k1, k2, k3 = self.kanten()
+        self.assertEqual(fa.gruppen_bilden([k1, k2, k3]), [[0, 1], [2]])
+        self.assertEqual(fa.gruppen_bilden([k3, k1]), [[0], [1]])
+        k2.body = type("B", (), {"entityToken": "anderer"})()
+        self.assertEqual(fa.gruppen_bilden([k1, k2]), [[0], [1]], "andere Körper werden nie zusammengefasst")
+
+    def setUp(self):
+        self.alt = (fa.flansch, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen)
+        self.aufrufe, self.feats = [], []
+        fa._kantenrahmen_quer = lambda edge: ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+        fa._gemessen = lambda vorher, neu, e: (0, 1.0, 0) if neu is not None and getattr(neu, "erste", False) else (-1.0, 0, 0)
+        fa.neue_aussenkante = lambda feat, vorher, L, t: self._neu(feat)
+
+        def bauen(kanten, w, L, r=None, g=None):
+            f = Feature([], "F%d" % (len(self.feats) + 1))
+            self.feats.append(f)
+            self.aufrufe.append((kanten, w, g))
+            if self.fehler_bei == len(self.feats):
+                raise fa.AdapterFehler("Fusion lehnt ab")
+            return f
+        fa.flansch = bauen
+        self.fehler_bei = None
+
+    def _neu(self, feat):
+        k = Kante((0, 0, 0), (0, 0, 50))
+        k.erste = feat is self.feats[0]
+        return k
+
+    def tearDown(self):
+        fa.flansch, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen = self.alt
+
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": None}]
+
+    def test_ein_gemeinsamer_flansch_dann_je_kante(self):
+        k1, k2, _ = self.kanten()
+        r = fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertEqual(len(r), 3, "1 gemeinsamer Flansch + je Kante der zweite Schritt")
+        self.assertEqual(self.aufrufe[0][0], [k1, k2], "Schritt 1: beide Kanten in EINEM Feature")
+        self.assertTrue(all(not isinstance(a[0], list) for a in self.aufrufe[1:]), "weitere Schritte einzeln")
+        self.assertEqual([a[2] for a in self.aufrufe], [False, False, False])
+
+    def test_nur_ein_schritt(self):
+        k1, k2, _ = self.kanten()
+        r = fa.folge_anbringen_gruppe([k1, k2], self.OPS[:1], 0.7, {}, [])
+        self.assertEqual(len(r), 1)
+
+    def test_fehler_baut_alles_zurueck(self):
+        k1, k2, _ = self.kanten()
+        self.fehler_bei = 3        # Schritt 2 der zweiten Kante schlägt fehl
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertIn("Fusion lehnt ab", str(cm.exception))
+        self.assertTrue(all(f.geloescht for f in self.feats[:2]), "gemeinsamer Flansch und Schritt der ersten Kante wieder entfernt")
+
+    def test_nicht_moeglich(self):
+        k1, k2, _ = self.kanten()
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([k1], self.OPS, 0.7, {}, [])
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}], 0.7, {}, [])
+
+
+class PlanMerkenTest(unittest.TestCase):
+    """OK-Knopf bei eingeschalteter Vorschau (Live-Test 5.4): ist der Bauplan während der Vorschau nicht neu berechenbar, gilt der letzte Stand."""
+    def setUp(self):
+        from spengler_cad.commands import edge_apply_command as ec
+        self.ec = ec
+        self.alt = (ec._plan, ec._schluessel)
+        ec.Z.clear()
+        self.plan_aufrufe = []
+        ec._plan = lambda inp: (self.plan_aufrufe.append(1) or ({"ok": True}, None))
+
+    def tearDown(self):
+        self.ec._plan, self.ec._schluessel = self.alt
+        self.ec.Z.clear()
+
+    def test_gleicher_stand_wird_nicht_neu_berechnet(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        self.assertEqual(self.ec._plan_gemerkt(None), ({"ok": True}, None))
+        self.ec._plan_gemerkt(None)
+        self.assertEqual(len(self.plan_aufrufe), 1)
+
+    def test_neuer_stand_wird_berechnet(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        self.ec._plan_gemerkt(None)
+        self.ec._schluessel = lambda inp: ("b",)
+        self.ec._plan_gemerkt(None)
+        self.assertEqual(len(self.plan_aufrufe), 2)
+
+    def test_vorschau_macht_kanten_ungueltig_letzter_stand_gilt(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        erster = self.ec._plan_gemerkt(None)
+
+        def kaputt(inp):
+            raise RuntimeError("invalid edge")
+        self.ec._schluessel = kaputt           # Auswahl nicht mehr lesbar → kein Treffer im Merker
+        self.ec._plan = kaputt                 # Neuberechnung scheitert ebenfalls
+        self.assertEqual(self.ec._plan_gemerkt(None), erster, "OK bleibt möglich")
+
+    def test_ohne_vorherigen_stand_wird_der_fehler_nicht_verschluckt(self):
+        def kaputt(inp):
+            raise RuntimeError("invalid edge")
+        self.ec._schluessel = kaputt
+        self.ec._plan = kaputt
+        with self.assertRaises(RuntimeError):
+            self.ec._plan_gemerkt(None)
 
 
 if __name__ == "__main__":

@@ -18,15 +18,10 @@ def kante_eignung(kante, vorlage, material):
         gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)")
     typ = (vorlage or {}).get("connection", {}).get("edgeType", "gerade")
     kurve = kante.get("kurve")
-    # Fusion-Flansch (EdgeFlange-API) nimmt nur gerade Kanten; der Saum (Umschlag) ist in der API nicht auf gerade Kanten beschränkt
-    # (an Kreis/Bogen nicht live geprüft). Ellipse/Spline: nicht zuverlässig → abgelehnt.
-    ops = (vorlage or {}).get("operations") or []
-    nur_umschlag = bool(ops) and all(o.get("typ") == "umschlag" for o in ops)
+    # Ellipse/Spline: nicht zuverlässig → abgelehnt. Kreis/Bogen: erlaubt; für Flansch warnt erstelle(), denn Fusions Flansch-API nennt nur
+    # gerade Kanten (Doku) – es wird versucht und Fusions Antwort gemeldet.
     if kurve not in ("linie", "kreis", "bogen"):
-        gruende.append("hat den Kurventyp «%s» – nur gerade Kanten (Flansch, Umschlag) sowie Kreise/Bögen (nur Umschlag) sind möglich" % kurve)
-    elif kurve in ("kreis", "bogen") and not nur_umschlag:
-        gruende.append("ist rund (%s) – Fusions Flansch-Werkzeug arbeitet nur an geraden Kanten; an runden Kanten ist nur eine Vorlage aus reinen "
-                       "Umschlägen möglich (Rundbleche: Befehl «Rundblech»)" % kurve)
+        gruende.append("hat den Kurventyp «%s» – möglich sind gerade Kanten sowie Kreise/Bögen" % kurve)
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     if kante.get("flaechen", 2) != 2:
@@ -62,6 +57,12 @@ def erstelle(vorlage, eingaben, material, kanten):
                       "laenge": k.get("laenge")})
     plan = neuer_bauplan(vorlage, eingaben or {}, material, ziele)
     err, warn = plan["validation"]["errors"], plan["validation"]["warnings"]
+    ops = (vorlage or {}).get("operations") or []
+    if any(o.get("typ") != "umschlag" for o in ops):
+        for k in kanten:
+            if k.get("kurve") in ("kreis", "bogen"):
+                warn.append("%s ist rund: Fusions Flansch-Werkzeug nennt in der Dokumentation nur gerade Kanten – es wird versucht, "
+                            "Fusions Antwort wird gemeldet (bei Ablehnung wird nichts gebaut)." % k.get("text", "Kante"))
     if not kanten:
         err.append("Keine Kante gewählt.")
     if not material:
