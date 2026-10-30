@@ -60,10 +60,10 @@
 <tr><td>☐</td><td>SPENGLER → <b>Kanten bearbeiten</b>, eine obere Aussenkante wählen, Ihre Vorlage, Material</td><td>Bauplan: «Kanten: 1 gewählt, 1 geeignet», Folge mit Werten</td></tr>
 <tr><td>☐</td><td>Vorschau an</td><td>Flansch + Umschlag sichtbar <b>vor</b> OK</td></tr>
 <tr><td>☐</td><td>Wert H im Dialog ändern</td><td>Vorschau passt sich an</td></tr>
-<tr><td>☐</td><td>OK</td><td>Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________</td></tr>
+<tr><td>☐</td><td>OK (auch bei eingeschalteter <b>Vorschau</b> muss OK klickbar sein)</td><td>Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________</td></tr>
 <tr><td>☐</td><td>Strg+Z</td><td><b>alles</b> dieses Befehls in einem Schritt weg</td></tr>
 <tr><td>☐</td><td>Zwei gegenüberliegende Kanten zugleich → OK</td><td>beide bearbeitet</td></tr>
-<tr><td>☐</td><td>Zwei aneinanderstossende Kanten (Ecke) → OK</td><td>notieren, wie Fusion die Ecke löst (Bildschirmfoto)</td></tr>
+<tr><td>☐</td><td>Zwei aneinanderstossende Kanten (Ecke) → OK</td><td>erster Flansch gemeinsam, Ecke auf <b>Gehrung</b> («gemeinsamer Flansch mit Gehrung» im Bericht); bei Hinweis «einzeln gebaut» Grund notieren</td></tr>
 <tr><td>☐</td><td>Eine Biegekante bzw. Kante eines normalen Volumenkörpers wählen</td><td>«ungeeignet» mit Grund, OK gesperrt</td></tr>
 <tr><td>☐</td><td>Expertenmodus im Dialog, Folge <code>-90 20</code> → OK</td><td>Abkantung nach hinten; gespeicherte Vorlage unverändert</td></tr>
 <tr><td>☐</td><td>Expertenmodus, Folge <code>90r5 20</code>, «als neue Vorlage speichern» → OK</td><td>Radius 5; neue Vorlage «… (angepasst)» in der Palette</td></tr>
@@ -80,8 +80,8 @@
 <tr><td>☐</td><td>Wert ändern → Vorschau → OK</td><td>Detail sitzt an der Kante, Meldung nennt gesetzte Parameter</td></tr>
 <tr><td>☐</td><td>«Um 180° wenden»</td><td>Detail andersherum</td></tr>
 <tr><td>☐</td><td>Gekrümmte Zielkante wählen</td><td>lässt sich nicht wählen (nur gerade Kanten)</td></tr>
-<tr><td>☐</td><td><b>Kanten bearbeiten</b> an Kreis- oder Bogenkante mit einer Vorlage <b>aus reinen Umschlägen</b> (<code>U+ 7</code>)</td><td>Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück</td></tr>
-<tr><td>☐</td><td>Dieselbe Kante mit einer Vorlage mit <b>Flansch</b> (<code>90 25</code>)</td><td>«ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze)</td></tr>
+<tr><td>☐</td><td><b>Kanten bearbeiten</b> an Kreis- oder Bogenkante mit einer Vorlage <b>aus reinen Umschlägen</b> (<code>U+ 7</code>)</td><td>Umschlag folgt der Kontur, keine Schlitze/Lappen; Strg+Z nimmt alles zurück – sonst die Meldung wörtlich notieren</td></tr>
+<tr><td>☐</td><td>Dieselbe Kante mit einer Vorlage mit <b>Flansch</b> (<code>90 25</code>)</td><td>Fusion nimmt den Flansch <b>oder</b> meldet «Fusion lehnt den Flansch an dieser runden Kante ab» mit seiner Antwort; nichts halb gebaut</td></tr>
 <tr><td>☐</td><td><b>3D-Detail anwenden</b> mit Haken «Ins bestehende Modell integrieren» an Falzende (Blech)</td><td>Zeitverlauf: Basis-Feature + Kombinieren, keine neue Komponente, Position/Ausrichtung stimmt, Strg+Z nimmt alles zurück; Abwicklung danach prüfen</td></tr>
 <tr><td>☐</td><td>Dasselbe mit Detail, das den Körper nicht berührt</td><td>klare Meldung, Modell unverändert</td></tr>
 </table>
@@ -92,6 +92,8 @@
 <tr><td>☐</td><td>Im Materialprofil Stauchen max. z. B. 20 % mit Quelle eintragen, erneut</td><td>«Herstellbar: ja» bzw. «nein» nach Grenzwert</td></tr>
 <tr><td>☐</td><td>Kragen r 50, Höhe 10</td><td>nur Beurteilung «gestreckt», kein Körper</td></tr>
 <tr><td>☐</td><td>Kegel r 100 / 50, Höhe 100 → OK</td><td>Drehkörper, Abwicklung Kreisringsektor</td></tr>
+<tr><td>☐</td><td>Scheibe r 100, Rand 20, «flach» und «dxf» anhaken → OK</td><td>flacher Körper mit sichtbarer Biegelinie, DXF im Exportordner</td></tr>
+<tr><td>☐</td><td>Aus dem flachen Körper eine Zeichnung ableiten</td><td>Biegekante in der Zeichnung sichtbar</td></tr>
 </table>
 <h2>8. Abwicklung, DXF und Werkstattblatt (8 Min.)</h2>
 <table>
@@ -99,6 +101,7 @@
 <tr><td>☐</td><td><b>Abwicklung &amp; DXF</b>, Blechkörper aus Block 5 (noch ohne Abwicklung: feststehende Fläche wählen) → OK</td><td>Ordner öffnet sich, <code>Nr_…dxf</code> und <code>…_werkstattblatt.html</code></td></tr>
 <tr><td>☐</td><td>DXF in einem CAD-Programm öffnen</td><td>Kontur und Biegelinien, Masse stimmen</td></tr>
 <tr><td>☐</td><td>Werkstattblatt öffnen</td><td>Teilenummer, Material, Vorlage + Version, <b>Querschnitt mit Massen</b>, <b>Abwicklung mit Biegelinien</b>, Biegeliste</td></tr>
+<tr><td>☐</td><td>Werkstattblatt nach Export</td><td>Zeichnung der Abwicklung (aus DXF) sichtbar, Biegelinien gestrichelt</td></tr>
 <tr><td>☐</td><td>Zwei Körper gleichzeitig</td><td>beide exportiert, Zusammenfassung «2 von 2»</td></tr>
 <tr><td>☐</td><td>Normaler Volumenkörper</td><td>«✗ … kein Blechkörper»</td></tr>
 </table>

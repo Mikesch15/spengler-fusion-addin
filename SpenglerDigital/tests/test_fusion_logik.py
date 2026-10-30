@@ -231,14 +231,41 @@ class FlanschTest(unittest.TestCase):
             fa.flansch(kante_mit(), 90, 20)
         self.assertIn("Oktober 2026", str(cm.exception))
 
-    def test_runde_kante_wird_klar_abgelehnt(self):
-        ff = Sammlung(Eingabe("angle"))
-        k = kante_mit(ff)
+    def test_runde_kante_wird_versucht_und_fusions_antwort_gemeldet(self):
+        class Wirft(Sammlung):
+            def createEdgeFlangeInput(self, kanten, hoehe):
+                raise RuntimeError("Edges must be linear")
+        k = kante_mit(Wirft(Eingabe("angle")))
         k.geometry.curveType = "KREIS"
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(k, 90, 20)
+        self.assertIn("Edges must be linear", str(cm.exception))
         self.assertIn("nur an geraden Kanten", str(cm.exception))
-        self.assertEqual(ff.aufrufe, [], "Fusion wird gar nicht erst aufgerufen")
+        ff = Sammlung(Eingabe("angle"))
+        ff.createEdgeFlangeInput = lambda kanten, hoehe: None     # Fusion liefert null
+        k2 = kante_mit(ff)
+        k2.geometry.curveType = "BOGEN"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(k2, 90, 20)
+        self.assertIn("lehnt den Flansch an dieser runden Kante ab", str(cm.exception))
+
+    def test_runde_kante_klappt_wenn_fusion_sie_nimmt(self):
+        ff = Sammlung(Eingabe("angle"))
+        k = kante_mit(ff)
+        k.geometry.curveType = "KREIS"
+        fa.flansch(k, 90, 20)
+        self.assertEqual(len(ff.hinzu), 1)
+
+    def test_mehrere_kanten_in_einem_feature_mit_gehrung(self):
+        inp = Eingabe("angle", "isMiteredCorners")
+        ff = Sammlung(inp)
+        k1 = kante_mit(ff)
+        k2 = Kante((0, 0, 0), (0, 30, 0))
+        k2.body = k1.body
+        fa.flansch([k1, k2], 90, 20)
+        self.assertEqual(ff.aufrufe[0][0], [k1, k2], "beide Kanten in einer Eingabe")
+        self.assertEqual(len(ff.hinzu), 1)
+        self.assertTrue(inp.werte["isMiteredCorners"])
 
 
 class HemEingabe(object):
@@ -283,7 +310,33 @@ class UmschlagTest(unittest.TestCase):
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.umschlag(kante_mit(hem=hf), 7, False)
             self.assertIn(text, str(cm.exception))
+            self.assertIn("8 Varianten", str(cm.exception), "4 Lagen × beide Richtungen wurden versucht")
             self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
+
+    def test_berechnung_scheitert_naechste_variante(self):
+        """Live-Test 30.10.: Fusion nahm die Definition an, hf.add scheiterte («SM_MODELING_ERROR») → andere Lage versuchen."""
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        echte_add = hf.add
+        zaehler = []
+
+        def add(i):
+            zaehler.append(1)
+            if len(zaehler) < 3:
+                raise RuntimeError("3 : Failed to create Hem: SM_MODELING_ERROR")
+            return echte_add(i)
+        hf.add = add
+        fa.umschlag(kante_mit(hem=hf), 12, False)
+        self.assertEqual(len(inp.aufrufe), 3, "dritte Lage hat funktioniert")
+        self.assertEqual(len(hf.hinzu), 1)
+
+    def test_ausdrueckliche_lage_wird_nicht_ueberstimmt(self):
+        inp = HemEingabe(ergebnis=False)
+        hf = Sammlung(inp)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(kante_mit(hem=hf), 12, False, None, "innen")
+        self.assertIn("1 Varianten", str(cm.exception))
+        self.assertEqual(len(inp.aufrufe), 1)
 
     def test_ohne_api(self):
         with self.assertRaises(fa.AdapterFehler):
@@ -299,7 +352,7 @@ class RueckbauTest(unittest.TestCase):
         fa.flansch, fa.umschlag, fa.neue_aussenkante = self.alt
 
     def _bauen(self, fehler_bei=None, kante_fehlt=False, loeschen_klappt=True):
-        def flansch(k, w, L, r=None, g=None):
+        def flansch(k, w, L, r=None, g=None, b=None, l=None):
             if fehler_bei == len(self.feats) + 1:
                 raise RuntimeError("Fusion: Flansch fehlgeschlagen\nInternal error 42")
             f = Feature([], "F%d" % (len(self.feats) + 1))
@@ -632,7 +685,7 @@ class FolgeRichtungTest(unittest.TestCase):
         fa._gemessen = lambda vorher, neu, e: self.messungen.pop(0)
         fa.neue_aussenkante = lambda feat, vorher, L, t: Kante((0, 0, 0), (0, 0, 50))
 
-        def bauen(kante, w, L, r=None, g=None):
+        def bauen(kante, w, L, r=None, g=None, b=None, l=None):
             f = Feature([], "F%d" % (len(self.feats) + 1))
             self.feats.append(f)
             self.aufrufe.append((w, g))
@@ -679,6 +732,239 @@ class FolgeRichtungTest(unittest.TestCase):
         r, h = self.lauf(ops)
         self.assertEqual(self.aufrufe, [(-90, True), (-90, False)])
         self.assertFalse([x for x in h if "umgekehrt" in x])
+
+
+class GruppeTest(unittest.TestCase):
+    """Zusammenhängende Kanten: ein gemeinsamer Flansch (Gehrung), weitere Schritte je Kante – mit nachgespielten Messwerten."""
+    def kanten(self):
+        body = type("B", (), {"entityToken": "tok-body", "name": "Körper1"})()
+        k1, k2, k3 = Kante((0, 0, 0), (10, 0, 0), body=body), Kante((10, 0, 0), (10, 10, 0), body=body), Kante((50, 50, 0), (60, 50, 0), body=body)
+        return k1, k2, k3
+
+    def test_gruppen_bilden(self):
+        k1, k2, k3 = self.kanten()
+        self.assertEqual(fa.gruppen_bilden([k1, k2, k3]), [[0, 1], [2]])
+        self.assertEqual(fa.gruppen_bilden([k3, k1]), [[0], [1]])
+        k2.body = type("B", (), {"entityToken": "anderer"})()
+        self.assertEqual(fa.gruppen_bilden([k1, k2]), [[0], [1]], "andere Körper werden nie zusammengefasst")
+
+    def setUp(self):
+        self.alt = (fa.flansch, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen)
+        self.aufrufe, self.feats = [], []
+        fa._kantenrahmen_quer = lambda edge: ((0.0, 0.0, 1.0), (1.0, 0.0, 0.0))
+        fa._gemessen = lambda vorher, neu, e: (0, 1.0, 0) if neu is not None and getattr(neu, "erste", False) else (-1.0, 0, 0)
+        fa.neue_aussenkante = lambda feat, vorher, L, t: self._neu(feat)
+
+        def bauen(kanten, w, L, r=None, g=None, b=None, l=None):
+            f = Feature([], "F%d" % (len(self.feats) + 1))
+            self.feats.append(f)
+            self.aufrufe.append((kanten, w, g))
+            if self.fehler_bei == len(self.feats):
+                raise fa.AdapterFehler("Fusion lehnt ab")
+            return f
+        fa.flansch = bauen
+        self.fehler_bei = None
+
+    def _neu(self, feat):
+        k = Kante((0, 0, 0), (0, 0, 50))
+        k.erste = feat is self.feats[0]
+        return k
+
+    def tearDown(self):
+        fa.flansch, fa.neue_aussenkante, fa._kantenrahmen_quer, fa._gemessen = self.alt
+
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": None}]
+
+    def test_ein_gemeinsamer_flansch_dann_je_kante(self):
+        k1, k2, _ = self.kanten()
+        r = fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertEqual(len(r), 3, "1 gemeinsamer Flansch + je Kante der zweite Schritt")
+        self.assertEqual(self.aufrufe[0][0], [k1, k2], "Schritt 1: beide Kanten in EINEM Feature")
+        self.assertTrue(all(not isinstance(a[0], list) for a in self.aufrufe[1:]), "weitere Schritte einzeln")
+        self.assertEqual([a[2] for a in self.aufrufe], [False, False, False])
+
+    def test_nur_ein_schritt(self):
+        k1, k2, _ = self.kanten()
+        r = fa.folge_anbringen_gruppe([k1, k2], self.OPS[:1], 0.7, {}, [])
+        self.assertEqual(len(r), 1)
+
+    def test_fehler_baut_alles_zurueck(self):
+        k1, k2, _ = self.kanten()
+        self.fehler_bei = 3        # Schritt 2 der zweiten Kante schlägt fehl
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertIn("Fusion lehnt ab", str(cm.exception))
+        self.assertTrue(all(f.geloescht for f in self.feats[:2]), "gemeinsamer Flansch und Schritt der ersten Kante wieder entfernt")
+
+    def test_nicht_moeglich(self):
+        k1, k2, _ = self.kanten()
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([k1], self.OPS, 0.7, {}, [])
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}], 0.7, {}, [])
+
+
+class PlanMerkenTest(unittest.TestCase):
+    """OK-Knopf bei eingeschalteter Vorschau (Live-Test 5.4): ist der Bauplan während der Vorschau nicht neu berechenbar, gilt der letzte Stand."""
+    def setUp(self):
+        from spengler_cad.commands import edge_apply_command as ec
+        self.ec = ec
+        self.alt = (ec._plan, ec._schluessel)
+        ec.Z.clear()
+        self.plan_aufrufe = []
+        ec._plan = lambda inp: (self.plan_aufrufe.append(1) or ({"ok": True}, None))
+
+    def tearDown(self):
+        self.ec._plan, self.ec._schluessel = self.alt
+        self.ec.Z.clear()
+
+    def test_gleicher_stand_wird_nicht_neu_berechnet(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        self.assertEqual(self.ec._plan_gemerkt(None), ({"ok": True}, None))
+        self.ec._plan_gemerkt(None)
+        self.assertEqual(len(self.plan_aufrufe), 1)
+
+    def test_neuer_stand_wird_berechnet(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        self.ec._plan_gemerkt(None)
+        self.ec._schluessel = lambda inp: ("b",)
+        self.ec._plan_gemerkt(None)
+        self.assertEqual(len(self.plan_aufrufe), 2)
+
+    def test_vorschau_macht_kanten_ungueltig_letzter_stand_gilt(self):
+        self.ec._schluessel = lambda inp: ("a",)
+        erster = self.ec._plan_gemerkt(None)
+
+        def kaputt(inp):
+            raise RuntimeError("invalid edge")
+        self.ec._schluessel = kaputt           # Auswahl nicht mehr lesbar → kein Treffer im Merker
+        self.ec._plan = kaputt                 # Neuberechnung scheitert ebenfalls
+        self.assertEqual(self.ec._plan_gemerkt(None), erster, "OK bleibt möglich")
+
+    def test_ohne_vorherigen_stand_wird_der_fehler_nicht_verschluckt(self):
+        def kaputt(inp):
+            raise RuntimeError("invalid edge")
+        self.ec._schluessel = kaputt
+        self.ec._plan = kaputt
+        with self.assertRaises(RuntimeError):
+            self.ec._plan_gemerkt(None)
+
+
+class MassUndLageTest(unittest.TestCase):
+    """Massbezug (Höhe von aussen/innen/tangential) und Lage der Biegung → Fusion-Aufzählungen (FlangeHeightDatumTypes, BendPositionTypes)."""
+    def setUp(self):
+        adsk.fusion.FlangeHeightDatumTypes.InnerFacesFlangeHeightDatumType = "H-INNEN"
+        adsk.fusion.FlangeHeightDatumTypes.OuterFacesFlangeHeightDatumType = "H-AUSSEN"
+        adsk.fusion.FlangeHeightDatumTypes.TangentToBendFlangeHeightDatumType = "H-TANGENT"
+        adsk.fusion.BendPositionTypes.StartEdgeBendPositionType = "B-KANTE"
+        adsk.fusion.BendPositionTypes.InsideBendPositionType = "B-INNEN"
+        adsk.fusion.BendPositionTypes.OutsideBendPositionType = "B-AUSSEN"
+        adsk.fusion.BendPositionTypes.TangentToSideBendPositionType = "B-TANGENT"
+
+    def test_flansch_setzt_bezug_und_lage(self):
+        for bezug, lage, h, b in (("innen", "aussen", "H-INNEN", "B-AUSSEN"), ("tangential", "tangential", "H-TANGENT", "B-TANGENT"),
+                                  ("aussen", "kante", "H-AUSSEN", "B-KANTE")):
+            inp = Eingabe("angle", "heightDatumType", "bendPositionType")
+            fa.flansch(kante_mit(Sammlung(inp)), 90, 20, None, None, bezug, lage)
+            self.assertEqual((inp.werte["heightDatumType"], inp.werte["bendPositionType"]), (h, b))
+
+    def test_ohne_angabe_bleibt_fusion_standard(self):
+        inp = Eingabe("angle", "heightDatumType", "bendPositionType")
+        fa.flansch(kante_mit(Sammlung(inp)), 90, 20)
+        self.assertNotIn("heightDatumType", inp.werte)
+        self.assertNotIn("bendPositionType", inp.werte)
+
+    def test_nicht_einstellbar_bricht_ab(self):
+        for eig, text in (("bendPositionType", "Massbezug"), ("heightDatumType", "Lage")):
+            ff = Sammlung(Eingabe("angle", eig))
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.flansch(kante_mit(ff), 90, 20, None, None, "innen", "aussen")
+            self.assertIn(text, str(cm.exception))
+            self.assertEqual(ff.hinzu, [])
+
+    def test_umschlag_lage(self):
+        inp = HemEingabe()
+        fa.umschlag(kante_mit(hem=Sammlung(inp)), 12, False, None, "aussen")
+        self.assertEqual(inp.aufrufe[0][-1], "B-AUSSEN")
+
+
+class ZuschnittKoerperTest(unittest.TestCase):
+    """Flacher Körper aus dem Zuschnitt (Rundblech): Aufruffolge mit nachgebauten Fusion-Objekten – NICHT die echte Geometrie."""
+    def fusion(self, split_fehler=False, flaechen_z=(0.0, -0.06)):
+        log = []
+
+        class Kurve(object):
+            pass
+
+        def kurvenfabrik(name):
+            return type(name, (), {k: (lambda self, *a, _k=k: (log.append((name, _k)) or Kurve())) for k in ("addByCenterRadius", "addByCenterStartSweep", "addByTwoPoints")})()
+
+        class Skizze(object):
+            def __init__(s):
+                s.name, s.sketchCurves = "", type("SC", (), {"sketchCircles": kurvenfabrik("kreis"), "sketchArcs": kurvenfabrik("bogen"), "sketchLines": kurvenfabrik("linie")})()
+                s.profiles = Liste([type("Prof", (), {"areaProperties": lambda self: type("A", (), {"area": 5.0})()})()])
+
+        class Flaeche(object):
+            def __init__(s, z):
+                s.boundingBox = type("BB", (), {"minPoint": type("P", (), {"z": z})()})()
+
+        body = type("Body", (), {"name": "", "faces": [Flaeche(z) for z in flaechen_z]})()
+        feat = type("F", (), {"bodies": Liste([body])})()
+        ext = type("Ext", (), {"createInput": lambda s, p, op: type("EI", (), {"setDistanceExtent": lambda s2, sym, d: log.append(("extrude", sym))})(),
+                               "add": lambda s, i: feat})()
+
+        class Split(object):
+            def createInput(s, f, w, erweitert):
+                log.append(("split", len(f.liste), len(w.liste)))
+                return object()
+
+            def add(s, i):
+                if split_fehler:
+                    raise RuntimeError("Split failed")
+        comp = type("Comp", (), {"xYConstructionPlane": object(), "sketches": type("Sk", (), {"add": lambda s, ebene: Skizze()})(),
+                                 "features": type("Fe", (), {"extrudeFeatures": ext, "splitFaceFeatures": Split()})()})()
+        return comp, body, log
+
+    def lauf(self, comp, zs):
+        class Sammlung2(object):
+            def __init__(s):
+                s.liste = []
+
+            def add(s, x):
+                s.liste.append(x)
+        alt = adsk.core.ObjectCollection
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: Sammlung2())})
+        try:
+            return fa.abwicklung_koerper(comp, zs, 0.6, "Abwicklung Test")
+        finally:
+            adsk.core.ObjectCollection = alt
+
+    def test_scheibe_mit_biegelinie(self):
+        from spengler_cad.forming import forming as fo
+        zs = fo.zuschnitt(fo.scheibe_mit_rand(100, 20, 90))
+        comp, body, log = self.fusion()
+        koerper, hinweise = self.lauf(comp, zs)
+        self.assertIs(koerper, body)
+        self.assertEqual(body.name, "Abwicklung Test")
+        self.assertEqual(hinweise, [])
+        self.assertIn(("split", 1, 1), log, "Oberseite (z = 0) wird mit dem Biegekreis geteilt")
+        self.assertEqual([x for x in log if x[0] == "kreis"], [("kreis", "addByCenterRadius")] * 2, "Kontur- und Biegekreis")
+
+    def test_split_scheitert_koerper_bleibt(self):
+        from spengler_cad.forming import forming as fo
+        zs = fo.zuschnitt(fo.scheibe_mit_rand(100, 20, 90))
+        comp, body, log = self.fusion(split_fehler=True)
+        koerper, hinweise = self.lauf(comp, zs)
+        self.assertIs(koerper, body)
+        self.assertIn("Skizze «Abwicklung Test Biegelinien»", hinweise[0])
+
+    def test_kegel_ohne_biegelinien_kein_split(self):
+        from spengler_cad.forming import forming as fo
+        comp, body, log = self.fusion()
+        self.lauf(comp, fo.zuschnitt(fo.kegelstumpf(100, 50, 100)))
+        self.assertFalse([x for x in log if x[0] == "split"])
+        self.assertIn(("bogen", "addByCenterStartSweep"), log)
+        self.assertIn(("linie", "addByTwoPoints"), log)
 
 
 if __name__ == "__main__":

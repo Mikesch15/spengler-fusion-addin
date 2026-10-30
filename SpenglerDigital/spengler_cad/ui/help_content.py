@@ -6,7 +6,7 @@ NICHT_GEPRUEFT = "Hinweis: Diese Funktion wurde noch nicht in Fusion selbst gete
 HILFE = {
     "kanten": (
         "Kanten bearbeiten",
-        "1. Eine oder mehrere Aussenkanten eines Blechkörpers wählen (Flansch: nur gerade; Umschlag auch Kreis/Bogen).\n"
+        "1. Eine oder mehrere Aussenkanten eines Blechkörpers wählen. Zusammenhängende Kanten bekommen den ersten Flansch gemeinsam mit Gehrung.\n"
         "2. Eigene Vorlage und Materialprofil wählen. Die Bibliothek ist anfangs leer – zuerst unter «Vorlagen verwalten» eine Vorlage anlegen.\n"
         "3. Parameter eingeben (Einheiten stehen am Feld). Im Expertenmodus kann die Operationsfolge als Kurzschrift direkt bearbeitet werden.\n"
         "4. Die Vorschau zeigt das Ergebnis; ungeeignete Kanten werden mit Grund aufgeführt und NICHT bearbeitet.\n"
@@ -101,7 +101,7 @@ def text(thema):
 
 
 TOOLTIPS = {
-    "kanten": "Aussenkanten eines Blechkörpers (Flansch nur gerade, Umschlag auch Kreis/Bogen). Mehrfachauswahl möglich.",
+    "kanten": "Aussenkanten eines Blechkörpers (gerade; Kreis/Bogen werden versucht). Mehrfachauswahl möglich.",
     "vorlage": "Eigene Kantenvorlage. Anlegen unter «Vorlagen verwalten».",
     "material": "Eigenes Materialprofil (Dicke, optional Radius/K-Faktor).",
     "experte": "Operationsfolge direkt bearbeiten (Kurzschrift).",

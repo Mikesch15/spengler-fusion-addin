@@ -85,13 +85,14 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 
 | Anforderung | Status | Nachweis / Bemerkung |
 |---|---|---|
-| **Durchgehende Flansche/Umschläge an runden Blechkanten (Kreis, Bogen) ohne Einschnitte/Lappen** | **TEIL** | **Flansch an runden Kanten: nicht möglich** – Fusions EdgeFlange-API nimmt laut Autodesk nur lineare Aussenkanten (wird mit Grund abgelehnt). **Umschlag (Saum) an Kreis/Bogen:** in der API nicht auf gerade Kanten beschränkt, Folge-Kante koaxial, Hinweis bei Schlitzen – Logik-Test AUTO, **nicht live geprüft**. Ellipse/Spline abgelehnt. |
+| **Durchgehende Flansche/Umschläge an runden Blechkanten (Kreis, Bogen) ohne Einschnitte/Lappen** | **TEIL** | **Flansch an runden Kanten:** Fusions EdgeFlange-API nennt in der Doku nur lineare Aussenkanten; es wird trotzdem versucht und Fusions Antwort gemeldet (Live-Test steht aus). **Umschlag (Saum) an Kreis/Bogen:** in der API nicht auf gerade Kanten beschränkt, Folge-Kante koaxial, Hinweis bei Schlitzen – Logik-Test AUTO, **nicht live geprüft**. Ellipse/Spline abgelehnt. |
 | (Alt) Einzel-/Doppelfalze an runden Kanten als Drehkörper | **NEIN** | Fusion-Flansch nur an geraden Kanten. Ersatz: Scheibe mit aufgebogenem Rand und Kegel als **Drehkörper (kein Fusion-Blechkörper)**; kein Umschlag/Falz an gekrümmten Rändern, kein Anwenden auf bestehende gekrümmte Blechkanten |
 | Fälle Scheibe / Kragen / Kegel unterscheiden | AUTO | test_forming |
 | Fertigungsabsicht Stauchen/Strecken/manuell/Empfehlung | AUTO | test_forming |
 | konstruierbar / abwickelbar / herstellbar getrennt | AUTO | herstellbar nur mit eigenem Grenzwert |
 | Keine Einschnitte ohne Freigabe; warnen statt heimlich ändern | AUTO | es werden nie Einschnitte erzeugt |
 | Umformzonen markieren | TEIL | als Radiusbereich im Text; nicht im Modell markiert |
+| Zuschnitt DXF + flacher Körper (Rundblech) | AUTO | nur Logik/DXF getestet; Fusion-Körper nicht live |
 | Drehkörper in Fusion | LIVE | Selbsttest Ø 200.70 mm; Befehl «Rundblech» selbst nicht live |
 
 ## 9 Doppelfalzabschluss als Benutzervorlage

@@ -159,6 +159,40 @@ def _plan(inp):
     return plan, None
 
 
+def _schluessel(inp):
+    """Alles, was den Bauplan bestimmt, ohne an Geometrie zu rühren (während der Vorschau sind Kantenverweise evtl. ungültig)."""
+    sel = inp.itemById("kanten")
+    teile = [sel.selectionCount, inp.itemById("experte").value, inp.itemById("folge").value, inp.itemById("speichern").value]
+    teile += [sel.selection(i).entity.entityToken for i in range(sel.selectionCount)]   # welche Kanten – wirft bei ungültigen Verweisen → kein Treffer
+    for i in ("vorlage", "material"):
+        d = inp.itemById(i)
+        teile.append(d.selectedItem.index if d.selectedItem is not None else -1)
+    for pid in Z.get("param_ids", []):
+        x = inp.itemById(pid)
+        teile.append(x.expression if x is not None else None)
+    return tuple(teile)
+
+
+def _plan_gemerkt(inp):
+    """Wie _plan, aber merkt sich das Ergebnis je Eingabestand. Schlägt die Berechnung fehl (z. B. weil die Vorschau die gewählten Kanten
+    verändert hat), gilt das zuletzt berechnete Ergebnis – sonst bliebe OK bei eingeschalteter Vorschau gesperrt (Live-Test 5.4)."""
+    try:
+        k = _schluessel(inp)
+    except Exception:
+        k = None
+    if k is not None and Z.get("plan_merk", (None,))[0] == k:
+        return Z["plan_merk"][1], Z["plan_merk"][2]
+    try:
+        plan, fehler = _plan(inp)
+    except Exception:
+        if Z.get("plan_merk"):
+            logger.ausnahme("Bauplan während der Vorschau nicht neu berechenbar – letzter Stand gilt")
+            return Z["plan_merk"][1], Z["plan_merk"][2]
+        raise
+    Z["plan_merk"] = (k, plan, fehler)
+    return plan, fehler
+
+
 def _sichtbarkeit(inp):
     ex = inp.itemById("experte").value
     inp.itemById("folge").isVisible = ex
@@ -175,13 +209,13 @@ def geaendert(args):
     if i.id == "hilfe":
         base.melden("Hilfe", help_content.text("kanten") + "\n\n" + help_content.text("kurzschrift"))
         return
-    plan, fehler = _plan(inp)
+    plan, fehler = _plan_gemerkt(inp)
     inp.itemById("plan").text = (fehler or operation_plan.beschreibung(plan)).replace("\n", "<br>")
 
 
 def pruefen(args):
     try:
-        plan, fehler = _plan(args.inputs)
+        plan, fehler = _plan_gemerkt(args.inputs)
         args.areInputsValid = fehler is None and operation_plan.ist_ausfuehrbar(plan)
     except Exception:
         logger.ausnahme("Kanten prüfen")
@@ -199,24 +233,53 @@ def _bauen(inp, ergebnis):
     t = (plan.get("material") or {}).get("thickness")
     tokens = edge_resolver.merken([z["ref"] for z in plan["targets"] if z["geeignet"]])
     logger.info("Kanten bearbeiten", vorlage=plan["templateId"], version=plan["templateVersion"], kanten=len(tokens), folge=short_syntax.als_text(plan["operations"]))
-    for nr, tok in enumerate(tokens, 1):
-        try:
-            kante = edge_resolver.aufloesen(tok)
-            body_name, body_token = kante.body.name, kante.body.entityToken
-            hinw = []
-            feats = fa.folge_anbringen(kante, plan["operations"], t, markierung, hinw)
-            ergebnis.warnungen += ["Kante %d: %s" % (nr, h) for h in hinw]
-            ergebnis.ausgefuehrt.append("Kante %d: %d Schritt(e)" % (nr, len(feats)))
-            ergebnis.geometrie.append(body_name)
-            body = fa.koerper_neu(body_token)
-            if body is None:
-                ergebnis.warnungen.append("Kante %d: Körper nach dem Bauen nicht eindeutig auffindbar – Ergebnis bitte selbst prüfen." % nr)
-            else:
-                for p in fa.koerper_pruefen(body):
-                    ergebnis.warnungen.append("Kante %d: %s" % (nr, p))
-        except fa.AdapterFehler as e:
-            ergebnis.fehler.append("Kante %d: %s" % (nr, e))
-            ergebnis.zurueckgesetzt = ergebnis.zurueckgesetzt or getattr(e, "rueckbau_ok", True)
+    ops = plan["operations"]
+    try:
+        gruppen = fa.gruppen_bilden([z["ref"] for z in plan["targets"] if z["geeignet"]])
+    except Exception:
+        logger.ausnahme("Kantengruppen nicht bestimmbar – es wird einzeln gebaut")
+        gruppen = [[i] for i in range(len(tokens))]
+    for gruppe in gruppen:
+        einzeln = list(gruppe)
+        if len(gruppe) >= 2 and ops and ops[0]["typ"] != "umschlag":
+            nrn = [i + 1 for i in gruppe]
+            try:
+                kanten = [edge_resolver.aufloesen(tokens[i]) for i in gruppe]
+                body_name, body_token = kanten[0].body.name, kanten[0].body.entityToken
+                hinw = []
+                feats = fa.folge_anbringen_gruppe(kanten, ops, t, markierung, hinw)
+                ergebnis.warnungen += ["Kanten %s: %s" % ("+".join(map(str, nrn)), h) for h in hinw]
+                ergebnis.ausgefuehrt.append("Kanten %s: gemeinsamer Flansch mit Gehrung, %d Feature(s)" % ("+".join(map(str, nrn)), len(feats)))
+                ergebnis.geometrie.append(body_name)
+                body = fa.koerper_neu(body_token)
+                if body is None:
+                    ergebnis.warnungen.append("Kanten %s: Körper nach dem Bauen nicht eindeutig auffindbar – Ergebnis bitte selbst prüfen." % "+".join(map(str, nrn)))
+                else:
+                    for p in fa.koerper_pruefen(body):
+                        ergebnis.warnungen.append("Kanten %s: %s" % ("+".join(map(str, nrn)), p))
+                einzeln = []
+            except fa.AdapterFehler as e:
+                ergebnis.warnungen.append("Kanten %s: gemeinsamer Flansch (Gehrung) nicht möglich – sie werden einzeln gebaut. Grund: %s" % ("+".join(map(str, nrn)), e))
+                logger.warnung("Gruppe nicht gemeinsam gebaut", kanten=nrn, grund=e)
+        for i in einzeln:
+            nr, tok = i + 1, tokens[i]
+            try:
+                kante = edge_resolver.aufloesen(tok)
+                body_name, body_token = kante.body.name, kante.body.entityToken
+                hinw = []
+                feats = fa.folge_anbringen(kante, ops, t, markierung, hinw)
+                ergebnis.warnungen += ["Kante %d: %s" % (nr, h) for h in hinw]
+                ergebnis.ausgefuehrt.append("Kante %d: %d Schritt(e)" % (nr, len(feats)))
+                ergebnis.geometrie.append(body_name)
+                body = fa.koerper_neu(body_token)
+                if body is None:
+                    ergebnis.warnungen.append("Kante %d: Körper nach dem Bauen nicht eindeutig auffindbar – Ergebnis bitte selbst prüfen." % nr)
+                else:
+                    for p in fa.koerper_pruefen(body):
+                        ergebnis.warnungen.append("Kante %d: %s" % (nr, p))
+            except fa.AdapterFehler as e:
+                ergebnis.fehler.append("Kante %d: %s" % (nr, e))
+                ergebnis.zurueckgesetzt = ergebnis.zurueckgesetzt or getattr(e, "rueckbau_ok", True)
     return plan
 
 

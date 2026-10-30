@@ -30,7 +30,7 @@ def fusion_version():
     return _kontext["fusion"]
 
 
-def ende(zeilen=40, max_zeichen=6000):
+def ende(zeilen=150, max_zeichen=19000):
     """Letzte Protokollzeilen (für Testergebnisse); leer, wenn es kein Protokoll gibt."""
     try:
         with open(_pfad(), encoding="utf-8", errors="replace") as f:
@@ -61,7 +61,7 @@ def schreibe(stufe, text, **daten):
 
 def _kurz(v):
     s = str(v).replace("\n", " | ")
-    return s if len(s) < 600 else s[:600] + "…"
+    return s if len(s) < 3500 else s[:3500] + "…"
 
 
 def info(text, **d):

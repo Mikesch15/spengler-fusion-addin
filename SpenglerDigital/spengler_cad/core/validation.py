@@ -4,6 +4,8 @@ from .models import EINHEITEN_PARAMETER
 
 MATERIAL_NAMEN = {"t", "ri", "k"}   # stehen in Ausdrücken immer zur Verfügung (aus dem Materialprofil)
 OP_TYPEN = ("flansch", "umschlag")
+BEZUEGE = ("aussen", "innen", "tangential")          # Fusion: FlangeHeightDatumTypes (Aussenflächen / Innenflächen / tangential zur Biegung)
+LAGEN = ("kante", "innen", "aussen", "tangential")   # Fusion: BendPositionTypes (StartEdge / Inside / Outside / TangentToSide)
 
 
 def _zahl(v):
@@ -68,6 +70,12 @@ def pruefe_operationen(ops, bekannte_namen):
                 fehler.append("Schritt %d: Flanschwinkel %g° ungültig (erlaubt: zwischen -180° und 180°, nicht 0)." % (i, w))
             elif abs(w) > 135:
                 warn.append("Schritt %d: Flanschwinkel %g° ist sehr spitz – für 180° einen Umschlag verwenden." % (i, w))
+        if op.get("bezug") and op["bezug"] not in BEZUEGE:
+            fehler.append("Schritt %d: Massbezug «%s» unbekannt (erlaubt: %s)." % (i, op["bezug"], ", ".join(sorted(BEZUEGE))))
+        if op.get("bezug") and typ == "umschlag":
+            fehler.append("Schritt %d: ein Umschlag hat keinen Massbezug (nur die Lage der Biegung)." % i)
+        if op.get("lage") and op["lage"] not in LAGEN:
+            fehler.append("Schritt %d: Lage «%s» unbekannt (erlaubt: %s)." % (i, op["lage"], ", ".join(sorted(LAGEN))))
         if typ == "umschlag" and _zahl(w) and abs(abs(w) - 180) > 1e-9:
             fehler.append("Schritt %d: ein Umschlag hat immer ±180°." % i)
         if _zahl(L) and L <= 0:

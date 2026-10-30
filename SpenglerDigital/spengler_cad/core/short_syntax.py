@@ -100,7 +100,11 @@ def aufloesen(ops, werte):
             raise KurzschriftFehler("Schritt %d: %s" % (i, e))
         if op["typ"] == "umschlag":
             w = -180.0 if w < 0 else 180.0
-        out.append({"typ": op["typ"], "winkel": w, "laenge": L, "radius": r})
+        d = {"typ": op["typ"], "winkel": w, "laenge": L, "radius": r}
+        for feld in ("bezug", "lage"):      # Massbezug (Höhe von aussen/innen/tangential) und Lage der Biegung – nur wenn gewählt
+            if op.get(feld):
+                d[feld] = op[feld]
+        out.append(d)
     return out
 
 

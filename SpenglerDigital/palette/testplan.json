@@ -218,7 +218,7 @@
     },
     {
      "id": "5.4",
-     "text": "OK",
+     "text": "OK (auch bei eingeschalteter Vorschau muss OK klickbar sein)",
      "erwartet": "Meldung «Erfolgreich»; Masse in Fusion nachmessen: ________"
     },
     {
@@ -234,7 +234,7 @@
     {
      "id": "5.7",
      "text": "Zwei aneinanderstossende Kanten (Ecke) → OK",
-     "erwartet": "notieren, wie Fusion die Ecke löst (Bildschirmfoto)"
+     "erwartet": "erster Flansch gemeinsam, Ecke auf Gehrung («gemeinsamer Flansch mit Gehrung» im Bericht); bei Hinweis «einzeln gebaut» Grund notieren"
     },
     {
      "id": "5.8",
@@ -306,12 +306,12 @@
     {
      "id": "6.8",
      "text": "Kanten bearbeiten an Kreis- oder Bogenkante mit einer Vorlage aus reinen Umschlägen (U+ 7)",
-     "erwartet": "Umschlag folgt der Kontur, keine Schlitze/Lappen; Vorschau zeigt ihn; Strg+Z nimmt alles zurück"
+     "erwartet": "Umschlag folgt der Kontur, keine Schlitze/Lappen; Strg+Z nimmt alles zurück – sonst die Meldung wörtlich notieren"
     },
     {
      "id": "6.9",
      "text": "Dieselbe Kante mit einer Vorlage mit Flansch (90 25)",
-     "erwartet": "«ungeeignet … Flansch nur an geraden Kanten», OK gesperrt (Fusion-Grenze)"
+     "erwartet": "Fusion nimmt den Flansch oder meldet «Fusion lehnt den Flansch an dieser runden Kante ab» mit seiner Antwort; nichts halb gebaut"
     },
     {
      "id": "6.10",
@@ -349,6 +349,16 @@
      "id": "7.4",
      "text": "Kegel r 100 / 50, Höhe 100 → OK",
      "erwartet": "Drehkörper, Abwicklung Kreisringsektor"
+    },
+    {
+     "id": "7.5",
+     "text": "Scheibe r 100, Rand 20, «flach» und «dxf» anhaken → OK",
+     "erwartet": "flacher Körper mit sichtbarer Biegelinie, DXF im Exportordner"
+    },
+    {
+     "id": "7.6",
+     "text": "Aus dem flachen Körper eine Zeichnung ableiten",
+     "erwartet": "Biegekante in der Zeichnung sichtbar"
     }
    ]
   },
@@ -374,11 +384,16 @@
     },
     {
      "id": "8.4",
+     "text": "Werkstattblatt nach Export",
+     "erwartet": "Zeichnung der Abwicklung (aus DXF) sichtbar, Biegelinien gestrichelt"
+    },
+    {
+     "id": "8.5",
      "text": "Zwei Körper gleichzeitig",
      "erwartet": "beide exportiert, Zusammenfassung «2 von 2»"
     },
     {
-     "id": "8.5",
+     "id": "8.6",
      "text": "Normaler Volumenkörper",
      "erwartet": "«✗ … kein Blechkörper»"
     }

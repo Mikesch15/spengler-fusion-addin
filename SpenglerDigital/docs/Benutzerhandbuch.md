@@ -65,6 +65,8 @@ Die schnellste Eingabe ist die **Kurzschrift**:
 | `90 H U+ u+4*t` | Parameter `H`, `u`; `t` = Blechdicke, `ri` = Innenradius, `k` = K-Faktor aus dem Materialprofil |
 | `{w} 20` | Winkel als Ausdruck |
 
+**Mass und Lage (Schrittetabelle):** *Mass* legt fest, worauf die Schenkellänge zielt: aussen, innen oder tangential (Fusion: Höhenbezug). *Lage* sagt, wo der Flansch an der Bestandsfläche ansetzt: Kante, innen, aussen oder tangential (Fusion: Biegeposition). Ein freier «Versatz ±» ist in der Fusion-Flansch-API nicht vorgesehen. Vorschau und Abwicklung rechnen immer theoretisch mit der Blechmitte. Beim Umschlag probiert das Add-in mehrere Lagen/Richtungen durch und protokolliert die Versuche. Nicht in Fusion geprüft.
+
 Nach «übernehmen» werden neue Parameternamen automatisch als Parameter angelegt; Werte und Bereiche tragen Sie selbst ein. Unter der Kurzschrift zeigt die **Vorschau** den Querschnitt mit den Standardwerten: das bestehende Blech gestrichelt, die Kante grün, Schenkelmasse und Biegungen B1, B2 … Sie aktualisiert sich beim Tippen. Ist unter «Prüfen» ein Testmaterial gewählt (sonst das Standardmaterial), zeichnet sie mit dessen Dicke und Innenradius; ohne Material als Skizze mit 1 mm Dicke. Fehlt einem Parameter der Standardwert, steht statt des Bildes der Grund. Dasselbe Bild erscheint verkleinert in der Vorlagenliste. **Prüfen & Trockenlauf** zeigt Fehler, die Folge mit den Standardwerten und – wenn Innenradius und K-Faktor im Material stehen – die theoretische Abwicklungszugabe.
 
 Speichern: Jede inhaltliche Änderung erhöht die **Vorlagenversion**; frühere Versionen bleiben erhalten (*Versionen*). **Duplizieren** erzeugt eine unabhängige Kopie, **Umbenennen** ändert nur den Namen, **Löschen** verschiebt die Vorlage nach Bestätigung in den Papierkorb (wiederherstellbar unter *Sicherung*).
@@ -89,7 +91,7 @@ Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinat
 
 ## 7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]
 
-**Kanten bearbeiten:** Eine oder mehrere Aussenkanten eines Blechkörpers wählen (Flansch: nur gerade Kanten; Umschlag zusätzlich Kreis/Bogen, dort nicht live geprüft), Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
+**Kanten bearbeiten:** Eine oder mehrere Aussenkanten eines Blechkörpers wählen (gerade Kanten; Kreis/Bogen werden versucht – Fusion entscheidet und seine Antwort wird gemeldet), Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
 
 Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.
 
@@ -119,6 +121,8 @@ Das Add-in unterscheidet klar:
 - **herstellbar** – mit dem gewählten Verfahren (Stauchen/Schweifen, Strecken/Schweifen, manuell, automatische Empfehlung). Das wird **nur** beurteilt, wenn im Materialprofil ein **eigener Grenzwert** (Stauchen/Strecken in %) mit Quelle hinterlegt ist. Sonst steht «nicht beurteilbar».
 
 Die angegebene Dehnung ist die reine Umfangsänderung (Geometrie) – keine Garantie: Falten, Rückfederung und Wanddickenänderung sind nicht gerechnet. Einschnitte oder Lappen werden **nie** automatisch erzeugt. Der Drehkörper ist kein Fusion-Blechkörper; Zuschnittdurchmesser und Kegelabwicklung sind theoretisch.
+
+**Zuschnitt ausgeben:** Mit «flach» entsteht zusätzlich ein flacher Körper (Rohling) mit sichtbaren Biegelinien (Skizze, Fläche geteilt) – daraus lässt sich eine Fusion-Zeichnung ableiten. Mit «dxf» wird der Zuschnitt (Layer ZUSCHNITT, BIEGELINIE) in den Exportordner geschrieben. Scheibe: Kreis + Biegekreis; Kegel/Zylinder: Kreisringsektor bzw. Rechteck; Kragen: nur Loch und Biegekreis (kein Körper). Nicht in Fusion geprüft.
 
 ## 10. Abwicklung und DXF [nicht in Fusion geprüft]
 
@@ -209,7 +213,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 | «… FlangeFeatures.createEdgeFlangeInput fehlt» | Fusion aktualisieren; die Blech-API ist neu. |
 | «… lässt sich nicht einstellen – abgebrochen» | Diese Fusion-Version kennt die Eigenschaft nicht; es wird nichts mit falschen Werten gebaut. Protokoll schicken. |
 | «Neue Aussenkante ist mehrdeutig» | Folge in Einzelschritten anwenden (je Schritt eine Vorlage). |
-| «ungeeignet: … rund / Kurventyp» | Flansch nur an geraden Kanten; Kreise/Bögen nur mit einer Vorlage aus reinen Umschlägen; Ellipse/Spline gar nicht. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden. |
+| «Fusion lehnt den Flansch an dieser runden Kante ab» | Fusions Flansch-Schnittstelle nennt nur gerade Kanten; Umschlag (Saum) oder Rundblech-Werkzeug verwenden. Ellipse/Spline werden nicht bearbeitet. Für Rundbleche als Drehkörper den Befehl Rundblech verwenden. |
 | «Materialwerte fehlen: ri, k» | Innenradius/K-Faktor im Materialprofil ergänzen oder die Vorlage ohne `ri`/`k` schreiben. |
 | «Parameter nicht gefunden» (3D-Detail) | Der Benutzerparameter wurde beim Import umbenannt oder nicht übernommen; Parameter in Fusion prüfen. |
 
@@ -217,7 +221,7 @@ Beim Import werden bestehende Vorlagen nie überschrieben: gleiche ID → Import
 
 - Die Fusion-Blech-API ist bei Autodesk «Preview». Flansch und Umschlag sind **nicht in Fusion geprüft**; die Eigenschaftsnamen werden gesucht und protokolliert.
 - Freistellungen/Ecken erzeugt Fusion nach der Blechregel; eigene Freistellungen erzeugt das Add-in nicht.
-- Flansche über die ganze Kantenlänge und nur an **geraden** Kanten: Fusions Flansch-Schnittstelle (EdgeFlange, ab API Oktober 2026) nimmt laut Autodesk nur lineare Aussenkanten. An Kreis-/Bogenkanten ist nur ein **Umschlag** (Saum) vorgesehen – nicht live geprüft; Vorlagen mit Flansch werden dort mit Grund abgelehnt.
+- Flansche über die ganze Kantenlänge. Fusions Flansch-Schnittstelle (EdgeFlange, ab API Oktober 2026) nennt in der Dokumentation nur gerade Kanten. An Kreis-/Bogenkanten wird der Flansch trotzdem **versucht**; lehnt Fusion ihn ab, wird nichts gebaut und Fusions Antwort gemeldet. Zusammenhängende Kanten bekommen den ersten Flansch gemeinsam in einem Feature (Gehrung an den Ecken); klappt das nicht, werden sie einzeln gebaut (Hinweis im Bericht).
 - 3D-Details: Benutzerparameter gelten im ganzen Dokument; zweimal dasselbe Detail mit verschiedenen Werten im selben Dokument ist nicht geprüft.
 - Rundbleche als Drehkörper, nicht als Fusion-Blechkörper; Umformbarkeit nur mit eigenen Grenzwerten.
 - Keine automatische Fusion-Zeichnung (Werkstattblatt statt dessen).
