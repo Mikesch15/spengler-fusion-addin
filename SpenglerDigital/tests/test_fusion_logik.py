@@ -226,6 +226,13 @@ class FlanschTest(unittest.TestCase):
         fa.flansch(kante_mit(ff), 90, 20)
         self.assertEqual(len(ff.hinzu), 1)
 
+    def test_mit_dicke_kommen_radius_und_offener_saum_dazu(self):
+        inp = HemEingabe(ergebnis=False)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(kante_mit(hem=Sammlung(inp)), 12, False, None, None, 0.6)
+        self.assertIn("16 Varianten", str(cm.exception), "Regel, 2 Radien (hier nicht einstellbar), offener Saum")
+        self.assertEqual(sum(1 for a in inp.aufrufe if a[0] == "open"), 4)
+
     def test_ohne_api(self):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(kante_mit(), 90, 20)
@@ -309,7 +316,7 @@ class UmschlagTest(unittest.TestCase):
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.umschlag(kante_mit(hem=hf), 7, False)
             self.assertIn(text, str(cm.exception))
-            self.assertIn("8 Varianten", str(cm.exception), "4 Lagen × beide Richtungen wurden versucht")
+            self.assertIn("4 Varianten", str(cm.exception), "Lage kante/tangential × beide Richtungen wurden versucht")
             self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
 
     def test_berechnung_scheitert_naechste_variante(self):
@@ -428,7 +435,7 @@ class UmschlagTest(unittest.TestCase):
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.umschlag(kante_mit(hem=hf), 7, False)
             self.assertIn(text, str(cm.exception))
-            self.assertIn("8 Varianten", str(cm.exception), "4 Lagen × beide Richtungen wurden versucht")
+            self.assertIn("4 Varianten", str(cm.exception), "Lage kante/tangential × beide Richtungen wurden versucht")
             self.assertEqual(hf.hinzu, [], "bei abgelehnter Definition wird NICHT gebaut")
 
     def test_berechnung_scheitert_naechste_variante(self):

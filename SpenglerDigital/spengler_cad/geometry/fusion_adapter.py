@@ -381,7 +381,7 @@ def _kantenlaenge_mm(edge):
         return "?"
 
 
-def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
+def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=None):
     """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
 
     Echte API (help.autodesk.com, HemFeatureInput, ab September 2025): hf.createHemFeatureInput() ohne Argumente, danach
@@ -399,32 +399,50 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None):
     L = _vi_mm(laenge_mm)
     # Live-Test 30.10. (0.4.9): Eine in der Vorlage eingestellte Lage «tangential» scheiterte allein (Modellfehler), Standard (Kante) ging.
     # Die eingestellte Lage wird deshalb zuerst versucht, danach die übrigen; die Richtung der Vorlage bleibt zuerst.
-    lagen = ([lage] if lage else []) + [l for l in ("kante", "innen", "aussen", "tangential") if l != lage]
+    # Live 0.4.10: «innen»/«aussen» meldet Fusion beim Saum als ungültig, «kante»/«tangential» scheitern mit Modellfehler. Deshalb nur diese
+    # beiden (und eine ausdrücklich eingestellte Lage) und zusätzlich verschiedene Biegeradien des Saums (Radius-Überschreibung) und zuletzt
+    # ein offener Saum mit kleinem Spalt – die Blechregel kann für diese Blechdicke einen unpassenden Saumradius liefern.
+    lagen = ([lage] if lage else []) + [l for l in ("kante", "tangential") if l != lage]
     richtungen = [bool(nach_hinten), not nach_hinten]
+    t = dicke_mm if dicke_mm else None
+    bauarten = [("Regel", None, None)]
+    if t:
+        bauarten += [("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None), ("offen, Spalt %.2f" % t, None, t)]
+    if radius_mm:
+        bauarten.insert(1, ("Radius %.2f" % radius_mm, radius_mm, None))
     versuche = []
-    for flip in richtungen:
-        for l in lagen:
-            inp = hf.createHemFeatureInput()
-            if inp is None:
-                raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
-            _eigenschaften_einmal("HemFeatureInput", inp)
-            name = "Lage %s%s" % (l, ", Gegenrichtung" if flip != bool(nach_hinten) else "")
-            try:
-                ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
-                if not ok:
-                    versuche.append("%s: von Fusion abgelehnt" % name)
+    for art, rad, spalt in bauarten:
+        for flip in richtungen:
+            for l in lagen:
+                inp = hf.createHemFeatureInput()
+                if inp is None:
+                    raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
+                _eigenschaften_einmal("HemFeatureInput", inp)
+                name = "%s, Lage %s%s" % (art, l, ", Gegenrichtung" if flip != bool(nach_hinten) else "")
+                try:
+                    if rad is not None:
+                        ov = getattr(inp, "bendRadiusOverride", None)
+                        if ov is None or not ov.setOverride(_vi_mm(rad)):
+                            versuche.append("%s: Radius nicht einstellbar" % name)
+                            continue
+                    if spalt is not None:
+                        ok = inp.setOpenHem(edge, L, _vi_mm(spalt), flip, _lage_enum(l))
+                    else:
+                        ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
+                    if not ok:
+                        versuche.append("%s: von Fusion abgelehnt" % name)
+                        continue
+                    feat = hf.add(inp)
+                except Exception as e:
+                    versuche.append("%s: %s" % (name, (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)[:160]))
                     continue
-                feat = hf.add(inp)
-            except Exception as e:
-                versuche.append("%s: %s" % (name, (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)[:160]))
-                continue
-            if feat is None:
-                versuche.append("%s: nicht erzeugt" % name)
-                continue
-            logger.info("Umschlag erzeugt", variante=name, versuche=len(versuche) + 1)
-            if versuche:
-                logger.info("Umschlag: frühere Versuche scheiterten", versuche=" | ".join(versuche))
-            return feat
+                if feat is None:
+                    versuche.append("%s: nicht erzeugt" % name)
+                    continue
+                logger.info("Umschlag erzeugt", variante=name, versuche=len(versuche) + 1)
+                if versuche:
+                    logger.info("Umschlag: frühere Versuche scheiterten", versuche=" | ".join(versuche))
+                return feat
     logger.warnung("Umschlag nicht möglich", versuche=" | ".join(versuche))
     antworten = []
     for v in versuche:
@@ -538,9 +556,9 @@ def _kante_aufloesen(token, alt):
         return alt
 
 
-def _schritt_bauen(edge, op, gespiegelt):
+def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None):
     if op["typ"] == "umschlag":
-        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"))
+        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm)
     return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt, op.get("bezug"), op.get("lage"))
 
 
@@ -570,7 +588,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
             except Exception:
                 pass
             gespiegelt = op["winkel"] < 0 if i == 1 else False
-            feat = _schritt_bauen(aktuell, op, gespiegelt)
+            feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm)
             erzeugt.append(feat)
             neu = None
             if i < len(ops):
@@ -595,7 +613,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                     erzeugt.pop()
                     feat.deleteMe()
                     aktuell = _kante_aufloesen(token, aktuell) if token else aktuell
-                    feat = _schritt_bauen(aktuell, op, True)
+                    feat = _schritt_bauen(aktuell, op, True, dicke_mm)
                     erzeugt.append(feat)
                     neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
                     nochmal = richtung_stimmt(lauf, op["winkel"], _gemessen(aktuell, neu, rahmen[0]) or gemessen, rahmen[1], v)
