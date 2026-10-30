@@ -157,7 +157,7 @@ function zeigeOps() {
     <td><input data-o="${i}" data-f="laenge" value="${esc(o.laenge)}" size="9"></td>
     <td><input data-o="${i}" data-f="radius" value="${esc(o.radius ?? "")}" size="6"></td>
     <td>${o.typ === "umschlag" ? "" : `<select data-o="${i}" data-f="bezug">${[["", "Standard"], ["aussen", "aussen"], ["innen", "innen"], ["tangential", "tangential"]].map(([w, t]) => `<option value="${w}" ${(o.bezug || "") === w ? "selected" : ""}>${t}</option>`).join("")}</select>`}</td>
-    <td><select data-o="${i}" data-f="lage">${[["", "Standard"], ["kante", "Kante"], ["innen", "innen"], ["aussen", "aussen"], ["tangential", "tangential"]].map(([w, t]) => `<option value="${w}" ${(o.lage || "") === w ? "selected" : ""}>${t}</option>`).join("")}</select></td>
+    <td><select data-o="${i}" data-f="lage">${[["", "Standard"], ["kante", "benachbart (Kante)"], ["innen", "innen"], ["aussen", "aussen"], ["tangential", "tangential"]].map(([w, t]) => `<option value="${w}" ${(o.lage || "") === w ? "selected" : ""}>${t}</option>`).join("")}</select></td>
     <td><button data-oauf="${i}">↑</button><button data-oab="${i}">↓</button><button data-odel="${i}">✕</button></td></tr>`).join("");
 }
 function editorLesen() {
