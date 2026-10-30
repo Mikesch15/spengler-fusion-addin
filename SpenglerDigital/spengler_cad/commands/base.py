@@ -5,6 +5,7 @@ import traceback
 import adsk.core
 import adsk.fusion
 
+from .. import VERSION
 from ..diagnostics import logger
 from ..storage import paths
 
@@ -16,7 +17,28 @@ def ui():
     return adsk.core.Application.get().userInterface
 
 
+FEHLERBERICHT_ID = "98.1"      # Testpunkt-Nummer für den letzten automatisch übermittelten Fehler (je Firma eine Zeile, wird überschrieben)
+
+
+def fehlerbericht_senden(titel, text):
+    """Meldung und Protokollauszug in die Ergebnistabelle der eigenen Firma (cad_testergebnisse) – nur wenn angemeldet; nie ein Fehler."""
+    try:
+        import datetime
+        from ..storage.cloud_client import Cloud
+        c = Cloud(paths.daten_ordner(), timeout=6)
+        if not c.angemeldet:
+            return False
+        c.test_speichern({"test_id": FEHLERBERICHT_ID, "text": ("%s: %s" % (titel, text))[:1000], "status": "fehler", "notiz": text[:4000],
+                          "protokoll": logger.ende(), "addin_version": VERSION, "fusion_version": logger.fusion_version(),
+                          "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
+        return True
+    except Exception:
+        return False
+
+
 def melden(titel, text, fehler=False):
+    if fehler and fehlerbericht_senden(titel, text):
+        text += "\n\n(Fehlerbericht mit Protokoll wurde an Spengler Digital übermittelt.)"
     try:
         ui().messageBox(text, "Spengler Digital CAD – " + titel, adsk.core.MessageBoxButtonTypes.OKButtonType,
                         adsk.core.MessageBoxIconTypes.CriticalIconType if fehler else adsk.core.MessageBoxIconTypes.InformationIconType)

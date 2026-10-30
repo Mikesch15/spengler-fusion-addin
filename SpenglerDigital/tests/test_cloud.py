@@ -318,6 +318,21 @@ class TestergebnisseTest(CloudBasis):
         ids = [p["id"] for b in datei for p in b["punkte"]]
         self.assertEqual(len(ids), len(set(ids)))
 
+    def test_fehlerbericht_automatisch(self):
+        from unittest import mock
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "fusion_stub"))
+        import adsk.core  # noqa: F401  (Attrappe)
+        from spengler_cad.commands import base
+        os.environ["SPENGLER_CAD_CLOUD_URL"] = self.url
+        self.addCleanup(os.environ.pop, "SPENGLER_CAD_CLOUD_URL", None)
+        with mock.patch.object(base.paths, "daten_ordner", return_value=self.ordner[0]):
+            self.assertFalse(base.fehlerbericht_senden("Kanten bearbeiten", "Umschlag geht nicht"), "ohne Anmeldung nichts senden, kein Fehler")
+            Cloud(self.ordner[0], url=self.url, timeout=5).anmelden("chef", "geheim")
+            self.assertTrue(base.fehlerbericht_senden("Kanten bearbeiten", "Umschlag geht nicht"))
+        zeile = [t for t in self.z.tests if t["test_id"] == base.FEHLERBERICHT_ID][0]
+        self.assertEqual((zeile["status"], zeile["notiz"]), ("fehler", "Umschlag geht nicht"))
+
     def test_lokal_ohne_anmeldung(self):
         b = self.backend(anmelden=False)
         r = b.a_test_speichern({"test_id": "1.2", "text": "Start", "status": "ok", "notiz": "ging"})
