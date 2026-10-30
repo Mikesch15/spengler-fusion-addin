@@ -159,11 +159,12 @@ def _plan(inp):
     return plan, None
 
 
-def _schluessel(inp):
+def _schluessel(inp, mit_kanten=True):
     """Alles, was den Bauplan bestimmt, ohne an Geometrie zu rühren (während der Vorschau sind Kantenverweise evtl. ungültig)."""
     sel = inp.itemById("kanten")
     teile = [sel.selectionCount, inp.itemById("experte").value, inp.itemById("folge").value, inp.itemById("speichern").value]
-    teile += [sel.selection(i).entity.entityToken for i in range(sel.selectionCount)]   # welche Kanten – wirft bei ungültigen Verweisen → kein Treffer
+    if mit_kanten:
+        teile += [sel.selection(i).entity.entityToken for i in range(sel.selectionCount)]   # welche Kanten – wirft bei ungültigen Verweisen → kein Treffer
     for i in ("vorlage", "material"):
         d = inp.itemById(i)
         teile.append(d.selectedItem.index if d.selectedItem is not None else -1)
@@ -171,6 +172,13 @@ def _schluessel(inp):
         x = inp.itemById(pid)
         teile.append(x.expression if x is not None else None)
     return tuple(teile)
+
+
+def _ausfuehrbar(plan, fehler):
+    try:
+        return fehler is None and operation_plan.ist_ausfuehrbar(plan)
+    except Exception:
+        return False
 
 
 def _plan_gemerkt(inp):
@@ -183,12 +191,24 @@ def _plan_gemerkt(inp):
     if k is not None and Z.get("plan_merk", (None,))[0] == k:
         return Z["plan_merk"][1], Z["plan_merk"][2]
     try:
+        grob = _schluessel(inp, mit_kanten=False)
+    except Exception:
+        grob = None
+    try:
         plan, fehler = _plan(inp)
     except Exception:
         if Z.get("plan_merk"):
             logger.ausnahme("Bauplan während der Vorschau nicht neu berechenbar – letzter Stand gilt")
             return Z["plan_merk"][1], Z["plan_merk"][2]
         raise
+    ok = _ausfuehrbar(plan, fehler)
+    # Live-Test: Mit Vorschau ist die gewählte Kante schon umgebaut (nicht mehr freie Aussenkante / andere Verweise) → der Plan wäre «nicht
+    # ausführbar» und OK gesperrt. Gleiche Eingaben (nur die Kantenverweise weichen ab) wie bei einem zuvor ausführbaren Plan: dieser gilt.
+    if not ok and grob is not None and Z.get("plan_grob") and Z["plan_grob"][0] == grob:
+        logger.info("Bauplan: Kante durch die Vorschau verändert – zuletzt ausführbarer Stand gilt")
+        return Z["plan_grob"][1], Z["plan_grob"][2]
+    if ok and grob is not None:
+        Z["plan_grob"] = (grob, plan, fehler)
     Z["plan_merk"] = (k, plan, fehler)
     return plan, fehler
 

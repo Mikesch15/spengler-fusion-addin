@@ -926,13 +926,13 @@ class PlanMerkenTest(unittest.TestCase):
     def setUp(self):
         from spengler_cad.commands import edge_apply_command as ec
         self.ec = ec
-        self.alt = (ec._plan, ec._schluessel)
+        self.alt = (ec._plan, ec._schluessel, ec._ausfuehrbar)
         ec.Z.clear()
         self.plan_aufrufe = []
         ec._plan = lambda inp: (self.plan_aufrufe.append(1) or ({"ok": True}, None))
 
     def tearDown(self):
-        self.ec._plan, self.ec._schluessel = self.alt
+        self.ec._plan, self.ec._schluessel, self.ec._ausfuehrbar = self.alt
         self.ec.Z.clear()
 
     def test_gleicher_stand_wird_nicht_neu_berechnet(self):
@@ -957,6 +957,26 @@ class PlanMerkenTest(unittest.TestCase):
         self.ec._schluessel = kaputt           # Auswahl nicht mehr lesbar → kein Treffer im Merker
         self.ec._plan = kaputt                 # Neuberechnung scheitert ebenfalls
         self.assertEqual(self.ec._plan_gemerkt(None), erster, "OK bleibt möglich")
+
+    def test_vorschau_hat_kante_veraendert_ausfuehrbarer_stand_gilt(self):
+        """Live: mit Vorschau ist die Kante schon umgebaut → neuer Plan «nicht ausführbar»; gleiche Eingaben → letzter ausführbarer Plan."""
+        ec = self.ec
+        guter = {"ok": "gut"}
+        plaene = [(guter, None), ({"ok": "schlecht"}, None)]
+        ec._plan = lambda inp: plaene.pop(0)
+        ec._ausfuehrbar = lambda plan, fehler: plan["ok"] == "gut"
+        zustand = {"tok": "t1"}
+
+        def schluessel(inp, mit_kanten=True):
+            return ("a", zustand["tok"]) if mit_kanten else ("a",)
+        ec._schluessel = schluessel
+        self.assertEqual(ec._plan_gemerkt(None)[0], guter)
+        zustand["tok"] = "t2"            # Vorschau hat die Kantenverweise verändert
+        self.assertEqual(ec._plan_gemerkt(None)[0], guter, "OK bleibt möglich")
+        schluessel_aus = lambda inp, mit_kanten=True: ("b", "t2") if mit_kanten else ("b",)
+        ec._schluessel = schluessel_aus
+        plaene.append(({"ok": "schlecht"}, None))
+        self.assertEqual(ec._plan_gemerkt(None)[0], {"ok": "schlecht"}, "andere Eingaben: kein Ersatz")
 
     def test_ohne_vorherigen_stand_wird_der_fehler_nicht_verschluckt(self):
         def kaputt(inp):
