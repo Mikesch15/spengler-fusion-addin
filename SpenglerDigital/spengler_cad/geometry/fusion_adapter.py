@@ -652,11 +652,31 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
     erzeugt.append(feat)
     koerper = feat.bodies.item(0)
+    # Kandidaten: Kanten der vom Feature erzeugten Flächen (so wie bei Flanschen, live bewährt), dazu alle Kanten des Körpers.
+    # Bericht 31.10.: beim Zurückschneiden (+) fand sich unter den Körperkanten keine einzige parallele Kante.
+    pool, gesehen = [], set()
+    try:
+        quellen = [k for f in feat.faces for k in f.edges] + list(koerper.edges)
+    except Exception:
+        quellen = list(koerper.edges)
+    for k in quellen:
+        try:
+            schluessel = k.tempId
+        except Exception:
+            schluessel = id(k)
+        if schluessel not in gesehen:
+            gesehen.add(schluessel)
+            pool.append(k)
+    try:
+        logger.info("Versatz: Körper nach der Extrusion", koerper=len(list(feat.bodies)), kanten=len(list(koerper.edges)), flaechen_des_features=len(list(feat.faces)),
+                    volumen_cm3=koerper.volume)
+    except Exception:
+        logger.warnung("Versatz: Körper nach der Extrusion nicht lesbar")
     neue = []
     for nr, d in enumerate(daten, 1):
         mitte = _plus(_plus(d["p0"], d["p1"], 0.5, 0.5), d["u"], 1.0, -s)
         kandidaten = []
-        for k in koerper.edges:
+        for k in pool:
             try:
                 q0, dk = _linie(k)
             except Exception:
@@ -671,7 +691,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
                 kandidaten.append(k)
         if len(kandidaten) != 1:
             nah = []       # Diagnose: die nächsten parallelen Kanten (Abstand von der Zielkante in mm, Länge in mm)
-            for k in koerper.edges:
+            for k in pool:
                 try:
                     q0, dk = _linie(k)
                     dk = _v(dk)
@@ -684,7 +704,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
                     continue
             nah.sort()
             logger.warnung("Versatz: versetzte Kante nicht gefunden", kante=nr, treffer=len(kandidaten), laenge_mm=d["L"] * 10, versatz_mm=versatz_mm,
-                           naechste=" | ".join("%.2f mm weg, %.1f lang" % x for x in nah[:5]) or "keine parallele Kante")
+                           naechste=" | ".join("%.2f mm weg, %.1f lang" % x for x in nah[:5]) or "keine parallele Kante", pool=len(pool))
             raise AdapterFehler("Die versetzte Kante %d wurde nicht eindeutig gefunden (%d Treffer). Nächste parallele Kante: %s." % (
                 nr, len(kandidaten), "%.2f mm vom Soll entfernt" % nah[0][0] if nah else "keine"))
         neue.append(kandidaten[0])
