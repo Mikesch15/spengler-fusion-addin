@@ -918,7 +918,7 @@ class GruppeTest(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler):
             fa.folge_anbringen_gruppe([k1], self.OPS, 0.7, {}, [])
         with self.assertRaises(fa.AdapterFehler):
-            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}], 0.7, {}, [])
+            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.7, {}, [])
 
 
 class PlanMerkenTest(unittest.TestCase):
@@ -1105,33 +1105,59 @@ class ZuschnittKoerperTest(unittest.TestCase):
 
 
 class GruppeUmschlagTest(unittest.TestCase):
-    """Umschlag als einziger Schritt an zusammenhängenden Kanten: ein gemeinsames Feature (Live 31.10.: Vorlage «U+ 12» an 2 Kanten wurde einzeln gebaut)."""
+    """Umschlag als einziger Schritt an zusammenhängenden Kanten: gemeinsamer 179°-Flansch mit Gehrung (Live 31.10.: setFlatHem/setOpenHem nehmen nur
+    EINE Kante, «U+ 12» an 2 Kanten wurde einzeln gebaut)."""
+    def setUp(self):
+        self.alt = fa.flansch
+        self.aufrufe = []
+        self.ablehnen = 0
+
+        def flansch(kanten, winkel, laenge, radius=None, gespiegelt=None, bezug=None, lage=None):
+            self.aufrufe.append((list(kanten), winkel, laenge, radius, gespiegelt))
+            if self.ablehnen:
+                self.ablehnen -= 1
+                raise fa.AdapterFehler("Fusion lehnt ab")
+            return Feature([], "saum")
+        fa.flansch = flansch
+        self.addCleanup(setattr, fa, "flansch", self.alt)
+
     def test_ein_feature_fuer_beide_kanten(self):
-        alt = fa.umschlag
-        aufrufe = []
-        fa.umschlag = lambda kanten, L, flip, r, lage, dicke: (aufrufe.append((list(kanten), L, flip)) or Feature([], "saum"))
-        self.addCleanup(setattr, fa, "umschlag", alt)
         k1, k2 = kante_mit(), kante_mit()
-        erzeugt = fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": None}], 0.6, {}, [])
+        hinweise = []
+        erzeugt = fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": None}], 0.6, {}, hinweise)
         self.assertEqual(len(erzeugt), 1)
-        self.assertEqual(aufrufe[0][0], [k1, k2])
-        self.assertFalse(aufrufe[0][2])
-        with self.assertRaises(fa.AdapterFehler):    # Umschlag mit weiteren Schritten bleibt Sache der Einzelkanten
-            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.6, {}, [])
+        kanten, winkel, laenge, radius, gespiegelt = self.aufrufe[0]
+        self.assertEqual((kanten, winkel, laenge, gespiegelt), ([k1, k2], 179.0, 12, False))
+        self.assertAlmostEqual(radius, 0.3, msg="Innenradius = halbe Dicke (Spalt ≈ Dicke wie beim offenen Saum)")
+        self.assertIn("179°-Flansch", hinweise[0])
+
+    def test_nach_hinten_und_rueckfall_auf_kleineren_winkel(self):
+        self.ablehnen = 1
+        fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": -180, "laenge": 12, "radius": 1.0}], 0.6, {}, [])
+        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 1.0, True), (-178.0, 1.0, True)])
+
+    def test_alles_abgelehnt_gibt_fehler_fuer_den_rueckfall_je_kante(self):
+        self.ablehnen = 9
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}], 0.6, {}, [])
+
+    def test_umschlag_mit_weiteren_schritten_bleibt_einzeln(self):
+        with self.assertRaises(fa.AdapterFehler):
+            fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.6, {}, [])
 
 
 class GemeinsamerUmschlagTest(unittest.TestCase):
-    """Saum an mehreren Kanten als ein Feature (Gehrung wie im Fusion-Dialog) – Ablauf mit ausgetauschten Bausteinen, NICHT die echte Geometrie."""
+    """Umschlag als zweiter Schritt an mehreren Kanten (gemeinsamer Flansch mit Gehrung) – Ablauf mit ausgetauschten Bausteinen."""
     OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25}, {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
 
     def setUp(self):
-        self.alt = (fa.umschlag, fa.neue_aussenkante, fa._gemessen, fa.richtung_stimmt)
+        self.alt = (fa._umschlag_gruppe, fa.neue_aussenkante, fa._gemessen, fa.richtung_stimmt)
         self.aufrufe, self.antworten = [], []
-        fa.umschlag = lambda kanten, L, flip, r, lage, dicke: (self.aufrufe.append(flip) or Feature([], "saum%d" % len(self.aufrufe)))
+        fa._umschlag_gruppe = lambda kanten, op, dicke, flip: (self.aufrufe.append(flip) or Feature([], "saum%d" % len(self.aufrufe)))
         fa.neue_aussenkante = lambda *a: "neu"
         fa._gemessen = lambda *a: (1.0, 0.0, 0.0)
         fa.richtung_stimmt = lambda *a: self.antworten.pop(0)
-        self.addCleanup(lambda: setattr(fa, "umschlag", self.alt[0]) or setattr(fa, "neue_aussenkante", self.alt[1])
+        self.addCleanup(lambda: setattr(fa, "_umschlag_gruppe", self.alt[0]) or setattr(fa, "neue_aussenkante", self.alt[1])
                         or setattr(fa, "_gemessen", self.alt[2]) or setattr(fa, "richtung_stimmt", self.alt[3]))
 
     def test_richtung_stimmt_gleich_beim_ersten(self):
@@ -1149,26 +1175,15 @@ class GemeinsamerUmschlagTest(unittest.TestCase):
     def test_fehler_ergibt_none_fuer_den_rueckfall(self):
         def kaputt(*a):
             raise fa.AdapterFehler("Fusion nimmt mehrere Kanten nicht an")
-        fa.umschlag = kaputt
+        fa._umschlag_gruppe = kaputt
         self.assertIsNone(fa._gemeinsamer_umschlag(["k1", "k2"], self.OPS, 0.7, [((1, 0, 0), (0, 1, 0))], (0, 0, 1)))
 
-    def test_umschlag_reicht_mehrere_kanten_als_auswahl_weiter(self):
-        fa.umschlag, fa.neue_aussenkante, fa._gemessen, fa.richtung_stimmt = self.alt
+    def test_saum_werkzeug_nimmt_nur_die_erste_kante(self):
         inp = HemEingabe()
         hf = Sammlung(inp)
         k1, k2 = kante_mit(hem=hf), kante_mit(hem=hf)
-        alt_oc = adsk.core.ObjectCollection
-
-        class Auswahl(list):
-            def add(self, x):
-                self.append(x)
-        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: Auswahl())})
-        try:
-            fa.umschlag([k1, k2], 7, False)
-        finally:
-            adsk.core.ObjectCollection = alt_oc
-        self.assertIsInstance(inp.aufrufe[0][1], list)
-        self.assertEqual(len(inp.aufrufe[0][1]), 2)
+        fa.umschlag([k1, k2], 7, False)
+        self.assertIs(inp.aufrufe[0][1], k1, "setFlatHem(edge, …) bekommt EINE Kante (Live: eine Auswahl wird abgelehnt)")
 
 
 class VersatzTest(unittest.TestCase):
@@ -1280,6 +1295,27 @@ class VersatzTest(unittest.TestCase):
         kante.body.parentComponent.sketches = type("Sk", (), {"add": lambda s_, f: mit_richtung2(f)})()
         self.lauf(kante, -5.0, d)
         self.assertEqual([x[1] for x in log if x[0] == "dist"], [0.07])
+
+    def test_flaechenprofil_der_skizze_wird_nicht_extrudiert(self):
+        """Live 31.10.: In der Skizze lagen auch Profile der Blechfläche (projizierte Kanten) → Dicke verdoppelt bzw. Körper weggeschnitten."""
+        self.ziel = ((0, 0.5, 0), (50, 0.5, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07)
+        comp = kante.body.parentComponent
+        orig = comp.sketches.add
+
+        def add(f):
+            sk = orig(f)
+            klein = type("P", (), {"areaProperties": lambda s_: type("A", (), {"area": 25.0})()})()
+            gross = type("P", (), {"areaProperties": lambda s_: type("A", (), {"area": 5000.0})()})()
+            sk.profiles = Liste([gross, klein])
+            return sk
+        comp.sketches = type("Sk", (), {"add": lambda s_, f: add(f)})()
+        gewaehlt = []
+        ef = comp.features.extrudeFeatures
+        alt_create = ef.createInput
+        ef.createInput = lambda p, op: (gewaehlt.append(len(p)) or alt_create(p, op))
+        self.lauf(kante, -5.0, d)
+        self.assertEqual(gewaehlt, [1], "nur das kleine Streifenprofil")
 
     def test_koerper_leer_nach_schnitt_wird_nicht_als_erfolg_gewertet(self):
         """Bericht 31.10.: nach dem Schnitt war der gemeldete Körper leer (Volumen 0) – früher als «Volumen gesunken» durchgewunken."""

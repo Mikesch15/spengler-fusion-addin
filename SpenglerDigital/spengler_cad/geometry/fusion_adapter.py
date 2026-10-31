@@ -397,15 +397,9 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     aussen/tangential und dann die Gegenrichtung versucht; die erste, die Fusion rechnet, gilt (im Protokoll vermerkt). NICHT live bestätigt."""
     # Live-Test 30.10.: mit Radius (offener Saum, Spalt 2 × Radius) scheiterte Fusion, ohne Radius (geschlossener Saum) klappt es.
     # Der Radius des Umschlags kommt deshalb aus der Blechregel; ein Radius in der Vorlage wird hier bewusst nicht verwendet.
-    # Mehrere Kanten (Gehrung an der Ecke wie im Fusion-Dialog «Falz» mit «2 ausgewählt» und Haken «Gehrung»): als Auswahl übergeben.
-    # Ob die Schnittstelle das annimmt, ist offen – bei Ablehnung meldet die Funktion einen Fehler und der Aufrufer baut je Kante.
     kanten_liste = list(edge) if isinstance(edge, (list, tuple)) else None
     edge = kanten_liste[0] if kanten_liste else edge
-    kante_arg = edge
-    if kanten_liste and len(kanten_liste) > 1:
-        kante_arg = adsk.core.ObjectCollection.create()
-        for k in kanten_liste:
-            kante_arg.add(k)
+    kante_arg = edge        # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (eine Auswahl wird abgelehnt) – mehrere Kanten: _umschlag_gruppe
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -684,6 +678,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
     def ecke(d, laengs, quer):
         return _plus(_plus(d["p0"], d["e"], 1.0, laengs), d["u"], 1.0, quer)
     linien = skizze.sketchCurves.sketchLines
+    rechtecke = []
     for i, d in enumerate(daten):
         if s > 0:       # Rückversatz: von etwas ausserhalb der Kante bis s nach innen wegschneiden, an den Enden etwas länger
             x0, x1, q0, q1 = -0.05, d["L"] + 0.05, ueber, -s
@@ -691,6 +686,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
             x0 = -abs(s) if geteilt(d["p0"], i) else 0.0
             x1 = d["L"] + (abs(s) if geteilt(d["p1"], i) else 0.0)
             q0, q1 = -tief, -s
+        rechtecke.append(((x1 - x0) * abs(q0 - q1),))
         a, b, c, e_ = ecke(d, x0, q0), ecke(d, x1, q0), ecke(d, x1, q1), ecke(d, x0, q1)
         l1 = linien.addByTwoPoints(pt(a), pt(b))
         l2 = linien.addByTwoPoints(l1.endSketchPoint, pt(c))
@@ -698,9 +694,26 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         linien.addByTwoPoints(l3.endSketchPoint, l1.startSketchPoint)
     if skizze.profiles.count < 1:
         raise AdapterFehler("Der Versatz-Streifen ergab keine Fläche in der Skizze.")
+    # Nur die Streifen-Profile verwenden. Live 31.10.: In der Skizze waren auch Profile der Blechfläche selbst (automatisch projizierte Kanten) –
+    # damit wurde beim Anfügen die Dicke verdoppelt und beim Schneiden der ganze Körper entfernt. Profile, die viel grösser sind als die
+    # gezeichneten Rechtecke, gehören nicht zum Streifen.
+    grenze = 1.05 * sum(abs(r[0]) for r in rechtecke) if rechtecke else None
     profile = adsk.core.ObjectCollection.create()
+    uebersprungen = 0
     for k in range(skizze.profiles.count):
-        profile.add(skizze.profiles.item(k))
+        pr = skizze.profiles.item(k)
+        try:
+            flaeche_pr = pr.areaProperties().area
+        except Exception:
+            flaeche_pr = None
+        if flaeche_pr is not None and grenze is not None and flaeche_pr > grenze:
+            uebersprungen += 1
+            continue
+        profile.add(pr)
+    if uebersprungen:
+        logger.info("Versatz: Profile der Blechfläche in der Skizze übersprungen", anzahl=uebersprungen)
+    if profile.count < 1:
+        raise AdapterFehler("Der Versatz-Streifen ergab keine passende Fläche in der Skizze.")
     ef = comp.features.extrudeFeatures
     vol0 = koerper.volume
     soll = abs(s) * sum(d["L"] for d in daten) * t
@@ -934,14 +947,28 @@ def gruppen_bilden(kanten, tol_cm=1e-4):
     return sorted(gruppen.values(), key=lambda g: g[0])
 
 
+def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
+    """Umschlag an mehreren zusammenhängenden Kanten MIT Gehrung. Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (Fusions Dialog «Falz»
+    kann mehrere). Deshalb als gemeinsamer Flansch mit fast 180° (Gehrung rechnet Fusion dort, live bestätigt) und Innenradius = halbe Dicke
+    (Spalt ≈ Dicke wie beim offenen Saum). Rückfall auf weniger spitze Winkel, falls Fusion 179° ablehnt. NICHT live geprüft."""
+    radius = op.get("radius") if op.get("radius") is not None else ((dicke_mm / 2.0) if dicke_mm else None)
+    letzter = None
+    for winkel in (179.0, 178.0, 175.0):
+        try:
+            return flansch(list(kanten), -winkel if gespiegelt else winkel, op["laenge"], radius, gespiegelt, None, op.get("lage"))
+        except AdapterFehler as ex:
+            letzter = ex
+    raise letzter
+
+
 def _gemeinsamer_umschlag(kanten, ops, dicke_mm, rahmen, v):
-    """Umschlag als EIN Feature an mehreren zusammenhängenden Kanten (Gehrung an den Ecken). → Feature oder None (dann baut der Aufrufer
-    je Kante). Die Richtung wird wie bei Einzelkanten gemessen und bei Abweichung gespiegelt neu angelegt. NICHT live geprüft."""
+    """Umschlag als ein Feature an mehreren zusammenhängenden Kanten als zweiter Schritt (Richtung wie bei Einzelkanten gemessen und bei
+    Abweichung gespiegelt neu angelegt). → Feature oder None (dann baut der Aufrufer je Kante). NICHT live geprüft."""
     op = ops[1]
     feat = None
     try:
         for flip in (False, True):
-            feat = umschlag(list(kanten), op["laenge"], flip, op.get("radius"), op.get("lage"), dicke_mm)
+            feat = _umschlag_gruppe(kanten, op, dicke_mm, flip)
             if rahmen[0] is None or v is None:
                 return feat
             neu = neue_aussenkante(feat, kanten[0], op["laenge"], dicke_mm or 1.0)
@@ -981,10 +1008,11 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             phase = "Gemeinsamer Flansch (Gehrung)"
         if op["typ"] == "umschlag":      # Saum an mehreren Kanten in EINEM Feature (Gehrung wie im Fusion-Dialog «Falz»)
             phase = "Gemeinsamer Umschlag (Gehrung)"
-            feat = umschlag(list(edges), op["laenge"], op["winkel"] < 0, op.get("radius"), op.get("lage"), dicke_mm)
+            feat = _umschlag_gruppe(list(edges), op, dicke_mm, op["winkel"] < 0)
             erzeugt.append(feat)
             markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
-            logger.info("Gemeinsamer Umschlag erzeugt", kanten=len(edges), laenge=op["laenge"])
+            hinweise.append("Umschlag an %d Kanten als gemeinsamer 179°-Flansch mit Gehrung gebaut (Fusions Saum-Werkzeug nimmt per Schnittstelle nur eine Kante)." % len(edges))
+            logger.info("Gemeinsamer Umschlag (Flansch 179°) erzeugt", kanten=len(edges), laenge=op["laenge"])
             return erzeugt
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
