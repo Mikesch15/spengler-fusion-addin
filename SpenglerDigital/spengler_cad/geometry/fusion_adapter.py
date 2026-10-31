@@ -397,6 +397,15 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     aussen/tangential und dann die Gegenrichtung versucht; die erste, die Fusion rechnet, gilt (im Protokoll vermerkt). NICHT live bestätigt."""
     # Live-Test 30.10.: mit Radius (offener Saum, Spalt 2 × Radius) scheiterte Fusion, ohne Radius (geschlossener Saum) klappt es.
     # Der Radius des Umschlags kommt deshalb aus der Blechregel; ein Radius in der Vorlage wird hier bewusst nicht verwendet.
+    # Mehrere Kanten (Gehrung an der Ecke wie im Fusion-Dialog «Falz» mit «2 ausgewählt» und Haken «Gehrung»): als Auswahl übergeben.
+    # Ob die Schnittstelle das annimmt, ist offen – bei Ablehnung meldet die Funktion einen Fehler und der Aufrufer baut je Kante.
+    kanten_liste = list(edge) if isinstance(edge, (list, tuple)) else None
+    edge = kanten_liste[0] if kanten_liste else edge
+    kante_arg = edge
+    if kanten_liste and len(kanten_liste) > 1:
+        kante_arg = adsk.core.ObjectCollection.create()
+        for k in kanten_liste:
+            kante_arg.add(k)
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -436,9 +445,9 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
                             versuche.append("%s: Radius nicht einstellbar" % name)
                             continue
                     if spalt is not None:
-                        ok = inp.setOpenHem(edge, L, _vi_mm(spalt), flip, _lage_enum(l))
+                        ok = inp.setOpenHem(kante_arg, L, _vi_mm(spalt), flip, _lage_enum(l))
                     else:
-                        ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
+                        ok = inp.setFlatHem(kante_arg, L, flip, _lage_enum(l))
                     if not ok:
                         versuche.append("%s: von Fusion abgelehnt" % name)
                         continue
@@ -567,7 +576,7 @@ def _kante_aufloesen(token, alt):
 
 
 # ------------------------------------------------------------------ Versatz der Biegung von der Startkante – NICHT live geprüft
-def _koerper_nach(comp, vorher, feature):
+def _koerper_nach(comp, vorher, feature, erwartet=None, tol=0.0):
     """Körper nach einem Feature wieder finden: Bericht 31.10. – nach einem Schnitt war feature.bodies.item(0) leer (Volumen 0, keine Kanten).
     Reihenfolge: gleicher entityToken, gleicher Name im Bauteil, Körper des Features; gültig = Volumen > 0."""
     kandidaten = []
@@ -589,6 +598,23 @@ def _koerper_nach(comp, vorher, feature):
                 return b
         except Exception:
             continue
+    # Bericht 31.10.: nach dem Schnitt waren Token, Name und Feature-Körper unbrauchbar – dann der Körper des Bauteils, dessen Volumen am
+    # besten zum erwarteten passt.
+    if erwartet is not None:
+        besten, abstand = None, None
+        try:
+            for b in comp.bRepBodies:
+                try:
+                    a = abs(b.volume - erwartet)
+                except Exception:
+                    continue
+                if b.volume > 1e-9 and (abstand is None or a < abstand):
+                    besten, abstand = b, a
+        except Exception:
+            pass
+        if besten is not None and abstand is not None and abstand < tol:
+            logger.info("Körper nach dem Feature über das Volumen gefunden", name=getattr(besten, "name", "?"))
+            return besten
     return None
 
 
@@ -692,7 +718,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         except Exception as ex:
             versuche.append(str(ex).strip().splitlines()[-1][:120] if str(ex).strip() else type(ex).__name__)
             continue
-        koerper_neu = _koerper_nach(comp, koerper, f)
+        koerper_neu = _koerper_nach(comp, koerper, f, vol0 + (soll if s < 0 else -soll), 0.5 * soll)
         delta = (koerper_neu.volume - vol0) if koerper_neu is not None else None
         # Schnitt: Volumen sinkt um etwa den Streifen (nicht auf 0!); Anfügen: Volumen steigt um etwa den Streifen
         if delta is not None and ((s > 0 and -1.5 * soll < delta < -0.5 * soll) or (s < 0 and 0.5 * soll < delta < 1.5 * soll)):
@@ -700,6 +726,10 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
             break
         versuche.append("Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
             "nicht gefunden" if koerper_neu is None else "gefunden", "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
+        try:
+            versuche[-1] += " [Körper im Bauteil: %s]" % ", ".join("%s %.2f cm³" % (b.name, b.volume) for b in comp.bRepBodies)
+        except Exception:
+            pass
         f.deleteMe()
     if feat is None:
         raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
@@ -891,6 +921,34 @@ def gruppen_bilden(kanten, tol_cm=1e-4):
     return sorted(gruppen.values(), key=lambda g: g[0])
 
 
+def _gemeinsamer_umschlag(kanten, ops, dicke_mm, rahmen, v):
+    """Umschlag als EIN Feature an mehreren zusammenhängenden Kanten (Gehrung an den Ecken). → Feature oder None (dann baut der Aufrufer
+    je Kante). Die Richtung wird wie bei Einzelkanten gemessen und bei Abweichung gespiegelt neu angelegt. NICHT live geprüft."""
+    op = ops[1]
+    feat = None
+    try:
+        for flip in (False, True):
+            feat = umschlag(list(kanten), op["laenge"], flip, op.get("radius"), op.get("lage"), dicke_mm)
+            if rahmen[0] is None or v is None:
+                return feat
+            neu = neue_aussenkante(feat, kanten[0], op["laenge"], dicke_mm or 1.0)
+            gemessen = _gemessen(kanten[0], neu, rahmen[0][0])
+            stimmt = richtung_stimmt(ops[0]["winkel"], op["winkel"], gemessen, rahmen[0][1], v) if gemessen is not None else None
+            if stimmt is not False:
+                return feat
+            feat.deleteMe()
+            feat = None
+        return None
+    except Exception as ex:
+        logger.warnung("Gemeinsamer Umschlag nicht möglich – es wird je Kante gebaut", grund=ex)
+        try:
+            if feat is not None and feat.isValid:
+                feat.deleteMe()
+        except Exception:
+            pass
+        return None
+
+
 def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
     """Wie folge_anbringen für MEHRERE zusammenhängende Kanten: Schritt 1 (Flansch) als ein Feature – Fusion schneidet die Ecken auf
     Gehrung –, die weiteren Schritte je Kante. → Liste erzeugter Features. Jeder Fehler baut ALLES wieder zurück und meldet AdapterFehler
@@ -921,6 +979,14 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             gemessen = _gemessen(edges[0], neue[0], rahmen[0][0])
             quer = _einheit(_ohne_komponente(gemessen, rahmen[0][1])) if gemessen is not None else None
             v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
+        if len(ops) == 2 and ops[1]["typ"] == "umschlag":
+            phase = "Gemeinsamer Umschlag (Gehrung)"
+            f2 = _gemeinsamer_umschlag(neue, ops, dicke_mm, rahmen, v)
+            if f2 is not None:
+                erzeugt.append(f2)
+                markieren(f2, dict(markierung, schritt=2, kanten=len(neue)))
+                hinweise.append("Umschlag an %d Kanten gemeinsam mit Gehrung gebaut." % len(neue))
+                return erzeugt
         for nr, (e, n) in enumerate(zip(edges, neue), 1):
             phase = "Kante %d, weitere Schritte" % nr
             erzeugt.extend(folge_anbringen(n, ops, dicke_mm, markierung, hinweise,

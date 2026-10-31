@@ -1104,6 +1104,57 @@ class ZuschnittKoerperTest(unittest.TestCase):
         self.assertIn(("linie", "addByTwoPoints"), log)
 
 
+class GemeinsamerUmschlagTest(unittest.TestCase):
+    """Saum an mehreren Kanten als ein Feature (Gehrung wie im Fusion-Dialog) – Ablauf mit ausgetauschten Bausteinen, NICHT die echte Geometrie."""
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25}, {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+
+    def setUp(self):
+        self.alt = (fa.umschlag, fa.neue_aussenkante, fa._gemessen, fa.richtung_stimmt)
+        self.aufrufe, self.antworten = [], []
+        fa.umschlag = lambda kanten, L, flip, r, lage, dicke: (self.aufrufe.append(flip) or Feature([], "saum%d" % len(self.aufrufe)))
+        fa.neue_aussenkante = lambda *a: "neu"
+        fa._gemessen = lambda *a: (1.0, 0.0, 0.0)
+        fa.richtung_stimmt = lambda *a: self.antworten.pop(0)
+        self.addCleanup(lambda: setattr(fa, "umschlag", self.alt[0]) or setattr(fa, "neue_aussenkante", self.alt[1])
+                        or setattr(fa, "_gemessen", self.alt[2]) or setattr(fa, "richtung_stimmt", self.alt[3]))
+
+    def test_richtung_stimmt_gleich_beim_ersten(self):
+        self.antworten = [True]
+        f = fa._gemeinsamer_umschlag(["k1", "k2"], self.OPS, 0.7, [((1, 0, 0), (0, 1, 0))], (0, 0, 1))
+        self.assertEqual(self.aufrufe, [False])
+        self.assertFalse(f.geloescht)
+
+    def test_falsche_richtung_wird_gespiegelt_neu_gebaut(self):
+        self.antworten = [False, True]
+        f = fa._gemeinsamer_umschlag(["k1", "k2"], self.OPS, 0.7, [((1, 0, 0), (0, 1, 0))], (0, 0, 1))
+        self.assertEqual(self.aufrufe, [False, True])
+        self.assertEqual(f.name, "saum2")
+
+    def test_fehler_ergibt_none_fuer_den_rueckfall(self):
+        def kaputt(*a):
+            raise fa.AdapterFehler("Fusion nimmt mehrere Kanten nicht an")
+        fa.umschlag = kaputt
+        self.assertIsNone(fa._gemeinsamer_umschlag(["k1", "k2"], self.OPS, 0.7, [((1, 0, 0), (0, 1, 0))], (0, 0, 1)))
+
+    def test_umschlag_reicht_mehrere_kanten_als_auswahl_weiter(self):
+        fa.umschlag, fa.neue_aussenkante, fa._gemessen, fa.richtung_stimmt = self.alt
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        k1, k2 = kante_mit(hem=hf), kante_mit(hem=hf)
+        alt_oc = adsk.core.ObjectCollection
+
+        class Auswahl(list):
+            def add(self, x):
+                self.append(x)
+        adsk.core.ObjectCollection = type("OC", (), {"create": staticmethod(lambda: Auswahl())})
+        try:
+            fa.umschlag([k1, k2], 7, False)
+        finally:
+            adsk.core.ObjectCollection = alt_oc
+        self.assertIsInstance(inp.aufrufe[0][1], list)
+        self.assertEqual(len(inp.aufrufe[0][1]), 2)
+
+
 class VersatzTest(unittest.TestCase):
     """Versatz der Biegung (Streifen abschneiden/anfügen) mit Nachbau von Skizze/Extrusion – NICHT die echte Geometrie."""
     def aufbau(self, volumen_nach, wirft_erste=False, mit_zielkante=True):
