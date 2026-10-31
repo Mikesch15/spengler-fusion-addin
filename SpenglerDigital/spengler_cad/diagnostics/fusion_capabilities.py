@@ -17,6 +17,11 @@ PRUEFUNGEN = {
     "f3d_import": ("Fusion-Archiv importieren", "@import", "createFusionArchiveImportOptions"),
     "attribute": ("Attribute an Features/Occurrences", "", "attributes"),
     "palette": ("HTML-Palette", "@ui", "palettes"),
+    "extrusion": ("Extrusion Schnitt/Anfügen (ExtrudeFeatures, für den Versatz)", "features.extrudeFeatures", "createInput"),
+    "skizze": ("Skizzen auf Flächen (Sketches)", "sketches", "add"),
+    "datenordner": ("Daten-Ordner im aktiven Projekt (für Aufträge)", "@data", "activeProject"),
+    "speichern_unter": ("Dokument in Ordner speichern (Document.saveAs)", "@doc", "saveAs"),
+    "bildschirmfoto": ("Bildschirmfoto der Ansicht (Viewport.saveAsImageFile)", "@viewport", "saveAsImageFile"),
 }
 
 
@@ -43,6 +48,12 @@ def pruefen(app):
                 ok = basis is not None
             elif pfad == "@import":
                 ok = getattr(app.importManager, attr, None) is not None
+            elif pfad == "@data":
+                ok = hasattr(app.data, attr)
+            elif pfad == "@doc":
+                ok = hasattr(app.activeDocument, attr)
+            elif pfad == "@viewport":
+                ok = hasattr(app.activeViewport, attr)
             elif pfad == "@ui":
                 ok = getattr(app.userInterface, attr, None) is not None
             else:

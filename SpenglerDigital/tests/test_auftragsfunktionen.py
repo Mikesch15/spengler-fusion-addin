@@ -83,5 +83,34 @@ class LabelTest(unittest.TestCase):
         self.assertIsNone(auftrag.lokaler_exportpfad(a, "", "", 2026))
 
 
+class SelbsttestTest(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, self.tmp, True)
+
+    def test_einmal_je_version_und_meldung(self):
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "fusion_stub"))
+        from spengler_cad.diagnostics import auto_selbsttest, fusion_capabilities
+        gesendet = []
+        cloud = type("C", (), {"angemeldet": True, "test_speichern": lambda s, z: gesendet.append(z)})()
+        alt = fusion_capabilities.pruefen
+        fusion_capabilities.pruefen = lambda app: {"flansch": (True, "Flansch"), "saum": (False, "Saum")}
+        self.addCleanup(setattr, fusion_capabilities, "pruefen", alt)
+        app = type("A", (), {"activeProduct": type("D", (), {"rootComponent": object()})()})()
+        self.assertTrue(auto_selbsttest.noetig(self.tmp))
+        ok, text = auto_selbsttest.ausfuehren(app, cloud, self.tmp, "2706")
+        self.assertFalse(ok)
+        self.assertIn("Saum", gesendet[0]["notiz"])
+        self.assertEqual((gesendet[0]["test_id"], gesendet[0]["status"]), (auto_selbsttest.TEST_ID, "fehler"))
+        self.assertFalse(auto_selbsttest.noetig(self.tmp), "danach nicht nochmal in dieser Version")
+
+    def test_ohne_design_spaeter(self):
+        from spengler_cad.diagnostics import auto_selbsttest
+        app = type("A", (), {"activeProduct": None})()
+        self.assertIsNone(auto_selbsttest.ausfuehren(app, None, self.tmp))
+        self.assertTrue(auto_selbsttest.noetig(self.tmp))
+
+
 if __name__ == "__main__":
     unittest.main()

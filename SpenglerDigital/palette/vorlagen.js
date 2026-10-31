@@ -436,6 +436,7 @@ $("fbLaden").onclick = async () => {
   const r = await tun(() => senden("fehlerberichte"));
   if (!r) return;
   $("fbListe").innerHTML = r.length ? r.map((b, i) => `<details><summary>${esc((b.geaendert_am || "").replace("T", " ").slice(0, 16))} · v${esc(b.addin_version || "?")} · ${esc((b.text || "").slice(0, 110))}</summary>
+    ${b.bild ? `<img alt="Bildschirmfoto" style="max-width:100%;border:1px solid #888" src="data:image/jpeg;base64,${esc(b.bild)}">` : ""}
     <pre style="white-space:pre-wrap;font-size:11px">${esc(b.notiz || "")}\n\n${esc(b.protokoll || "")}</pre></details>`).join("") : "<p class='klein'>Keine Fehlerberichte.</p>";
 };
 async function aenderungenLaden() {

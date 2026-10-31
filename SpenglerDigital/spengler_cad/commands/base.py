@@ -21,16 +21,36 @@ def ui():
 FEHLERBERICHT_PRAEFIX = "98"   # Testpunkte 98.000–98.999: automatisch übermittelte Fehlerberichte (je 10 Minuten ein Platz, nach rund 7 Tagen wiederverwendet)
 
 
+def bildschirmfoto_base64(breite=900, hoehe=560, max_zeichen=550000):
+    """Ansicht von Fusion als kleines JPEG (Base64) für den Fehlerbericht; leer bei jedem Problem. NICHT live geprüft."""
+    import base64
+    import tempfile
+    pfad = os.path.join(tempfile.gettempdir(), "spengler_fehler_%d.jpg" % os.getpid())
+    try:
+        if not adsk.core.Application.get().activeViewport.saveAsImageFile(pfad, breite, hoehe):
+            return ""
+        with open(pfad, "rb") as f:
+            b = base64.b64encode(f.read()).decode("ascii")
+        return b if len(b) <= max_zeichen else ""
+    except Exception:
+        return ""
+    finally:
+        try:
+            os.remove(pfad)
+        except OSError:
+            pass
+
+
 def fehlerbericht_senden(titel, text):
     """Meldung und Protokollauszug in die Ergebnistabelle der eigenen Firma (cad_testergebnisse) – nur wenn angemeldet; nie ein Fehler."""
     try:
         import datetime
         from ..storage.cloud_client import Cloud
-        c = Cloud(paths.daten_ordner(), timeout=6)
+        c = Cloud(paths.daten_ordner(), timeout=10)
         if not c.angemeldet:
             return False
         c.test_speichern({"test_id": "%s.%03d" % (FEHLERBERICHT_PRAEFIX, (int(time.time()) // 600) % 1000), "text": ("%s: %s" % (titel, text))[:1000], "status": "fehler", "notiz": text[:4000],
-                          "protokoll": logger.ende(), "addin_version": VERSION, "fusion_version": logger.fusion_version(),
+                          "protokoll": logger.ende(), "bild": bildschirmfoto_base64(), "addin_version": VERSION, "fusion_version": logger.fusion_version(),
                           "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
         return True
     except Exception:

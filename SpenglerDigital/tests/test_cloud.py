@@ -362,6 +362,18 @@ class TestergebnisseTest(CloudBasis):
         _json.loads(b.behandle("konto", {}))
         self.assertEqual(len(b.a_aenderungen({})), 2, "nur Änderungen werden protokolliert")
 
+    def test_aenderungsprotokoll_gemeinsam_ueber_mehrere_pcs(self):
+        import json as _json
+        b0 = self.backend(0)
+        b1 = self.backend(1, benutzer="max.muster", pw="pw")
+        v = testvorlage()
+        _json.loads(b0.behandle("speichern", {"vorlage": v}))
+        liste = b1.a_aenderungen({})
+        self.assertEqual([(x["aktion"], x["name"]) for x in liste], [("gespeichert", v["name"])], "PC 2 sieht die Änderung von PC 1")
+        self.assertEqual(len(self.z.aenderungen), 1)
+        fremd = self.backend(2, benutzer="fremd", pw="pw")
+        self.assertEqual(fremd.a_aenderungen({}), [], "andere Firma sieht nichts")
+
     def test_lokal_ohne_anmeldung(self):
         b = self.backend(anmelden=False)
         r = b.a_test_speichern({"test_id": "1.2", "text": "Start", "status": "ok", "notiz": "ging"})

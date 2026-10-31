@@ -19,6 +19,10 @@ class Zustand(object):
         self.firmen = {}       # id → name
         self.cad = []          # Zeilen
         self.tests = []        # cad_testergebnisse
+        self.status = []       # cad_auftragsstatus
+        self.aenderungen = []  # cad_aenderungen
+        self.rates = []        # rates (App, nur lesen)
+        self.projects = []     # projects (App, nur lesen)
         self.versionen = []
         self.dateien = {}      # pfad → bytes
         self.releases = []
@@ -165,6 +169,36 @@ def server(z):
                             z.tests.append(dict(d))
                     return self._antwort(201)
                 return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/cad_auftragsstatus":
+                eigene = [r for r in z.status if r["company_id"] == me["firma"]]
+                if m == "GET":
+                    return self._antwort(200, eigene)
+                if m == "POST":
+                    for d in json.loads(body):
+                        if d.get("company_id") != me["firma"] or d.get("status") not in ("offen", "in_arbeit", "gefertigt", "geliefert"):
+                            return self._antwort(403, {"message": "row-level security / check"})
+                        alt = next((r for r in eigene if r["auftrag"] == d["auftrag"]), None)
+                        if alt:
+                            alt.update(d)
+                        else:
+                            z.status.append(dict(d))
+                    return self._antwort(201)
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/cad_aenderungen":
+                if m == "GET":
+                    return self._antwort(200, sorted([r for r in z.aenderungen if r["company_id"] == me["firma"]], key=lambda r: r["zeit"], reverse=True))
+                if m == "POST":
+                    for d in json.loads(body):
+                        if d.get("company_id") != me["firma"]:
+                            return self._antwort(403, {"message": "row-level security"})
+                        z.aenderungen.append(dict(d))
+                    return self._antwort(201)
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/rates":
+                return self._antwort(200, [{"name": r["name"], "value": r["value"]} for r in z.rates if r["company_id"] == me["firma"]] if m == "GET" else [])
+            if pfad == "/rest/v1/projects":
+                treffer = [r for r in z.projects if r["company_id"] == me["firma"] and r["order_no"] == f.get("order_no", "eq.")[3:]]
+                return self._antwort(200, [{k: v for k, v in r.items() if k != "company_id"} for r in treffer] if m == "GET" else [])
             if pfad.startswith("/storage/v1/object/cad/"):
                 name = urllib.parse.unquote(pfad[len("/storage/v1/object/cad/"):])
                 if name.split("/")[0] != me["firma"]:

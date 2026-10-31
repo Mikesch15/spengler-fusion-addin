@@ -310,13 +310,34 @@ class Backend(object):
             liste.append({"zeit": datetime.datetime.now().isoformat(timespec="seconds"), "benutzer": benutzer, "aktion": AENDERUNGEN[aktion],
                           "name": str(name)[:200], "version": e.get("version"), "id": e.get("id") or d.get("id")})
             json_store.schreiben(self._aenderungsdatei(), liste[-1000:])
+            self._aenderung_hochladen(liste[-1])
         except Exception:
             from ..diagnostics import logger
             logger.ausnahme("Änderungsprotokoll")
 
+    def _aenderung_hochladen(self, e):
+        """Eintrag auch in die gemeinsame Tabelle (alle PCs der Firma sehen ihn); offline/abgemeldet bleibt er lokal."""
+        try:
+            c = self._cloud()
+            if c.angemeldet:
+                c.aenderung_senden({"zeit": e["zeit"], "benutzer": str(e["benutzer"])[:200], "aktion": str(e["aktion"])[:80], "name": str(e["name"])[:200],
+                                    "version": e["version"] if isinstance(e.get("version"), int) else None, "vorlage_id": str(e.get("id") or "")[:80]})
+        except Exception:
+            from ..diagnostics import logger
+            logger.warnung("Änderungsprotokoll nicht an die App übermittelt")
+
     def a_aenderungen(self, d):
+        """Angemeldet: gemeinsames Protokoll der Firma (alle PCs), sonst nur dieser PC."""
         from ..storage import json_store
-        return list(reversed((json_store.lesen(self._aenderungsdatei()) or [])[-int(d.get("max") or 200):]))
+        n = int(d.get("max") or 200)
+        try:
+            c = self._cloud()
+            if c.angemeldet:
+                return [dict(z, zeit=str(z["zeit"])) for z in c.aenderungen_lesen(n)]
+        except Exception:
+            from ..diagnostics import logger
+            logger.warnung("Gemeinsames Änderungsprotokoll nicht lesbar – lokaler Stand")
+        return list(reversed((json_store.lesen(self._aenderungsdatei()) or [])[-n:]))
 
     def a_fehlerberichte(self, d):
         """Automatisch übermittelte Fehlerberichte der eigenen Firma (neueste zuerst)."""

@@ -73,10 +73,32 @@ def update_anbieten(nachfragen_wenn_aktuell=False, timeout=15):
     return "Version %s installiert – bitte Add-in neu starten." % r["version"]
 
 
+def selbsttest_nach_update():
+    """Einmal je Add-in-Version: Fähigkeiten prüfen und melden. Ohne offenes Design später (beim ersten Aktivieren eines Dokuments)."""
+    from ..diagnostics import auto_selbsttest
+    from ..storage.cloud_client import Cloud
+    if not auto_selbsttest.noetig():
+        return
+    app = adsk.core.Application.get()
+    r = auto_selbsttest.ausfuehren(app, Cloud(timeout=8), fusion_version=app.version)
+    if r is None:
+        def spaeter(args):
+            try:
+                if auto_selbsttest.noetig():
+                    auto_selbsttest.ausfuehren(app, Cloud(timeout=8), fusion_version=app.version)
+            except Exception:
+                logger.ausnahme("Selbsttest nach Update")
+        base.handler(adsk.core.DocumentEventHandler, app.documentActivated, spaeter)
+
+
 def beim_start():
     """Beim Add-in-Start: still abgleichen und nach Updates fragen (nur wenn angemeldet und eingeschaltet). Offline → nichts."""
     from ..storage.cloud_client import Cloud, CloudFehler
     from ..storage.settings_service import Einstellungen
+    try:
+        selbsttest_nach_update()
+    except Exception:
+        logger.ausnahme("Selbsttest nach Update")
     e = Einstellungen().laden().get("cloud", {})
     c = Cloud(timeout=6)
     if not c.angemeldet:

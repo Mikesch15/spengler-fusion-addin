@@ -225,9 +225,38 @@ class Cloud(object):
         self._anfrage("POST", "/rest/v1/cad_testergebnisse?on_conflict=company_id,test_id", [zeile],
                       kopf={"Prefer": "resolution=merge-duplicates,return=minimal"})
 
+    # ------------------------------------------------------------------ Auftragsstatus, gemeinsames Änderungsprotokoll, Stundensätze (App)
+    def status_alle(self):
+        """Fertigungsstatus je Auftrag (cad_auftragsstatus) → {auftrag: {status, notiz, geaendert_am}}."""
+        zeilen = self._json("GET", "/rest/v1/cad_auftragsstatus?select=auftrag,status,notiz,geaendert_am") or []
+        return {z["auftrag"]: z for z in zeilen}
+
+    def status_setzen(self, auftrag, status, notiz=""):
+        if status not in ("offen", "in_arbeit", "gefertigt", "geliefert"):
+            raise CloudFehler("Unbekannter Status «%s»." % status)
+        self._anfrage("POST", "/rest/v1/cad_auftragsstatus?on_conflict=company_id,auftrag",
+                      [{"company_id": self._konto["company_id"], "auftrag": str(auftrag), "status": status, "notiz": notiz[:1000],
+                        "geaendert_am": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}],
+                      kopf={"Prefer": "resolution=merge-duplicates,return=minimal"})
+
+    def aenderung_senden(self, e):
+        self._anfrage("POST", "/rest/v1/cad_aenderungen", [dict(e, company_id=self._konto["company_id"])], kopf={"Prefer": "return=minimal"})
+
+    def aenderungen_lesen(self, anzahl=200):
+        return self._json("GET", "/rest/v1/cad_aenderungen?select=zeit,benutzer,aktion,name,version,vorlage_id&order=zeit.desc&limit=%d" % anzahl) or []
+
+    def stundensaetze(self):
+        """Stundenansätze der App (Tabelle rates, nur lesen; sichtbar, wenn das Konto sie in der App sehen darf) → [{name, value}]."""
+        return self._json("GET", "/rest/v1/rates?select=name,value&order=value.desc") or []
+
+    def projekt_zu_auftrag(self, nummer):
+        """Auftrag der App (Tabelle projects, nur lesen) zur Auftragsnummer → {name, order_no, customer, object, status} oder None."""
+        z = self._json("GET", "/rest/v1/projects?select=name,order_no,customer,object,status&archived=eq.false&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
+        return z[0] if z else None
+
     def fehlerberichte(self, anzahl=40):
         """Automatisch übermittelte Fehlerberichte (Testpunkte 98.x) der eigenen Firma, neueste zuerst."""
-        return self._json("GET", "/rest/v1/cad_testergebnisse?select=test_id,text,notiz,protokoll,addin_version,fusion_version,geaendert_am"
+        return self._json("GET", "/rest/v1/cad_testergebnisse?select=test_id,text,notiz,protokoll,bild,addin_version,fusion_version,geaendert_am"
                                  "&test_id=like.98.*&order=geaendert_am.desc&limit=%d" % anzahl) or []
 
     def test_liste(self):
