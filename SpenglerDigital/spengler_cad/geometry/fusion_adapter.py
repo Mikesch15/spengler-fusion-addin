@@ -419,9 +419,11 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     lagen = ([lage] if lage else []) + [l for l in ("kante", "tangential") if l != lage]
     richtungen = [bool(nach_hinten), not nach_hinten]
     t = dicke_mm if dicke_mm else None
+    # Live 31.10. (0.4.21): Gerechnet wurde immer nur «offen, Spalt = Blechdicke», alle 16 Versuche davor (geschlossen, Radien) scheiterten –
+    # wie im Fusion-Dialog («Typ Offen, Abstand 1 mm»). Deshalb zuerst der offene Saum, die anderen nur als Rückfall.
     bauarten = [("Regel", None, None)]
     if t:
-        bauarten += [("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None), ("offen, Spalt %.2f" % t, None, t)]
+        bauarten = [("offen, Spalt %.2f" % t, None, t), ("Regel", None, None), ("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None)]
     if radius_mm:
         bauarten.insert(1, ("Radius %.2f" % radius_mm, radius_mm, None))
     versuche = []
@@ -705,11 +707,21 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
     feat = None
     versuche = []
     sign = _aufbau_richtung(flaeche, skizze)
-    for richtung in ((None,) if s > 0 else ((sign, -sign) if sign else (1.0, -1.0))):
+    # Live 31.10.: Der symmetrische Schnitt liess keinen Körper übrig (Volumen 0). Das Anfügen (einseitig, Richtung Blech) klappt – deshalb
+    # schneidet das Add-in zuerst genauso einseitig 1.5 × Dicke ins Blech, dann die Gegenrichtung, zuletzt symmetrisch.
+    if s > 0:
+        reihe = ((sign, "einseitig"), (-sign, "einseitig")) if sign else ((1.0, "einseitig"), (-1.0, "einseitig"))
+        reihe = reihe + ((None, "symmetrisch"),)
+    else:
+        reihe = tuple((r, "anfuegen") for r in ((sign, -sign) if sign else (1.0, -1.0)))
+    for richtung, art_ in reihe:
         try:
             if s > 0:
                 ei = ef.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                ei.setSymmetricExtent(adsk.core.ValueInput.createByReal(4 * t + 0.2), True)
+                if art_ == "einseitig":
+                    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * 1.5 * t))
+                else:
+                    ei.setSymmetricExtent(adsk.core.ValueInput.createByReal(4 * t + 0.2), True)
             else:
                 ei = ef.createInput(profile, adsk.fusion.FeatureOperations.JoinFeatureOperation)
                 ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * t))
@@ -724,8 +736,9 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         if delta is not None and ((s > 0 and -1.5 * soll < delta < -0.5 * soll) or (s < 0 and 0.5 * soll < delta < 1.5 * soll)):
             feat, koerper = f, koerper_neu
             break
-        versuche.append("Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
-            "nicht gefunden" if koerper_neu is None else "gefunden", "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
+        versuche.append("%s: Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
+            art_ if richtung is None else "%s %+g" % (art_, richtung), "nicht gefunden" if koerper_neu is None else "gefunden",
+            "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
         try:
             versuche[-1] += " [Körper im Bauteil: %s]" % ", ".join("%s %.2f cm³" % (b.name, b.volume) for b in comp.bRepBodies)
         except Exception:
@@ -954,8 +967,8 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
     Gehrung –, die weiteren Schritte je Kante. → Liste erzeugter Features. Jeder Fehler baut ALLES wieder zurück und meldet AdapterFehler
     (der Aufrufer baut dann einzeln). NICHT live geprüft."""
     hinweise = hinweise if hinweise is not None else []
-    if len(edges) < 2 or ops[0]["typ"] == "umschlag":
-        raise AdapterFehler("Gemeinsamer Flansch nur für mehrere Kanten und einen Flansch als ersten Schritt.")
+    if len(edges) < 2 or (ops[0]["typ"] == "umschlag" and len(ops) > 1):
+        raise AdapterFehler("Gemeinsamer Flansch nur für mehrere Kanten und einen Flansch als ersten Schritt (ein Umschlag nur allein).")
     erzeugt = []
     phase = "Gemeinsamer Flansch (Gehrung)"
     try:
@@ -966,6 +979,13 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             vorbereitung, edges = _versatz_gruppe(list(edges), op["versatz"], dicke_mm)
             erzeugt.extend(vorbereitung)
             phase = "Gemeinsamer Flansch (Gehrung)"
+        if op["typ"] == "umschlag":      # Saum an mehreren Kanten in EINEM Feature (Gehrung wie im Fusion-Dialog «Falz»)
+            phase = "Gemeinsamer Umschlag (Gehrung)"
+            feat = umschlag(list(edges), op["laenge"], op["winkel"] < 0, op.get("radius"), op.get("lage"), dicke_mm)
+            erzeugt.append(feat)
+            markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
+            logger.info("Gemeinsamer Umschlag erzeugt", kanten=len(edges), laenge=op["laenge"])
+            return erzeugt
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
         markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))

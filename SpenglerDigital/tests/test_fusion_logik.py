@@ -1104,6 +1104,22 @@ class ZuschnittKoerperTest(unittest.TestCase):
         self.assertIn(("linie", "addByTwoPoints"), log)
 
 
+class GruppeUmschlagTest(unittest.TestCase):
+    """Umschlag als einziger Schritt an zusammenhängenden Kanten: ein gemeinsames Feature (Live 31.10.: Vorlage «U+ 12» an 2 Kanten wurde einzeln gebaut)."""
+    def test_ein_feature_fuer_beide_kanten(self):
+        alt = fa.umschlag
+        aufrufe = []
+        fa.umschlag = lambda kanten, L, flip, r, lage, dicke: (aufrufe.append((list(kanten), L, flip)) or Feature([], "saum"))
+        self.addCleanup(setattr, fa, "umschlag", alt)
+        k1, k2 = kante_mit(), kante_mit()
+        erzeugt = fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": None}], 0.6, {}, [])
+        self.assertEqual(len(erzeugt), 1)
+        self.assertEqual(aufrufe[0][0], [k1, k2])
+        self.assertFalse(aufrufe[0][2])
+        with self.assertRaises(fa.AdapterFehler):    # Umschlag mit weiteren Schritten bleibt Sache der Einzelkanten
+            fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.6, {}, [])
+
+
 class GemeinsamerUmschlagTest(unittest.TestCase):
     """Saum an mehreren Kanten als ein Feature (Gehrung wie im Fusion-Dialog) – Ablauf mit ausgetauschten Bausteinen, NICHT die echte Geometrie."""
     OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25}, {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
@@ -1224,7 +1240,7 @@ class VersatzTest(unittest.TestCase):
         erzeugt, neu = self.lauf(kante, 10.0, d)
         self.assertEqual(len(erzeugt), 2, "Skizze und Schnitt")
         self.assertAlmostEqual(neu.geometry.startPoint.y, -1.0)
-        self.assertTrue(any(x[0] == "symm" for x in log))
+        self.assertEqual([round(x[1], 3) for x in log if x[0] == "dist"], [0.105], "einseitig 1.5 × Dicke ins Blech (nicht symmetrisch)")
 
     def test_proxy_kante_wird_im_bauteilsystem_gerechnet(self):
         """Bericht 31.10.: Auswahlkante als Proxy (verschobenes Bauteil) – gerechnet wird mit der nativen Kante, sonst 0 Treffer."""
