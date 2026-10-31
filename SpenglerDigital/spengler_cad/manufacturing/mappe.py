@@ -5,8 +5,8 @@ import re
 
 
 def ausschnitt(dokument):
-    """(style, body) eines kompletten HTML-Dokuments; ohne <body> das ganze Stück."""
-    stile = "\n".join(re.findall(r"<style[^>]*>.*?</style>", dokument, flags=re.S | re.I))
+    """([style-Blöcke], body) eines kompletten HTML-Dokuments; ohne <body> das ganze Stück."""
+    stile = re.findall(r"<style[^>]*>.*?</style>", dokument, flags=re.S | re.I)
     m = re.search(r"<body[^>]*>(.*)</body>", dokument, flags=re.S | re.I)
     return stile, (m.group(1) if m else dokument)
 
@@ -17,8 +17,7 @@ def mappe_html(abschnitte, objekt="", auftrag="", datum="", version=""):
     stile, teile = [], []
     for titel, dok in abschnitte:
         st, body = ausschnitt(dok)
-        if st and st not in stile:
-            stile.append(st)
+        stile += [x for x in st if x not in stile]
         teile.append((titel, body))
     z = ['<!doctype html><html lang="de"><head><meta charset="utf-8"><title>Auftragsmappe %s</title>' % e(auftrag or objekt),
          "<style>@media print{.neueSeite{page-break-before:always}}.deckblatt{font-family:Segoe UI,Arial,sans-serif;margin:30mm 16mm}"
