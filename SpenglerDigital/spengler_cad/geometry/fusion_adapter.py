@@ -322,6 +322,11 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
     if inp is None:
         raise AdapterFehler(_flansch_ablehnung(rund, None))
     _eigenschaften_einmal("EdgeFlangeInput", inp)
+    for ecke in ("twoBendCornerOverride", "threeBendCornerOverride"):       # Eckenbehandlung (Gehrung) – nur die Möglichkeiten protokollieren
+        try:
+            _eigenschaften_einmal("EdgeFlange." + ecke, getattr(inp, ecke))
+        except Exception:
+            pass
     w = abs(winkel)
     gesetzt = setze(inp, ["angle", "flangeAngle", "setAngle", "setFlangeAngle"], _vi_grad(w))
     if not gesetzt and abs(w - 90) > 1e-6:
@@ -418,6 +423,11 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
                 if inp is None:
                     raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
                 _eigenschaften_einmal("HemFeatureInput", inp)
+                for ecke in ("twoBendCornerOverride", "threeBendCornerOverride", "bendReliefOverride"):
+                    try:
+                        _eigenschaften_einmal("Hem." + ecke, getattr(inp, ecke))
+                    except Exception:
+                        pass
                 name = "%s, Lage %s%s" % (art, l, ", Gegenrichtung" if flip != bool(nach_hinten) else "")
                 try:
                     if rad is not None:
