@@ -1175,6 +1175,22 @@ class VersatzTest(unittest.TestCase):
         self.assertAlmostEqual(neu.geometry.startPoint.y, -1.0)
         self.assertTrue(any(x[0] == "symm" for x in log))
 
+    def test_proxy_kante_wird_im_bauteilsystem_gerechnet(self):
+        """Bericht 31.10.: Auswahlkante als Proxy (verschobenes Bauteil) – gerechnet wird mit der nativen Kante, sonst 0 Treffer."""
+        self.ziel = ((0, -1.0, 0), (50, -1.0, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 - 50 * 1.0 * 0.07)
+        proxy = Kante((100, 7, 0), (150, 7, 0))        # andere Koordinaten (Baugruppe)
+        proxy.nativeObject, proxy.body = kante, kante.body
+        erzeugt, neu = self.lauf(proxy, 10.0, d)
+        self.assertAlmostEqual(neu.geometry.startPoint.y, -1.0)
+
+    def test_nicht_gefunden_nennt_naechste_kante(self):
+        self.ziel = ((0, -0.5, 0), (50, -0.5, 0))        # 5 mm statt 10 mm entfernt
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 - 50 * 1.0 * 0.07)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(kante, 10.0, d)
+        self.assertIn("5.00 mm vom Soll entfernt", str(cm.exception))
+
     def test_vorversatz_probiert_zweite_richtung(self):
         self.ziel = ((0, 0.5, 0), (50, 0.5, 0))          # 5 mm nach aussen
         kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07, wirft_erste=True)

@@ -571,6 +571,9 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
     rechnen kann. → (erzeugte Objekte, neue Kanten in der Reihenfolge der alten). Rückbau macht der Aufrufer."""
     if not dicke_mm:
         raise AdapterFehler("Für den Versatz fehlt die Blechdicke (Materialprofil).")
+    # Auswahlkanten können Proxys im Koordinatensystem der Baugruppe sein; die Körper der neuen Features liegen im Bauteilsystem.
+    # Ohne Umrechnung passen die Koordinaten nicht zusammen (Bericht 31.10.: «0 Treffer»), deshalb mit den nativen Kanten rechnen.
+    edges = [(getattr(k, "nativeObject", None) or k) for k in edges]
     s = versatz_mm / 10.0                           # cm; > 0 nach innen
     t = dicke_mm / 10.0
     daten = []
@@ -667,7 +670,23 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
             if -0.005 <= _skal(w, dk) <= k.length + 0.005:
                 kandidaten.append(k)
         if len(kandidaten) != 1:
-            raise AdapterFehler("Die versetzte Kante %d wurde nicht eindeutig gefunden (%d Treffer)." % (nr, len(kandidaten)))
+            nah = []       # Diagnose: die nächsten parallelen Kanten (Abstand von der Zielkante in mm, Länge in mm)
+            for k in koerper.edges:
+                try:
+                    q0, dk = _linie(k)
+                    dk = _v(dk)
+                    if abs(abs(_skal(dk, d["e"])) - 1.0) > 1e-6:
+                        continue
+                    w = _plus(mitte, _v(q0), 1.0, -1.0)
+                    lot = _ohne_komponente(w, dk)
+                    nah.append((math.sqrt(_skal(lot, lot)) * 10, k.length * 10))
+                except Exception:
+                    continue
+            nah.sort()
+            logger.warnung("Versatz: versetzte Kante nicht gefunden", kante=nr, treffer=len(kandidaten), laenge_mm=d["L"] * 10, versatz_mm=versatz_mm,
+                           naechste=" | ".join("%.2f mm weg, %.1f lang" % x for x in nah[:5]) or "keine parallele Kante")
+            raise AdapterFehler("Die versetzte Kante %d wurde nicht eindeutig gefunden (%d Treffer). Nächste parallele Kante: %s." % (
+                nr, len(kandidaten), "%.2f mm vom Soll entfernt" % nah[0][0] if nah else "keine"))
         neue.append(kandidaten[0])
     logger.info("Versatz angewendet", versatz_mm=versatz_mm, art="Rückversatz" if s > 0 else "Vorversatz", kanten=len(neue))
     return erzeugt, neue
