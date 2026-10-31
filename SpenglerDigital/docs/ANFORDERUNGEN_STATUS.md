@@ -186,3 +186,12 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Vorschaubild je Vorlage, Werkstattblatt mit Bemassung, Stückliste, Etiketten, Teilenummern | AUTO (Teilenummern TEIL) | test_parts_list, Browsertest; Teilenummern-Attribute nicht live |
 | Anbindung Spengler-Digital-App: Konto, Abgleich, Rechte, Konflikte, offline | TEIL | gegen Supabase-Nachbau AUTO (18 Tests), Datenbankregeln **gegen die echte Datenbank** 13/13 geprüft; Anmeldung/Abgleich aus Fusion nicht live |
 | Datenbankmigration eingespielt | AUTO | Probelauf + Nachprüfung in der echten Datenbank |
+
+
+## Zum Besprechen: richtige Verbindung zur Spengler-Digital-App (Stand 31.10.2026, noch nichts umgesetzt)
+Gewünscht vom Anwender («erstmal merken, später besprechen»). Die App hat bereits Tabellen, die das Add-in heute nur teilweise nutzt:
+- **Reststücke** (`reststuecke`): Die Reste im Add-in sind lokal, mit denselben Feldnamen – Ziel: Reste der App im Add-in sehen und verbrauchen, im Add-in erfasste Reste dort speichern, Reservierungen (`material_reservierungen`) beachten.
+- **Aufträge** (`projects`, Auftragsnummer `order_no`): heute nur gelesen (Info in «Auftrag wählen»). Offen: Auftrag aus dem Add-in in der App anlegen/Status in der App setzen, Ordnerstruktur ↔ Projekt abgleichen. Der Fertigungsstatus des Add-ins liegt getrennt in `cad_auftragsstatus`.
+- **Stundensätze** (`rates`): werden gelesen (nur mit Berechtigung «rates»); offen, ob auch Material-/Lagerpreise (`materials`, `lagerbestand`) für die Kalkulation übernommen werden.
+- **Änderungsverlauf** (`audit_log`): das Add-in führt ein eigenes Protokoll (`cad_aenderungen`); offen, ob es in den App-Verlauf soll.
+- Berechtigungen: Die App steuert Zugriffe über `has_permission(...)`; das Add-in muss das bei neuen Zugriffen beachten.

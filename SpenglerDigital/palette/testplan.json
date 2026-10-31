@@ -518,6 +518,51 @@
      "id": "9.19",
      "text": "Eine Fehlermeldung auslösen (z. B. Umschlag an ungeeigneter Kante), Berichte → Fehlerberichte laden",
      "erwartet": "Bericht mit Protokollauszug erscheint"
+    },
+    {
+     "id": "9.20",
+     "text": "Auftrag wählen, Status «In Arbeit» setzen → OK; Befehl nochmal öffnen",
+     "erwartet": "Hinter dem Auftrag steht «[In Arbeit]»; die App-Info zum Auftrag erscheint (falls dort vorhanden)"
+    },
+    {
+     "id": "9.21",
+     "text": "Einstellungen → Kalkulation: Name eines Stundensatzes aus der App (z. B. Spengler) eintragen, speichern; Stückliste & Zuschnitt mit «Kalkulation»",
+     "erwartet": "kalkulation.html mit Stundensatz «App: …», Arbeitszeit und Kosten"
+    },
+    {
+     "id": "9.22",
+     "text": "Materialprofil: «Preis je kg» und Dichte eintragen, erneut",
+     "erwartet": "Spalte «Material» in der Kalkulation gefüllt"
+    },
+    {
+     "id": "9.23",
+     "text": "«Auftragsmappe» anhaken",
+     "erwartet": "auftragsmappe.html mit Deckblatt und Abschnitten; im Browser Strg+P zeigt eine Seite je Abschnitt"
+    },
+    {
+     "id": "9.24",
+     "text": "Kantenvorlage öffnen → «Profilzeichnung öffnen»",
+     "erwartet": "Seite mit Querschnitt, Massen und Winkeln öffnet sich"
+    },
+    {
+     "id": "9.25",
+     "text": "Abwicklung & DXF mit «Teilenummer in die DXF schreiben»; DXF in einem CAD öffnen",
+     "erwartet": "Teilenummer als Text in der Mitte, Kontur unverändert"
+    },
+    {
+     "id": "9.26",
+     "text": "Register Reste: Rest erfassen (gleiches Material und Dicke wie ein Teil, grösser als das Teil); Stückliste & Zuschnitt",
+     "erwartet": "«Passende Reststücke» nennt das Teil"
+    },
+    {
+     "id": "9.27",
+     "text": "Fehlermeldung auslösen, Register Berichte → Fehlerberichte laden",
+     "erwartet": "Bericht mit Bildschirmfoto und Protokoll"
+    },
+    {
+     "id": "9.28",
+     "text": "Nach dem Update (neue Version)",
+     "erwartet": "Testpunkt 97.001 (Selbsttest) erscheint in der App-Datenbank"
     }
    ]
   },

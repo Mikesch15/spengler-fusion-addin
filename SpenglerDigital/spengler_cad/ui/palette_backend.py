@@ -35,7 +35,7 @@ def _ohne_intern(v):
 
 AENDERUNGEN = {"speichern": "gespeichert", "duplizieren": "dupliziert", "umbenennen": "umbenannt", "loeschen": "gelöscht",
                "papierkorb_zurueck": "wiederhergestellt", "import": "importiert", "material_speichern": "Material gespeichert",
-               "material_loeschen": "Material gelöscht", "favorit": "Favorit geändert", "kategorie": "Kategorie geändert"}
+               "material_loeschen": "Material gelöscht", "rest_speichern": "Rest gespeichert", "rest_loeschen": "Rest gelöscht", "favorit": "Favorit geändert", "kategorie": "Kategorie geändert"}
 
 
 class Backend(object):
@@ -108,6 +108,22 @@ class Backend(object):
         with open(pfad, "w", encoding="utf-8") as f:
             f.write(text)
         return {"pfad": pfad}
+
+    # ------------------------------------------------------------------ Reststücke (lokal je PC, Felder wie `reststuecke` der App)
+    def a_reste(self, d):
+        from ..storage import reste
+        return reste.liste(self.wurzel)
+
+    def a_rest_speichern(self, d):
+        from ..storage import reste
+        try:
+            return reste.speichern(d["rest"], self.wurzel)
+        except reste.RestFehler as e:
+            raise ValueError(str(e))
+
+    def a_rest_loeschen(self, d):
+        from ..storage import reste
+        return reste.loeschen(d["id"], self.wurzel)
 
     def a_pruefen(self, d):
         from ..core.validation import pruefe_kantenvorlage

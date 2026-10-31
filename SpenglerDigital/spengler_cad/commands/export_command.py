@@ -320,6 +320,14 @@ def _zus(self, args):
         dateien.append("kalkulation.html")
         text += "Kalkulation: %.1f h Arbeitszeit%s. %s\n\n" % (kalk["summe"]["minuten"] / 60.0, (", Arbeit %.2f" % kalk["summe"]["arbeit"]) if kalk["summe"]["arbeit"] is not None else "",
                                                            "Stundensatz: %s." % quelle_satz)
+    try:     # vorhandene Reststücke (Register Reste) vor einer neuen Tafel nutzen
+        from ..storage import reste as rst
+        treffer = [(t, r) for t, r in rst.vorschlaege(teile, rst.liste(), bool(e["nesting"]["rotationAllowed"])) if r]
+        if treffer:
+            text += "Passende Reststücke:\n" + "\n".join("• %s %s (%.0f × %.0f mm) passt in Rest %.0f × %.0f mm (%s)" % (
+                t["nr"], t["name"], t["breite"], t["laenge"], r["breite_mm"], r["laenge_mm"], r.get("material_name") or "Material egal") for t, r in treffer) + "\n\n"
+    except Exception:
+        logger.ausnahme("Reststücke prüfen")
     if warn:
         text += "Prüfung:\n" + "\n".join("⚠ " + w for w in warn) + "\n\n"
     text += "Teile: " + ", ".join("%s %s" % (t["nr"], t["name"]) for t in teile) + "\n"

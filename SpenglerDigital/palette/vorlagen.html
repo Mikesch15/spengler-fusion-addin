@@ -53,6 +53,7 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
   <button data-tab="sicherung">Sicherung</button>
   <button data-tab="konto">Konto</button>
   <button data-tab="tests">Tests</button>
+  <button data-tab="reste">Reste</button>
   <button data-tab="berichte">Berichte</button>
 </nav>
 <main>
@@ -184,6 +185,16 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="reste">
+  <div class="klein">Reststücke von Tafeln/Coils (vorerst nur auf diesem PC; die Felder entsprechen den Reststücken der Spengler-Digital-App für eine spätere Verbindung). «Stückliste &amp; Zuschnitt» schlägt passende Reste für die Teile vor.</div>
+  <fieldset><legend>Rest erfassen</legend>
+    <div class="zeile"><label>Material</label><input id="rMat" size="22" list="rMatListe"><datalist id="rMatListe"></datalist>
+      <label style="min-width:0">Dicke</label><input id="rT" size="5"> mm <label style="min-width:0">Breite</label><input id="rB" size="6"> mm <label style="min-width:0">Länge</label><input id="rL" size="6"> mm
+      <label style="min-width:0">Anzahl</label><input id="rN" size="3" value="1"></div>
+    <div class="zeile"><label>Herkunft/Notiz</label><input id="rNotiz" size="50"> <button class="haupt" id="rSpeichern">Rest speichern</button></div>
+  </fieldset>
+  <table><thead><tr><th>Material</th><th>Dicke mm</th><th>Breite × Länge mm</th><th>Anzahl</th><th>Notiz</th><th></th></tr></thead><tbody id="rListe"></tbody></table>
 </section>
 <section id="berichte">
   <fieldset><legend>Fehlerberichte (automatisch übermittelt)</legend>

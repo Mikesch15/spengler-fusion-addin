@@ -455,3 +455,29 @@ $("eProfil").onclick = async () => {
   const r = await tun(() => senden("profilblatt", { vorlage: editorLesen(), materialId: $("eMat").value || null }));
   if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
 };
+
+// ------------------------------------------------------------------ Reste
+async function resteLaden() {
+  const r = await tun(() => senden("reste"));
+  if (!r) return;
+  $("rMatListe").innerHTML = (Z.materialien || []).map((m) => `<option value="${esc(m.name)}">`).join("");
+  $("rListe").innerHTML = r.filter((x) => !x.verbraucht).map((x) => `<tr><td>${esc(x.material_name)}</td><td>${esc(x.staerke_mm)}</td><td>${esc(x.breite_mm)} × ${esc(x.laenge_mm)}</td>
+    <td>${esc(x.anzahl)}</td><td class="klein">${esc(x.herkunft || "")} ${esc(x.notiz || "")}</td>
+    <td><button data-rverb="${esc(x.id)}" title="als verbraucht markieren">verbraucht</button> <button data-rdel="${esc(x.id)}">✕</button></td></tr>`).join("") || "<tr><td colspan='6'>Keine Reste erfasst.</td></tr>";
+  window._reste = r;
+}
+$("rSpeichern").onclick = async () => {
+  const z = (id) => zahlOderNull($(id).value);
+  const r = await tun(() => senden("rest_speichern", { rest: { material_name: $("rMat").value.trim(), staerke_mm: z("rT"), breite_mm: z("rB"), laenge_mm: z("rL"), anzahl: z("rN"), notiz: $("rNotiz").value.trim() } }), "Rest gespeichert.");
+  if (r) { $("rB").value = $("rL").value = $("rNotiz").value = ""; await resteLaden(); }
+};
+$("rListe").addEventListener("click", async (ev) => {
+  const t = ev.target;
+  if (t.dataset.rdel && await frage("Rest wirklich löschen?")) { await tun(() => senden("rest_loeschen", { id: t.dataset.rdel })); await resteLaden(); }
+  if (t.dataset.rverb) {
+    const x = (window._reste || []).find((y) => y.id === t.dataset.rverb);
+    if (x) { await tun(() => senden("rest_speichern", { rest: Object.assign({}, x, { verbraucht: true }) }), "Als verbraucht markiert."); await resteLaden(); }
+  }
+});
+document.querySelector('nav button[data-tab="reste"]').addEventListener("click", resteLaden);
+document.querySelector('nav button[data-tab="berichte"]').addEventListener("click", aenderungenLaden);

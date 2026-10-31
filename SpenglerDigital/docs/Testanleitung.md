@@ -157,6 +157,20 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Register **Berichte**: Änderungsprotokoll → Aktualisieren, nach einer Vorlagenänderung | Eintrag mit Zeit, Benutzer, Aktion |
 | ☐ | Eine Fehlermeldung auslösen (z. B. Umschlag an ungeeigneter Kante), Berichte → Fehlerberichte laden | Bericht mit Protokollauszug erscheint |
 
+## 9c. Status, Kalkulation, Mappe, Reste (10 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | **Auftrag wählen**, Status «In Arbeit» setzen → OK; Befehl nochmal öffnen | Hinter dem Auftrag steht «[In Arbeit]»; die App-Info zum Auftrag erscheint (falls dort vorhanden) |
+| ☐ | Einstellungen → Kalkulation: Name eines Stundensatzes aus der App (z. B. Spengler) eintragen, speichern; **Stückliste & Zuschnitt** mit «Kalkulation» | `kalkulation.html` mit Stundensatz «App: …», Arbeitszeit und Kosten |
+| ☐ | Materialprofil: «Preis je kg» und Dichte eintragen, erneut | Spalte «Material» in der Kalkulation gefüllt |
+| ☐ | «Auftragsmappe» anhaken | `auftragsmappe.html` mit Deckblatt und Abschnitten; im Browser Strg+P zeigt eine Seite je Abschnitt |
+| ☐ | Kantenvorlage öffnen → «Profilzeichnung öffnen» | Seite mit Querschnitt, Massen und Winkeln öffnet sich |
+| ☐ | **Abwicklung & DXF** mit «Teilenummer in die DXF schreiben»; DXF in einem CAD öffnen | Teilenummer als Text in der Mitte, Kontur unverändert |
+| ☐ | Register **Reste**: Rest erfassen (gleiches Material und Dicke wie ein Teil, grösser als das Teil); **Stückliste & Zuschnitt** | «Passende Reststücke» nennt das Teil |
+| ☐ | Fehlermeldung auslösen, Register **Berichte → Fehlerberichte laden** | Bericht mit Bildschirmfoto und Protokoll |
+| ☐ | Nach dem Update (neue Version) | Testpunkt 97.001 (Selbsttest) erscheint in der App-Datenbank |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |
