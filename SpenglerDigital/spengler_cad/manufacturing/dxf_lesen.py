@@ -139,3 +139,31 @@ def svg_aus_datei(pfad, breite=640):
     with open(pfad, encoding="utf-8", errors="replace") as f:
         elemente, ignoriert = lesen(f.read())
     return svg(elemente, breite), ignoriert
+
+
+def beschriften(pfad, text, layer="TEXT", hoehe_max=8.0):
+    """Schreibt «text» (z. B. die Teilenummer) als TEXT-Element in die Mitte der Zuschnitt-DXF (vor dem Ende des ENTITIES-Abschnitts).
+    Die Kontur bleibt unverändert; Höhe höchstens hoehe_max und 15 % der kleineren Abmessung. → True, wenn geschrieben. Live: Fusion-DXF
+    nicht geprüft (Handles der Elemente fehlen – gängige CAD-Programme lesen das, strenge nicht)."""
+    with open(pfad, encoding="utf-8", errors="replace", newline="") as f:      # Zeilenenden unverändert lassen
+        inhalt = f.read()
+    elemente, _ = lesen(inhalt)
+    if not elemente or not text:
+        return False
+    x0, y0, x1, y1 = _grenzen(elemente)
+    hoehe = max(1.0, min(hoehe_max, 0.15 * min(x1 - x0, y1 - y0)))
+    nl = "\r\n" if "\r\n" in inhalt else "\n"
+    zeilen = inhalt.split(nl)
+    # Ende des ENTITIES-Abschnitts: das «ENDSEC» nach «ENTITIES»
+    try:
+        i = next(k for k in range(len(zeilen) - 1) if zeilen[k].strip() == "2" and zeilen[k + 1].strip() == "ENTITIES")
+        j = next(k for k in range(i, len(zeilen) - 1) if zeilen[k].strip() == "0" and zeilen[k + 1].strip() == "ENDSEC")
+    except StopIteration:
+        return False
+    mx, my = (x0 + x1) / 2, (y0 + y1) / 2
+    ent = ["0", "TEXT", "8", layer, "10", "%.4f" % mx, "20", "%.4f" % my, "30", "0", "40", "%.4f" % hoehe, "1", str(text).encode("ascii", "replace").decode("ascii"),
+           "72", "1", "73", "2", "11", "%.4f" % mx, "21", "%.4f" % my, "31", "0"]
+    zeilen[j:j] = ent
+    with open(pfad, "w", encoding="utf-8", newline="") as f:
+        f.write(nl.join(zeilen))
+    return True

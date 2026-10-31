@@ -60,5 +60,42 @@ class LesenTest(unittest.TestCase):
         self.assertIn("Abwicklung nicht gezeichnet: DXF leer", html)
 
 
+class BeschriftenTest(unittest.TestCase):
+    def test_text_in_die_mitte_und_kontur_bleibt(self):
+        import os
+        import shutil
+        import tempfile
+        from spengler_cad.forming import forming as fo
+        from spengler_cad.manufacturing import dxf_writer
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        pfad = os.path.join(tmp, "t.dxf")
+        dxf_writer.elemente_dxf(fo.zuschnitt(fo.scheibe_mit_rand(100, 20, 90)), "x").speichern(pfad)
+        vorher = dxf_lesen.lesen(open(pfad).read())[0]
+        self.assertTrue(dxf_lesen.beschriften(pfad, "17642-01", "TEXT"))
+        inhalt = open(pfad).read()
+        self.assertEqual(dxf_lesen.lesen(inhalt)[0], vorher, "Kontur und Biegelinie unverändert")
+        self.assertIn("TEXT\n8\nTEXT\n10\n0.0000\n20\n0.0000", inhalt)
+        self.assertIn("17642-01", inhalt)
+        self.assertTrue(inhalt.rstrip().endswith("EOF"))
+        self.assertFalse(dxf_lesen.beschriften(pfad, "", "TEXT"))
+
+    def test_windows_zeilenenden_und_fremdes_format(self):
+        import os
+        import shutil
+        import tempfile
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        pfad = os.path.join(tmp, "w.dxf")
+        roh = "0\r\nSECTION\r\n2\r\nENTITIES\r\n0\r\nLINE\r\n8\r\n0\r\n10\r\n0\r\n20\r\n0\r\n11\r\n100\r\n21\r\n50\r\n0\r\nENDSEC\r\n0\r\nEOF\r\n"
+        open(pfad, "w", newline="").write(roh)
+        self.assertTrue(dxf_lesen.beschriften(pfad, "A-1", "TEXT"))
+        inhalt = open(pfad, newline="").read()
+        self.assertIn("\r\n1\r\nA-1\r\n", inhalt)
+        self.assertNotIn("\n\n", inhalt.replace("\r\n", "|"))
+        open(pfad, "w").write("kein dxf")
+        self.assertFalse(dxf_lesen.beschriften(pfad, "A-1", "TEXT"))
+
+
 if __name__ == "__main__":
     unittest.main()

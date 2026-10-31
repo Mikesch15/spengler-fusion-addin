@@ -87,6 +87,7 @@ def abw_erstellt(args):
     f.addSelectionFilter("PlanarFaces")
     f.setSelectionLimits(0, 1)
     inp.addBoolValueInput("dxf", "DXF exportieren", True, "", True)
+    inp.addBoolValueInput("beschriften", "Teilenummer in die DXF schreiben (Beschriftung)", True, "", True)
     inp.addBoolValueInput("blatt", "Werkstattblatt (HTML) erstellen", True, "", True)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged,
@@ -130,6 +131,13 @@ def _abw(self, args):
             if inp.itemById("dxf").value:
                 dxf_pfad = fa.dxf_abwicklung(fp, os.path.join(ordner, basis + ".dxf"))
                 zeile += ", DXF ✓"
+                if inp.itemById("beschriften").value:
+                    try:
+                        if dxf_lesen.beschriften(dxf_pfad, nr_text, (e.get("export") or {}).get("layerText") or "TEXT"):
+                            zeile += " (beschriftet «%s»)" % nr_text
+                    except Exception:
+                        logger.ausnahme("DXF beschriften")
+                        zeile += " (Beschriftung nicht möglich)"
                 sammel.append(dxf_pfad)
             if inp.itemById("blatt").value:
                 svg_abw, abw_hinweis = _abwicklung_zeichnen(fp, dxf_pfad)
