@@ -4,7 +4,7 @@
   "id": "7c1f0b6e-5a52-4d2e-9a4f-5f3c2b7e8d10",
   "author": "Spengler Digital",
   "description": { "": "Spengler Digital CAD: eigene Kanten- und 3D-Detailvorlagen, Rundbleche ohne Einschnitte, Abwicklung/DXF, Werkstattblatt, Material- und Zuschnittberechnung." },
-  "version": "0.4.19",
+  "version": "0.4.20",
   "runOnStartup": true,
   "supportedOS": "windows|mac",
   "editEnabled": true
