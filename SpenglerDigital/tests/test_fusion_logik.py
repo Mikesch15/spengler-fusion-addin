@@ -1184,6 +1184,44 @@ class VersatzTest(unittest.TestCase):
         erzeugt, neu = self.lauf(proxy, 10.0, d)
         self.assertAlmostEqual(neu.geometry.startPoint.y, -1.0)
 
+    def test_anfuegen_richtung_ins_blech_aus_der_flaechennormale(self):
+        """Bericht 31.10.: falsche Richtung verdoppelte die Blechdicke. Jetzt zuerst die Richtung gegen die Aussennormale der Fläche."""
+        self.ziel = ((0, 0.5, 0), (50, 0.5, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07)
+        flaeche = kante.faces[0]
+        flaeche.geometry = type("Pl", (), {"normal": V(0, 0, 1)})()      # Aussennormale +z, Blech liegt darunter
+        flaeche.isParamReversed = False
+        orig_add = comp_sketch_add = kante.body.parentComponent.sketches.add
+
+        def mit_richtung(f):
+            sk = orig_add(f)
+            sk.xDirection, sk.yDirection = V(1, 0, 0), V(0, 1, 0)         # Skizzennormale +z → in das Blech ist NEGATIV
+            return sk
+        kante.body.parentComponent.sketches = type("Sk", (), {"add": lambda s_, f: mit_richtung(f)})()
+        self.lauf(kante, -5.0, d)
+        self.assertEqual([x[1] for x in log if x[0] == "dist"], [-0.07], "gleich beim ersten Versuch in Richtung Blech")
+        flaeche.isParamReversed = True                                     # umgekehrte Fläche → Richtung dreht sich
+        kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07)
+        flaeche = kante.faces[0]
+        flaeche.geometry, flaeche.isParamReversed = type("Pl", (), {"normal": V(0, 0, 1)})(), True
+        orig_add = kante.body.parentComponent.sketches.add
+
+        def mit_richtung2(f):
+            sk = orig_add(f)
+            sk.xDirection, sk.yDirection = V(1, 0, 0), V(0, 1, 0)
+            return sk
+        kante.body.parentComponent.sketches = type("Sk", (), {"add": lambda s_, f: mit_richtung2(f)})()
+        self.lauf(kante, -5.0, d)
+        self.assertEqual([x[1] for x in log if x[0] == "dist"], [0.07])
+
+    def test_koerper_leer_nach_schnitt_wird_nicht_als_erfolg_gewertet(self):
+        """Bericht 31.10.: nach dem Schnitt war der gemeldete Körper leer (Volumen 0) – früher als «Volumen gesunken» durchgewunken."""
+        self.ziel = ((0, -1.0, 0), (50, -1.0, 0))
+        kante, log, versuch, d = self.aufbau(volumen_nach=0.0)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            self.lauf(kante, 10.0, d)
+        self.assertIn("nicht gefunden", str(cm.exception))
+
     def test_nicht_gefunden_nennt_naechste_kante(self):
         self.ziel = ((0, -0.5, 0), (50, -0.5, 0))        # 5 mm statt 10 mm entfernt
         kante, log, versuch, d = self.aufbau(volumen_nach=100.0 - 50 * 1.0 * 0.07)

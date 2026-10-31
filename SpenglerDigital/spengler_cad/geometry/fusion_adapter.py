@@ -557,6 +557,46 @@ def _kante_aufloesen(token, alt):
 
 
 # ------------------------------------------------------------------ Versatz der Biegung von der Startkante – NICHT live geprüft
+def _koerper_nach(comp, vorher, feature):
+    """Körper nach einem Feature wieder finden: Bericht 31.10. – nach einem Schnitt war feature.bodies.item(0) leer (Volumen 0, keine Kanten).
+    Reihenfolge: gleicher entityToken, gleicher Name im Bauteil, Körper des Features; gültig = Volumen > 0."""
+    kandidaten = []
+    try:
+        kandidaten += [adsk.fusion.BRepBody.cast(x) for x in design().findEntityByToken(vorher.entityToken)]
+    except Exception:
+        pass
+    try:
+        kandidaten += [b for b in comp.bRepBodies if b.name == vorher.name]
+    except Exception:
+        pass
+    try:
+        kandidaten += list(feature.bodies)
+    except Exception:
+        pass
+    for b in kandidaten:
+        try:
+            if b is not None and getattr(b, "isValid", True) and b.volume > 1e-9:
+                return b
+        except Exception:
+            continue
+    return None
+
+
+def _aufbau_richtung(flaeche, skizze):
+    """+1/−1: Vorzeichen der Extrusionsdistanz, das vom Skizzenblatt IN das Blech zeigt (gegen die Aussennormale der Fläche); None wenn unbekannt."""
+    try:
+        n = _v(flaeche.geometry.normal)
+        if getattr(flaeche, "isParamReversed", False):
+            n = tuple(-x for x in n)
+        xd, yd = _v(skizze.xDirection), _v(skizze.yDirection)
+        ns = (xd[1] * yd[2] - xd[2] * yd[1], xd[2] * yd[0] - xd[0] * yd[2], xd[0] * yd[1] - xd[1] * yd[0])
+        d = -_skal(ns, n)
+        return None if abs(d) < 1e-6 else (1.0 if d > 0 else -1.0)
+    except Exception as ex:
+        logger.warnung("Richtung des Versatz-Streifens nicht bestimmbar", fehler=ex)
+        return None
+
+
 def _versatz_anwenden(edge, versatz_mm, dicke_mm):
     """Versatz an EINER Kante → (erzeugte Objekte, neue Kante)."""
     erzeugt, kanten = _versatz_gruppe([edge], versatz_mm, dicke_mm)
@@ -625,10 +665,11 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         profile.add(skizze.profiles.item(k))
     ef = comp.features.extrudeFeatures
     vol0 = koerper.volume
-    soll = abs(s) * max(d["L"] for d in daten) * t
+    soll = abs(s) * sum(d["L"] for d in daten) * t
     feat = None
     versuche = []
-    for richtung in ((None,) if s > 0 else (1.0, -1.0)):
+    sign = _aufbau_richtung(flaeche, skizze)
+    for richtung in ((None,) if s > 0 else ((sign, -sign) if sign else (1.0, -1.0))):
         try:
             if s > 0:
                 ei = ef.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
@@ -641,17 +682,18 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         except Exception as ex:
             versuche.append(str(ex).strip().splitlines()[-1][:120] if str(ex).strip() else type(ex).__name__)
             continue
-        koerper_neu = f.bodies.item(0) if f.bodies.count else koerper
-        delta = koerper_neu.volume - vol0
-        if (s > 0 and delta < -0.5 * soll) or (s < 0 and delta > 0.5 * soll):
-            feat = f
+        koerper_neu = _koerper_nach(comp, koerper, f)
+        delta = (koerper_neu.volume - vol0) if koerper_neu is not None else None
+        # Schnitt: Volumen sinkt um etwa den Streifen (nicht auf 0!); Anfügen: Volumen steigt um etwa den Streifen
+        if delta is not None and ((s > 0 and -1.5 * soll < delta < -0.5 * soll) or (s < 0 and 0.5 * soll < delta < 1.5 * soll)):
+            feat, koerper = f, koerper_neu
             break
-        versuche.append("Volumen %.3f statt %.3f cm³" % (delta, soll if s < 0 else -soll))
+        versuche.append("Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
+            "nicht gefunden" if koerper_neu is None else "gefunden", "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
         f.deleteMe()
     if feat is None:
         raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
     erzeugt.append(feat)
-    koerper = feat.bodies.item(0)
     # Kandidaten: Kanten der vom Feature erzeugten Flächen (so wie bei Flanschen, live bewährt), dazu alle Kanten des Körpers.
     # Bericht 31.10.: beim Zurückschneiden (+) fand sich unter den Körperkanten keine einzige parallele Kante.
     pool, gesehen = [], set()
@@ -668,7 +710,7 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
             gesehen.add(schluessel)
             pool.append(k)
     try:
-        logger.info("Versatz: Körper nach der Extrusion", koerper=len(list(feat.bodies)), kanten=len(list(koerper.edges)), flaechen_des_features=len(list(feat.faces)),
+        logger.info("Versatz: Körper nach der Extrusion", richtung=sign, kanten=len(list(koerper.edges)), flaechen_des_features=len(list(feat.faces)),
                     volumen_cm3=koerper.volume)
     except Exception:
         logger.warnung("Versatz: Körper nach der Extrusion nicht lesbar")
