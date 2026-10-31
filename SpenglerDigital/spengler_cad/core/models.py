@@ -128,6 +128,7 @@ def neues_materialprofil(name, dicke_mm, **extra):
         "material": "",
         "thickness": float(dicke_mm),
         "density": None,              # kg/dm³, optional – nur dann Gewichtsschätzung
+        "pricePerKg": None,           # optional, für die Kalkulation (Währung wie im Betrieb üblich)
         "innerRadius": None,          # mm, optional (für theoretische Abwicklung)
         "kFactor": None,              # optional (für theoretische Abwicklung)
         "sheetMetalRule": "",         # Name der Fusion-Blechregel (verbindliche Abwicklung)
@@ -168,6 +169,8 @@ def standard_einstellungen():
         "labels": {"spalten": 3, "zeilen": 8, "breite": 70.0, "hoehe": 37.0, "oben": 0.0, "links": 0.0, "abstandX": 0.0, "abstandY": 0.0},
         "auftrag": {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"],   # Ordnerstruktur in Fusion
                     "rollen": {"modelle": "Modelle", "plaene": "Pläne", "export": "Export"}, "lokalBasis": "", "teilnummerMitAuftrag": True},
+        "kalkulation": {"stundensatzName": "", "stundensatzManuell": None, "ruestMinProTeil": 5.0, "minProBiegung": 1.5, "minProMeterZuschnitt": 2.0,
+                        "zuschlagProzent": 0.0},       # Zeitannahmen: eigene Schätzwerte, in den Einstellungen anpassen; Stundensatz aus der App
         "pruefung": {"minSchenkel": 10.0, "minRadiusFaktor": 1.0},   # Warnschwellen vor dem Export (Schenkel in mm, Radius × Blechdicke)
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",

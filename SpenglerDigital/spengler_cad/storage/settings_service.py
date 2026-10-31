@@ -45,6 +45,9 @@ class Einstellungen(object):
             raise EinstellungsFehler(" ".join(f))
         if d.get("ui", {}).get("mode") not in ("standard", "experte"):
             raise EinstellungsFehler("Modus muss «standard» oder «experte» sein.")
+        for k, v in (d.get("kalkulation") or {}).items():
+            if k != "stundensatzName" and v is not None and (not isinstance(v, (int, float)) or v < 0):
+                raise EinstellungsFehler("Kalkulation: %s muss eine Zahl ≥ 0 sein." % k)
         for k in ("minSchenkel", "minRadiusFaktor"):
             v = (d.get("pruefung") or {}).get(k)
             if v is not None and (not isinstance(v, (int, float)) or v < 0):

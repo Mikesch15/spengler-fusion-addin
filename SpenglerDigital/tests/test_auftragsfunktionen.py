@@ -6,7 +6,7 @@ import unittest
 
 from _basis import DatenTest, test_material  # noqa: F401
 from spengler_cad.core import auftrag
-from spengler_cad.manufacturing import bend_list, bestellung, pruefung
+from spengler_cad.manufacturing import bend_list, bestellung, kalkulation, mappe, pruefung
 
 OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "umschlag", "winkel": 180, "laenge": 6, "radius": 0.3}]
 
@@ -81,6 +81,95 @@ class LabelTest(unittest.TestCase):
         self.assertEqual(auftrag.lokaler_exportpfad(dict(a, jahresordner=False), "17642", "X", 2026), os.path.join("C:", "Auftraege", "17642 X", "Export"))
         self.assertIsNone(auftrag.lokaler_exportpfad({}, "17642", "X", 2026), "ohne Basis kein eigener Pfad")
         self.assertIsNone(auftrag.lokaler_exportpfad(a, "", "", 2026))
+
+
+class KalkulationTest(unittest.TestCase):
+    SAETZE = [{"name": "Spengler", "value": 110.0}, {"name": "Meister", "value": 145.0}]
+
+    def test_stundensatz_wahl(self):
+        self.assertEqual(kalkulation.stundensatz_waehlen({"stundensatzName": " spengler "}, self.SAETZE), (110.0, "App: Spengler"))
+        self.assertEqual(kalkulation.stundensatz_waehlen({"stundensatzName": "Gibt es nicht", "stundensatzManuell": 99}, self.SAETZE), (99.0, "von Hand eingetragen"))
+        satz, text = kalkulation.stundensatz_waehlen({"stundensatzName": "Gibt es nicht"}, [])
+        self.assertIsNone(satz)
+        self.assertIn("nicht in der App gefunden", text)
+        self.assertIn("kein Stundensatz", kalkulation.stundensatz_waehlen({}, self.SAETZE)[1])
+
+    def test_rechnung(self):
+        m = {"thickness": 1.0, "density": 7.85, "pricePerKg": 2.0}
+        teile = [{"nr": "17-01", "name": "A", "stueck": 2, "breite": 500.0, "laenge": 1000.0, "flaeche": 400000.0, "material": m, "operationen": OPS},
+                 {"nr": "17-02", "name": "B", "stueck": 1, "breite": 100.0, "laenge": 100.0, "flaeche": None, "material": {"thickness": 1.0}, "operationen": None}]
+        k = {"ruestMinProTeil": 6.0, "minProBiegung": 2.0, "minProMeterZuschnitt": 1.0, "zuschlagProzent": 0.0}
+        erg = kalkulation.kalkuliere(teile, k, 120.0)
+        a, b = erg["zeilen"]
+        self.assertAlmostEqual(a["minuten_je"], 6 + 2 * 2 + 3.0 * 1.0)          # Umfang 2·(0.5+1.0) = 3 m
+        self.assertAlmostEqual(a["arbeit"], 13 / 60 * 120 * 2)
+        self.assertAlmostEqual(a["material"], 0.4 * 1.0 * 7.85 * 2.0 * 2)       # 0.4 m² · 1 mm · 7.85 kg/dm³ = 3.14 kg
+        self.assertIsNone(b["material"], "ohne Dichte/Preis kein Materialpreis")
+        self.assertAlmostEqual(erg["summe"]["gesamt"], a["summe"] + b["summe"])
+        self.assertIn("Rüsten 6.0 min", erg["annahmen"])
+
+    def test_ohne_stundensatz_nur_zeit(self):
+        erg = kalkulation.kalkuliere([{"nr": 1, "name": "A", "stueck": 1, "breite": 100.0, "laenge": 100.0, "flaeche": None, "material": None, "operationen": None}], {}, None)
+        self.assertIsNone(erg["summe"]["arbeit"])
+        self.assertGreater(erg["summe"]["minuten"], 0)
+        h = kalkulation.kalkulation_html(erg, "kein Stundensatz gewählt", "Testweg", "17999", "2026-10-31", "0.4")
+        self.assertIn("kein Stundensatz gewählt", h)
+        self.assertIn("Schätzwerte", h)
+
+
+class MappeTest(unittest.TestCase):
+    def test_deckblatt_abschnitte_und_stile(self):
+        a = "<html><head><style>.a{}</style></head><body><h1>Stückliste</h1></body></html>"
+        b = "<html><head><style>.a{}</style><style>.b{}</style></head><body><h1>Werkstattblatt</h1></body></html>"
+        h = mappe.mappe_html([("Stückliste", a), ("Werkstattblatt 1", b)], "Testweg 1", "17999", "2026-10-31", "0.4")
+        self.assertIn("Auftragsmappe", h)
+        self.assertEqual(h.count('class="neueSeite"'), 2)
+        self.assertIn("<li>Werkstattblatt 1</li>", h)
+        self.assertIn("<h1>Stückliste</h1>", h)
+        self.assertEqual(h.count("<style>.a{}</style>"), 1, "gleiche Stile nicht doppelt")
+
+    def test_werkstattblaetter_merken_und_lesen(self):
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        datei = os.path.join(tmp, "1_werkstattblatt.html")
+        open(datei, "w").write("x")
+        self.assertTrue(bestellung.blatt_merken("17999", "Dach", datei, tmp))
+        bestellung.blatt_merken("17999", "Dach", datei, tmp)
+        bestellung.blatt_merken("17999", "Wand", os.path.join(tmp, "gibtsnicht.html"), tmp)
+        self.assertEqual(bestellung.blaetter_lesen("17999", tmp), [("Dach", datei)], "doppelt/fehlend wird ausgelassen")
+
+
+class StatusTest(unittest.TestCase):
+    def test_listentext(self):
+        a = {"name": "18162 Sonneggweg 9, Bern", "nummer": "18162"}
+        self.assertEqual(auftrag.listentext(a, {}), "18162 Sonneggweg 9, Bern")
+        self.assertEqual(auftrag.listentext(a, {"18162": {"status": "in_arbeit"}}), "18162 Sonneggweg 9, Bern  [In Arbeit]")
+
+
+class CloudStatusTest(unittest.TestCase):
+    def test_status_und_app_daten_ueber_fake_supabase(self):
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud, CloudFehler
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        z.rates = [{"company_id": "firma-a", "name": "Spengler", "value": 110.0}, {"company_id": "firma-b", "name": "Fremd", "value": 1.0}]
+        z.projects = [{"company_id": "firma-a", "order_no": "18162", "name": "Sonneggweg", "customer": "X", "object": "o", "status": "in_arbeit"}]
+        c = Cloud(tmp, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        c.status_setzen("18162", "in_arbeit")
+        c.status_setzen("18162", "gefertigt", "fertig")
+        self.assertEqual(c.status_alle()["18162"]["status"], "gefertigt")
+        self.assertEqual(len(z.status), 1, "Upsert: ein Eintrag je Auftrag")
+        with self.assertRaises(CloudFehler):
+            c.status_setzen("18162", "unbekannt")
+        self.assertEqual([r["name"] for r in c.stundensaetze()], ["Spengler"])
+        self.assertEqual(c.projekt_zu_auftrag("18162")["status"], "in_arbeit")
+        self.assertIsNone(c.projekt_zu_auftrag("99999"))
 
 
 class SelbsttestTest(unittest.TestCase):

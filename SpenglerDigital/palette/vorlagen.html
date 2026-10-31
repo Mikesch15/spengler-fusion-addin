@@ -116,7 +116,8 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
   <fieldset id="mEditor" style="display:none"><legend>Materialprofil</legend>
     <div class="zeile"><label>Name</label><input id="mName" size="30"> <label style="min-width:0">Werkstoff</label><input id="mWerk"></div>
     <div class="zeile"><label>Dicke *</label><input type="number" step="0.01" id="mT"> mm
-      <label style="min-width:0">Dichte</label><input type="number" step="0.01" id="mD"> kg/dm³</div>
+      <label style="min-width:0">Dichte</label><input type="number" step="0.01" id="mD"> kg/dm³
+      <label style="min-width:0">Preis</label><input type="number" step="0.01" id="mP"> je kg</div>
     <div class="zeile"><label>Innenradius</label><input type="number" step="0.01" id="mRi"> mm <label style="min-width:0">K-Faktor</label><input type="number" step="0.01" id="mK">
       <span class="klein">optional, nur für theoretische Abwicklung</span></div>
     <div class="zeile"><label>Probebiegung</label>Zuschnitt <input type="number" step="0.01" id="mPz"> mm, 90° gebogen, aussen gemessen
@@ -163,6 +164,12 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <div class="zeile"><label>Exporte auf dem PC</label><input id="sALokal" size="50"> <span class="klein">Basisordner; leer = Exportordner oben. Daraus wird Basis/Jahr/«Nummer Objekt»/Export</span></div>
     <div class="zeile"><label>Teilenummer</label><input type="checkbox" id="sANr"> <span class="klein">mit Auftragsnummer, z. B. 17642-01</span></div>
     <div class="zeile"><label>Prüfung vor Export</label><input id="sPMin" size="5"> <span class="klein">mm: kürzester Schenkel</span> <input id="sPRad" size="5"> <span class="klein">× Dicke: kleinster Innenradius</span></div>
+  </fieldset>
+  <fieldset><legend>Kalkulation (Arbeitszeit × Stundensatz der App)</legend>
+    <div class="zeile"><label>Stundensatz</label><input id="sKName" size="14"> <span class="klein">Name in der App (z. B. Spengler), sonst von Hand:</span> <input id="sKMan" size="6"> <span class="klein">je Stunde</span></div>
+    <div class="zeile"><label>Rüstzeit</label><input id="sKRuest" size="5"> <span class="klein">min je Teil</span> <label style="min-width:0">Biegen</label><input id="sKBieg" size="5"> <span class="klein">min je Biegung</span>
+      <label style="min-width:0">Zuschnitt</label><input id="sKSchn" size="5"> <span class="klein">min je m Umfang</span> <label style="min-width:0">Zuschlag</label><input id="sKZus" size="5"> <span class="klein">%</span></div>
+    <div class="klein">Die Zeiten sind Schätzwerte (Annahmen), bitte an die eigene Werkstatt anpassen.</div>
   </fieldset>
   <fieldset><legend>Umformung</legend>
     <div class="zeile"><label>Standardverfahren</label><select id="sVerf"><option value="manuell">Manuelle Werkstattumformung</option><option value="auto">Automatische Empfehlung</option><option value="stauchen">Stauchen/Schweifen</option><option value="strecken">Strecken/Schweifen</option></select></div>

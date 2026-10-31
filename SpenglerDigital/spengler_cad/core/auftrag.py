@@ -115,3 +115,13 @@ def lokaler_exportpfad(einstellung, nummer, objekt, jahr=None):
         return None
     teile = [a["lokalBasis"]] + ([str(int(jahr))] if a["jahresordner"] and jahr else []) + [ordnername(nummer, objekt), a["rollen"]["export"]]
     return os.path.join(*teile)
+
+
+STATUS = [("offen", "Offen"), ("in_arbeit", "In Arbeit"), ("gefertigt", "Gefertigt"), ("geliefert", "Geliefert")]
+STATUS_TEXT = dict(STATUS)
+
+
+def listentext(a, status=None):
+    """Zeile in der Auftragsliste: «18162 Sonneggweg 9, Bern  [In Arbeit]»."""
+    z = (status or {}).get(a["nummer"])
+    return "%s  [%s]" % (a["name"], STATUS_TEXT.get(z["status"], z["status"])) if z else a["name"]

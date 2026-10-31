@@ -19,7 +19,7 @@ def pruefe_material(m):
             f.append("Blechdicke muss grösser als 0 mm sein.")
     except (TypeError, ValueError):
         f.append("Blechdicke fehlt oder ist keine Zahl.")
-    for feld, label, gt0 in (("density", "Dichte", True), ("innerRadius", "Innenradius", False), ("kFactor", "K-Faktor", False)):
+    for feld, label, gt0 in (("density", "Dichte", True), ("innerRadius", "Innenradius", False), ("kFactor", "K-Faktor", False), ("pricePerKg", "Preis je kg", False)):
         w = m.get(feld)
         if w is None:
             continue

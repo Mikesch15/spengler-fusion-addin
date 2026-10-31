@@ -24,6 +24,25 @@ def teile_merken(nummer, dokument, teile, wurzel=None):
     return True
 
 
+def blatt_merken(nummer, dokument, pfad, wurzel=None):
+    """Pfad eines erzeugten Werkstattblatts für die Auftragsmappe merken (je Dokument die zuletzt erzeugten)."""
+    if not nummer or not dokument:
+        return False
+    datei = _datei(nummer, wurzel)
+    d = json_store.lesen(datei) or {"auftrag": str(nummer), "dokumente": {}}
+    liste = d.setdefault("werkstattblaetter", {}).setdefault(dokument, [])
+    if pfad not in liste:
+        liste.append(pfad)
+    json_store.schreiben(datei, d)
+    return True
+
+
+def blaetter_lesen(nummer, wurzel=None):
+    """Alle gemerkten Werkstattblätter des Auftrags, die es noch gibt → [(Dokument, Pfad)]."""
+    d = (json_store.lesen(_datei(nummer, wurzel)) or {}).get("werkstattblaetter", {})
+    return [(dok, p) for dok in sorted(d) for p in d[dok] if os.path.exists(p)]
+
+
 def teile_lesen(nummer, wurzel=None):
     return (json_store.lesen(_datei(nummer, wurzel)) or {}).get("dokumente", {})
 

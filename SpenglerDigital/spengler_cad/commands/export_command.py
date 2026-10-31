@@ -20,7 +20,7 @@ from .. import VERSION
 from ..diagnostics import logger
 from ..core import auftrag
 from ..geometry import fusion_adapter as fa
-from ..manufacturing import bend_list, bestellung, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
+from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
 from ..storage import json_store, paths
 from ..storage.material_library import MaterialBibliothek
 from ..storage.settings_service import Einstellungen
@@ -144,6 +144,10 @@ def _abw(self, args):
                     "hinweise": ["Querschnitt/Biegeliste nur für Bauteile, die mit «Kanten bearbeiten» erzeugt wurden."] if not q else []})
                 with open(os.path.join(ordner, basis + "_werkstattblatt.html"), "w", encoding="utf-8") as f:
                     f.write(html)
+                try:
+                    bestellung.blatt_merken(angaben["auftrag"], fa.dokument_name(), os.path.join(ordner, basis + "_werkstattblatt.html"))
+                except Exception:
+                    logger.ausnahme("Werkstattblatt nicht für die Auftragsmappe gemerkt")
                 zeile += ", Werkstattblatt ✓"
             z.append("✓ " + zeile)
             ok_n += 1
@@ -216,6 +220,8 @@ def zus_erstellt(args):
     inp.addBoolValueInput("zuschnitt", "Materialbedarf & Zuschnittplan", True, "", True)
     inp.addBoolValueInput("abkant", "Abkantliste für die Werkstatt (HTML)", True, "", True)
     inp.addBoolValueInput("bestell", "Bestellliste für den ganzen Auftrag (alle Dokumente)", True, "", False)
+    inp.addBoolValueInput("kalk", "Kalkulation (Arbeitszeit × Stundensatz der App)", True, "", True)
+    inp.addBoolValueInput("mappe", "Auftragsmappe (alles in einer Datei zum Drucken/PDF)", True, "", False)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged,
                  lambda a: a.input.id == "hilfe" and base.melden("Hilfe", help_content.text("stueckliste") + "\n\n" + help_content.text("zuschnitt")))
@@ -289,6 +295,23 @@ def _zus(self, args):
         with open(os.path.join(ordner, "bestellliste.txt"), "w", encoding="utf-8") as fh:
             fh.write(b["text"])
         dateien.append("bestellliste.txt (%d Dokument(e))" % len(b["dokumente"]))
+    kalk_html = None
+    if inp.itemById("kalk").value:
+        try:
+            from ..storage.cloud_client import Cloud
+            c = Cloud(timeout=8)
+            saetze = c.stundensaetze() if c.angemeldet else []
+        except Exception:
+            logger.warnung("Stundensätze der App nicht lesbar")
+            saetze = []
+        satz, quelle_satz = kalkulation.stundensatz_waehlen(e.get("kalkulation"), saetze)
+        kalk = kalkulation.kalkuliere(teile, e.get("kalkulation"), satz)
+        kalk_html = kalkulation.kalkulation_html(kalk, quelle_satz, objekt, auftrag_nr, datetime.date.today().isoformat(), VERSION)
+        with open(os.path.join(ordner, "kalkulation.html"), "w", encoding="utf-8") as fh:
+            fh.write(kalk_html)
+        dateien.append("kalkulation.html")
+        text += "Kalkulation: %.1f h Arbeitszeit%s. %s\n\n" % (kalk["summe"]["minuten"] / 60.0, (", Arbeit %.2f" % kalk["summe"]["arbeit"]) if kalk["summe"]["arbeit"] is not None else "",
+                                                           "Stundensatz: %s." % quelle_satz)
     if warn:
         text += "Prüfung:\n" + "\n".join("⚠ " + w for w in warn) + "\n\n"
     text += "Teile: " + ", ".join("%s %s" % (t["nr"], t["name"]) for t in teile) + "\n"
@@ -308,6 +331,26 @@ def _zus(self, args):
             f.write(nesting.als_csv(best))
         dxf_writer.zuschnittplan_dxf(blaetter, m["name"], e["export"]["layerContour"], e["export"]["layerText"]).speichern(os.path.join(ordner, "zuschnittplan.dxf"))
         dateien += ["zuschnittplan.svg/.csv/.dxf"]
+    if inp.itemById("mappe").value:
+        teile_html = []
+        for dateiname, titel in (("stueckliste.html", "Stückliste"), ("abkantliste.html", "Abkantliste"), ("kalkulation.html", "Kalkulation")):
+            pfad = os.path.join(ordner, dateiname)
+            if os.path.exists(pfad):
+                with open(pfad, encoding="utf-8") as fh:
+                    teile_html.append((titel, fh.read()))
+        svg = os.path.join(ordner, "zuschnittplan.svg")
+        if os.path.exists(svg):
+            with open(svg, encoding="utf-8") as fh:
+                teile_html.append(("Zuschnittplan", "<h1>Zuschnittplan</h1>" + fh.read()))
+        for dok, pfad in bestellung.blaetter_lesen(auftrag_nr):
+            try:
+                with open(pfad, encoding="utf-8") as fh:
+                    teile_html.append(("Werkstattblatt %s" % os.path.basename(pfad).replace("_werkstattblatt.html", ""), fh.read()))
+            except OSError:
+                pass
+        with open(os.path.join(ordner, "auftragsmappe.html"), "w", encoding="utf-8") as fh:
+            fh.write(mappe.mappe_html(teile_html, objekt, auftrag_nr, datetime.date.today().isoformat(), VERSION))
+        dateien.append("auftragsmappe.html (%d Abschnitte)" % len(teile_html))
     if fehlt:
         text += "\nOhne Abwicklung (nicht berechnet): " + ", ".join(fehlt)
     text += "\n\nAnnahme: Teile als umschliessendes Rechteck der Abwicklung; Rechnung der Spengler-Digital-App (ohne Rollenmischung)."

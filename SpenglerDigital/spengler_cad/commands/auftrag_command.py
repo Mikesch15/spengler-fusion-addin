@@ -12,7 +12,7 @@ from . import base
 
 BID = "spenglerNeuerAuftrag"
 BID_WAHL = "spenglerAuftragWaehlen"
-Z = {"liste": []}
+Z = {"liste": [], "treffer": [], "status": {}, "app": {}}
 
 
 def _plan(inp, e):
@@ -64,6 +64,13 @@ def _ausfuehren_innen(self, args):
     pfad, hinweise = fa.auftrag_ordner_anlegen(p)
     nummer, objekt = auftrag.zerlegen(p["name"])
     _merken(e, nummer, objekt, int(p["pfad"][0]) if len(p["pfad"]) > 1 else None)
+    try:        # Fertigungsstatus «offen» in der App – ohne Anmeldung/Netz einfach weglassen
+        from ..storage.cloud_client import Cloud
+        c = Cloud(timeout=6)
+        if c.angemeldet:
+            c.status_setzen(nummer, "offen")
+    except Exception:
+        logger.warnung("Fertigungsstatus beim neuen Auftrag nicht gesetzt")
     gespeichert = ""
     if inp.itemById("speichern").value:
         a = auftrag.pruefe_einstellung(e.get("auftrag"))
@@ -89,7 +96,18 @@ def registrieren():
     return [base.befehl_definieren(BID, "Neuer Auftrag", "Legt Auftragsordner mit Jahr und Unterordnern (Modelle, Pläne, Export) in Fusion an.", erstellt)]
 
 
-# ---------------------------------------------------------------- Auftrag wählen (+ Dokument im Auftrag speichern)
+# ---------------------------------------------------------------- Auftrag wählen (+ Dokument im Auftrag speichern, Fertigungsstatus)
+def _cloud_lesen(funktion, standard):
+    """Angemeldet: Abfrage bei der App; Fehler/offline/abgemeldet → Standardwert (die Liste funktioniert auch ohne App)."""
+    try:
+        from ..storage.cloud_client import Cloud
+        c = Cloud(timeout=6)
+        return funktion(c) if c.angemeldet else standard
+    except Exception:
+        logger.warnung("App nicht erreichbar (Auftragsliste)")
+        return standard
+
+
 @base.sicher("Auftrag wählen")
 def _waehlen_erstellt(self, args):
     cmd = args.command
@@ -99,45 +117,82 @@ def _waehlen_erstellt(self, args):
     Z["liste"] = fa.auftraege_lesen(a["wurzelOrdner"])
     if not Z["liste"]:
         raise fa.AdapterFehler("Im Stammordner «%s» wurden keine Aufträge («Nummer Objekt») gefunden." % a["wurzelOrdner"])
+    Z["status"] = _cloud_lesen(lambda c: c.status_alle(), {})
+    Z["app"] = {}
     inp.addStringValueInput("suche", "Suchen (Nummer oder Objekt)", "")
-    dd = inp.addDropDownCommandInput("auftrag", "Auftrag", adsk.core.DropDownStyles.TextListDropDownStyle)
-    _liste_fuellen(inp, "")
-    aktiv = (e.get("order") or {}).get("auftrag")
-    for i in range(dd.listItems.count):
-        if aktiv and dd.listItems.item(i).name.startswith(aktiv + " "):
-            dd.listItems.item(i).isSelected = True
+    inp.addDropDownCommandInput("auftrag", "Auftrag", adsk.core.DropDownStyles.TextListDropDownStyle)
+    _liste_fuellen(inp, "", (e.get("order") or {}).get("auftrag"))
+    st = inp.addDropDownCommandInput("status", "Fertigungsstatus setzen", adsk.core.DropDownStyles.TextListDropDownStyle)
+    st.listItems.add("– unverändert –", True)
+    for k, t in auftrag.STATUS:
+        st.listItems.add(t, False)
+    inp.addTextBoxCommandInput("info", "", "", 3, True)
     inp.addBoolValueInput("speichern", "Aktuelles Dokument im Ordner «%s» speichern" % a["rollen"]["modelle"], True, "", False)
-    base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, lambda x: x.input.id == "suche" and _liste_fuellen(x.inputs, x.input.value))
+    base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, _geaendert)
     base.handler(adsk.core.CommandEventHandler, cmd.execute, _waehlen_ausfuehren)
+    _info(inp)
 
 
 def waehlen_erstellt(args):
     _waehlen_erstellt(None, args)
 
 
-def _liste_fuellen(inp, text):
+def _liste_fuellen(inp, text, aktiv=None):
     dd = inp.itemById("auftrag")
     dd.listItems.clear()
     t = (text or "").strip().lower()
-    treffer = [a for a in Z["liste"] if t in a["name"].lower()]
-    for i, a in enumerate(treffer[:200]):
-        dd.listItems.add(a["name"], i == 0)
+    Z["treffer"] = [x for x in Z["liste"] if t in x["name"].lower()][:200]
+    for i, x in enumerate(Z["treffer"]):
+        dd.listItems.add(auftrag.listentext(x, Z["status"]), i == 0 or (aktiv is not None and x["nummer"] == aktiv))
+
+
+def _gewaehlt(inp):
+    sel = inp.itemById("auftrag").selectedItem
+    return Z["treffer"][sel.index] if sel is not None and sel.index < len(Z["treffer"]) else None
+
+
+def _info(inp):
+    x = _gewaehlt(inp)
+    if x is None:
+        inp.itemById("info").formattedText = ""
+        return
+    if x["nummer"] not in Z["app"]:
+        Z["app"][x["nummer"]] = _cloud_lesen(lambda c: c.projekt_zu_auftrag(x["nummer"]), None)
+    p = Z["app"][x["nummer"]]
+    inp.itemById("info").formattedText = ("App: %s%s – Status in der App: %s" % (p.get("name") or "", (", " + p["customer"]) if p.get("customer") else "", p.get("status") or "?")
+                                          if p else "Kein passender Auftrag in der App gefunden (oder nicht angemeldet).")
+
+
+def _geaendert(args):
+    if args.input.id == "suche":
+        _liste_fuellen(args.inputs, args.input.value)
+        _info(args.inputs)
+    elif args.input.id == "auftrag":
+        _info(args.inputs)
 
 
 @base.sicher("Auftrag wählen")
 def _waehlen_innen(self, args):
     inp = args.command.commandInputs
-    sel = inp.itemById("auftrag").selectedItem
-    if sel is None:
+    x = _gewaehlt(inp)
+    if x is None:
         raise fa.AdapterFehler("Kein Auftrag gewählt.")
-    name = sel.name
-    z = next(a for a in Z["liste"] if a["name"] == name)
     e = Einstellungen().laden()
     a = auftrag.pruefe_einstellung(e.get("auftrag"))
-    _merken(e, z["nummer"], z["objekt"], z["jahr"])
-    text = "Aktiver Auftrag: %s" % name
+    _merken(e, x["nummer"], x["objekt"], x["jahr"])
+    text = "Aktiver Auftrag: %s" % x["name"]
+    st = inp.itemById("status").selectedItem
+    if st is not None and st.index > 0:
+        schluessel = auftrag.STATUS[st.index - 1][0]
+        try:
+            from ..storage.cloud_client import Cloud
+            Cloud(timeout=8).status_setzen(x["nummer"], schluessel)
+            text += "\nFertigungsstatus: %s" % auftrag.STATUS_TEXT[schluessel]
+        except Exception as ex:
+            logger.ausnahme("Fertigungsstatus nicht gesetzt")
+            text += "\nFertigungsstatus NICHT gesetzt: %s" % base.fehlertext(ex)
     if inp.itemById("speichern").value:
-        text += "\n\n" + fa.dokument_im_auftrag_speichern(a["wurzelOrdner"], name, a["rollen"]["modelle"])
+        text += "\n\n" + fa.dokument_im_auftrag_speichern(a["wurzelOrdner"], x["name"], a["rollen"]["modelle"])
     base.melden("Auftrag wählen", text)
 
 
@@ -146,4 +201,4 @@ def _waehlen_ausfuehren(args):
 
 
 def registrieren_wahl():
-    return [base.befehl_definieren(BID_WAHL, "Auftrag wählen", "Vorhandenen Auftrag aus der Ordnerstruktur wählen (aktiv für Stückliste, Etiketten, Export) und das Dokument darin speichern.", waehlen_erstellt)]
+    return [base.befehl_definieren(BID_WAHL, "Auftrag wählen", "Vorhandenen Auftrag aus der Ordnerstruktur wählen (aktiv für Stückliste, Etiketten, Export), Fertigungsstatus setzen und das Dokument darin speichern.", waehlen_erstellt)]

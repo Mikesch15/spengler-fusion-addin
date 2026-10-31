@@ -291,7 +291,7 @@ function oeffneMaterial(m) {
   M = JSON.parse(JSON.stringify(m));
   $("mEditor").style.display = "block";
   $("mName").value = M.name; $("mWerk").value = M.material || ""; $("mT").value = M.thickness;
-  $("mD").value = M.density ?? ""; $("mRi").value = M.innerRadius ?? ""; $("mK").value = M.kFactor ?? "";
+  $("mD").value = M.density ?? ""; $("mP").value = M.pricePerKg ?? ""; $("mRi").value = M.innerRadius ?? ""; $("mK").value = M.kFactor ?? "";
   $("mRegel").value = M.sheetMetalRule || ""; $("mHinw").value = M.notes || "";
   $("mTafeln").value = (M.sheets || []).map((s) => s.join("x")).join("; ");
   $("mRollen").value = (M.coils || []).join("; ");
@@ -304,7 +304,7 @@ $("mSchliessen").onclick = () => { M = null; $("mEditor").style.display = "none"
 $("mSpeichern").onclick = async () => {
   const liste = (s, n) => s.split(/[;,]/).map((x) => x.trim()).filter(Boolean).map(n);
   M.name = $("mName").value.trim(); M.material = $("mWerk").value; M.thickness = zahlOderNull($("mT").value);
-  M.density = zahlOderNull($("mD").value); M.innerRadius = zahlOderNull($("mRi").value); M.kFactor = zahlOderNull($("mK").value);
+  M.density = zahlOderNull($("mD").value); M.pricePerKg = zahlOderNull($("mP").value); M.innerRadius = zahlOderNull($("mRi").value); M.kFactor = zahlOderNull($("mK").value);
   M.sheetMetalRule = $("mRegel").value; M.notes = $("mHinw").value;
   M.sheets = liste($("mTafeln").value, (x) => x.toLowerCase().split(/[x×*]/).map((y) => Number(y.trim())));
   M.coils = liste($("mRollen").value, Number);
@@ -338,6 +338,9 @@ function zeigeEinstellungen() {
   const ro = au.rollen || { modelle: "Modelle", plaene: "Pläne", export: "Export" };
   $("sAMod").value = ro.modelle; $("sAPla").value = ro.plaene; $("sAExp").value = ro.export;
   $("sALokal").value = au.lokalBasis || ""; $("sANr").checked = au.teilnummerMitAuftrag !== false;
+  const ka = e.kalkulation || { stundensatzName: "", stundensatzManuell: null, ruestMinProTeil: 5, minProBiegung: 1.5, minProMeterZuschnitt: 2, zuschlagProzent: 0 };
+  $("sKName").value = ka.stundensatzName || ""; $("sKMan").value = ka.stundensatzManuell ?? ""; $("sKRuest").value = ka.ruestMinProTeil;
+  $("sKBieg").value = ka.minProBiegung; $("sKSchn").value = ka.minProMeterZuschnitt; $("sKZus").value = ka.zuschlagProzent;
   const pr = e.pruefung || { minSchenkel: 10, minRadiusFaktor: 1 };
   $("sPMin").value = pr.minSchenkel; $("sPRad").value = pr.minRadiusFaktor;
   const l = e.labels;
@@ -361,6 +364,8 @@ $("sSpeichern").onclick = async () => {
   e.forming.defaultProcess = $("sVerf").value;
   e.auftrag = { wurzelOrdner: $("sAWurzel").value.trim(), jahresordner: $("sAJahr").checked, unterordner: $("sAUnter").value.split(",").map((x) => x.trim()).filter(Boolean),
     rollen: { modelle: $("sAMod").value.trim(), plaene: $("sAPla").value.trim(), export: $("sAExp").value.trim() }, lokalBasis: $("sALokal").value.trim(), teilnummerMitAuftrag: $("sANr").checked };
+  e.kalkulation = { stundensatzName: $("sKName").value.trim(), stundensatzManuell: zahlOderNull($("sKMan").value), ruestMinProTeil: zahlOderNull($("sKRuest").value) ?? 5,
+    minProBiegung: zahlOderNull($("sKBieg").value) ?? 1.5, minProMeterZuschnitt: zahlOderNull($("sKSchn").value) ?? 2, zuschlagProzent: zahlOderNull($("sKZus").value) ?? 0 };
   e.pruefung = { minSchenkel: zahlOderNull($("sPMin").value) ?? 10, minRadiusFaktor: zahlOderNull($("sPRad").value) ?? 1 };
   e.labels = etikettenLesen();
   if (await tun(() => senden("einstellungen_speichern", { einstellungen: e }), "Einstellungen gespeichert.")) await laden();
