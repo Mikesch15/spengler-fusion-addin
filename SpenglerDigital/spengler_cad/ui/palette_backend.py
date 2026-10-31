@@ -92,6 +92,23 @@ class Backend(object):
         svg, grund = drawing.vorlagen_vorschau(d["vorlage"], m)
         return {"svg": svg, "grund": grund, "material": m["name"] if m else None}
 
+    def a_profilblatt(self, d):
+        """Profilzeichnung mit Massen als HTML-Datei im Exportordner → Pfad (die Palette lässt sie dann von Fusion öffnen)."""
+        import datetime
+        from ..manufacturing import profilblatt
+        from ..storage import json_store
+        e = Einstellungen(self.wurzel).laden()
+        m = self._standardmaterial(e, d.get("materialId"))
+        text, grund = profilblatt.profilblatt_html(d["vorlage"], m, d.get("werte"), datum=datetime.date.today().isoformat(), version=VERSION)
+        if text is None:
+            raise ValueError("Profilzeichnung nicht möglich: %s" % grund)
+        ordner = (e.get("export") or {}).get("folder") or paths.unterordner("export")
+        os.makedirs(ordner, exist_ok=True)
+        pfad = os.path.join(ordner, "Profil_%s.html" % json_store.dateiname_sicher(d["vorlage"].get("name") or "Vorlage"))
+        with open(pfad, "w", encoding="utf-8") as f:
+            f.write(text)
+        return {"pfad": pfad}
+
     def a_pruefen(self, d):
         from ..core.validation import pruefe_kantenvorlage
         f, w = pruefe_kantenvorlage(d["vorlage"])

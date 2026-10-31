@@ -42,6 +42,14 @@ def _dialog_aktion(aktion, d):
         return a["daten"]
     if aktion == "update_installieren":
         return update_anbieten(nachfragen_wenn_aktuell=True)
+    if aktion == "datei_oeffnen":     # nur Dateien, die das Add-in selbst erzeugt hat (Datenordner oder Exportordner)
+        p = os.path.abspath(str(d.get("pfad", "")))
+        from ..storage.settings_service import Einstellungen
+        erlaubt = [os.path.abspath(paths.daten_ordner()), os.path.abspath((Einstellungen().laden().get("export") or {}).get("folder") or paths.unterordner("export"))]
+        if not (os.path.isfile(p) and p.lower().endswith((".html", ".svg", ".csv", ".txt", ".dxf")) and any(p.startswith(x + os.sep) for x in erlaubt)):
+            raise RuntimeError("Diese Datei darf nicht geöffnet werden.")
+        base.oeffnen(p)
+        return True
     if aktion == "protokoll":
         base.oeffnen(logger.pfad())
         return True

@@ -6,7 +6,7 @@ import unittest
 
 from _basis import DatenTest, test_material  # noqa: F401
 from spengler_cad.core import auftrag
-from spengler_cad.manufacturing import bend_list, bestellung, kalkulation, mappe, pruefung
+from spengler_cad.manufacturing import bend_list, bestellung, kalkulation, mappe, profilblatt, pruefung
 
 OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "umschlag", "winkel": 180, "laenge": 6, "radius": 0.3}]
 
@@ -137,6 +137,38 @@ class MappeTest(unittest.TestCase):
         bestellung.blatt_merken("17999", "Dach", datei, tmp)
         bestellung.blatt_merken("17999", "Wand", os.path.join(tmp, "gibtsnicht.html"), tmp)
         self.assertEqual(bestellung.blaetter_lesen("17999", tmp), [("Dach", datei)], "doppelt/fehlend wird ausgelassen")
+
+
+class ProfilblattTest(unittest.TestCase):
+    def test_profilblatt_mit_massen(self):
+        from test_templates import testvorlage
+        v = testvorlage()
+        v["operations"] = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+        h, grund = profilblatt.profilblatt_html(v, test_material(), None, "Testweg 1", "17999", "2026-10-31", "0.4")
+        self.assertIsNone(grund)
+        self.assertIn("<svg", h)
+        self.assertIn("<td>1</td><td>Flansch</td><td>90°</td><td>25</td>", h)
+        self.assertIn("Umschlag", h)
+        self.assertIn("Auftrag: <b>17999</b>", h)
+        h2, _ = profilblatt.profilblatt_html(v, None)
+        self.assertIn("Skizze (ohne Materialprofil)", h2)
+        v["operations"] = [{"typ": "flansch", "winkel": 90, "laenge": "zz", "radius": None}]
+        self.assertIsNone(profilblatt.profilblatt_html(v, None)[0])
+
+    def test_backend_schreibt_datei(self):
+        from spengler_cad.ui.palette_backend import Backend
+        from test_templates import testvorlage
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        b = Backend(tmp)
+        e = b.a_init({})["einstellungen"]
+        e["export"]["folder"] = os.path.join(tmp, "exp")
+        b.a_einstellungen_speichern({"einstellungen": e})
+        v = testvorlage()
+        v["operations"] = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}]
+        r = b.a_profilblatt({"vorlage": v})
+        self.assertTrue(os.path.isfile(r["pfad"]) and r["pfad"].endswith(".html"))
+        self.assertTrue(r["pfad"].startswith(os.path.join(tmp, "exp")))
 
 
 class StatusTest(unittest.TestCase):

@@ -450,3 +450,8 @@ async function aenderungenLaden() {
   $("acListe").innerHTML = r.map((a) => `<tr><td>${esc((a.zeit || "").replace("T", " "))}</td><td>${esc(a.benutzer)}</td><td>${esc(a.aktion)}</td><td>${esc(a.name)}</td><td>${esc(a.version ?? "")}</td></tr>`).join("") || "<tr><td colspan='5'>Noch keine Änderungen.</td></tr>";
 }
 $("acLaden").onclick = aenderungenLaden;
+
+$("eProfil").onclick = async () => {
+  const r = await tun(() => senden("profilblatt", { vorlage: editorLesen(), materialId: $("eMat").value || null }));
+  if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
+};
