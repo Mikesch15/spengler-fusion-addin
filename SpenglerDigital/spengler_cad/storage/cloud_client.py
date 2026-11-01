@@ -249,9 +249,29 @@ class Cloud(object):
         """Stundenansätze der App (Tabelle rates, nur lesen; sichtbar, wenn das Konto sie in der App sehen darf) → [{name, value}]."""
         return self._json("GET", "/rest/v1/rates?select=name,value&order=value.desc") or []
 
+    def teile_senden(self, teile):
+        """Teile an die App (Tabelle cad_teile, je Auftrag/Dokument/Teilnummer ein Eintrag, wird überschrieben). Schon übernommene Teile behalten
+        measurement_id/status (diese Felder werden nicht mitgeschickt)."""
+        if not teile:
+            return 0
+        zeilen = [dict(t, company_id=self._konto["company_id"]) for t in teile]
+        self._anfrage("POST", "/rest/v1/cad_teile?on_conflict=company_id,auftrag,dokument,teil_nr", zeilen,
+                      kopf={"Prefer": "resolution=merge-duplicates,return=minimal"})
+        return len(zeilen)
+
+    def teile_lesen(self, auftrag):
+        return self._json("GET", "/rest/v1/cad_teile?select=teil_label,name,status,measurement_id,dokument,teil_nr,geaendert_am&auftrag=eq.%s&order=teil_nr" % urllib.parse.quote(str(auftrag))) or []
+
+    def massaufnahmen_zum_auftrag(self, nummer):
+        """Massaufnahmen (Freies Profil / Dachrandblech) der App zum Auftrag (nur lesen) → [{id,title,type,staerke_mm,data,workflow_status}]."""
+        p = self.projekt_zu_auftrag(nummer)
+        if not p or not p.get("id"):
+            return []
+        return self._json("GET", "/rest/v1/measurements?select=id,title,type,staerke_mm,workflow_status,data&project_id=eq.%s&type=in.(freies_profil,dachrandblech)&archived=eq.false&order=id.desc&limit=100" % p["id"]) or []
+
     def projekt_zu_auftrag(self, nummer):
         """Auftrag der App (Tabelle projects, nur lesen) zur Auftragsnummer → {name, order_no, customer, object, status} oder None."""
-        z = self._json("GET", "/rest/v1/projects?select=name,order_no,customer,object,status&archived=eq.false&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
+        z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status&archived=eq.false&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
         return z[0] if z else None
 
     def fehlerberichte(self, anzahl=40):

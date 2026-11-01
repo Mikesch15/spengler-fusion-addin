@@ -18,7 +18,7 @@ import adsk.fusion
 
 from .. import VERSION
 from ..diagnostics import logger
-from ..core import auftrag
+from ..core import app_profil, auftrag
 from ..geometry import fusion_adapter as fa
 from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
 from ..storage import json_store, paths
@@ -229,6 +229,7 @@ def zus_erstellt(args):
     inp.addBoolValueInput("abkant", "Abkantliste für die Werkstatt (HTML)", True, "", True)
     inp.addBoolValueInput("bestell", "Bestellliste für den ganzen Auftrag (alle Dokumente)", True, "", False)
     inp.addBoolValueInput("kalk", "Kalkulation (Arbeitszeit × Stundensatz der App)", True, "", True)
+    inp.addBoolValueInput("appsenden", "Teile an die App senden (Zentrale, als Massaufnahme übernehmbar)", True, "", True)
     inp.addBoolValueInput("mappe", "Auftragsmappe (alles in einer Datei zum Drucken/PDF)", True, "", False)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged,
@@ -256,7 +257,8 @@ def _zus(self, args):
         q = _quelle(body) or {}
         teile.append({"nr": nr if nr is not None else "", "name": body.name, "materialId": m["id"], "material": m, "flaeche": masse["flaeche"],
                       "breite": masse["breite"], "laenge": masse["laenge"], "stueck": stueck, "dicke": m.get("thickness"), "abwicklung": True,
-                      "operationen": q.get("operationen"), "ri": m.get("innerRadius")})
+                      "operationen": q.get("operationen"), "ri": m.get("innerRadius"),
+                      "vorlage": q.get("vorlageName"), "vorlageVersion": q.get("vorlageVersion")})
     if not teile:
         raise fa.AdapterFehler("Keiner der gewählten Körper hat eine Abwicklung. Zuerst «Abwicklung & DXF» ausführen.")
     teile.sort(key=lambda t: (t["nr"] == "", t["nr"] if t["nr"] != "" else 0, t["name"]))
@@ -328,6 +330,8 @@ def _zus(self, args):
                 t["nr"], t["name"], t["breite"], t["laenge"], r["breite_mm"], r["laenge_mm"], r.get("material_name") or "Material egal") for t, r in treffer) + "\n\n"
     except Exception:
         logger.ausnahme("Reststücke prüfen")
+    if inp.itemById("appsenden").value:
+        text += _an_die_app(teile, auftrag_nr) + "\n\n"
     if warn:
         text += "Prüfung:\n" + "\n".join("⚠ " + w for w in warn) + "\n\n"
     text += "Teile: " + ", ".join("%s %s" % (t["nr"], t["name"]) for t in teile) + "\n"
@@ -377,6 +381,27 @@ def _zus(self, args):
         base.oeffnen(ordner)
     except Exception:
         pass
+
+
+def _an_die_app(teile, auftrag_nr):
+    """Teile in die App (cad_teile) schreiben → Text für den Bericht. Ohne Anmeldung/Netz/Auftragsnummer nur ein Hinweis, nichts geht verloren."""
+    if not auftrag_nr:
+        return "App: keine Auftragsnummer – Teile nicht gesendet."
+    try:
+        from ..storage.cloud_client import Cloud
+        c = Cloud(timeout=12)
+        if not c.angemeldet:
+            return "App: nicht angemeldet – Teile nicht gesendet (Register Konto)."
+        try:
+            p = c.projekt_zu_auftrag(auftrag_nr)
+        except Exception:
+            p = None
+        zeilen = app_profil.teile_zeilen(teile, auftrag_nr, fa.dokument_name(), (p or {}).get("id"), VERSION)
+        n = c.teile_senden(zeilen)
+        return "App: %d Teil(e) gesendet%s." % (n, (" (Auftrag «%s»)" % p["name"]) if p else " – der Auftrag wurde in der App nicht gefunden, Zuordnung zum Projekt folgt später")
+    except Exception as ex:
+        logger.ausnahme("Teile an die App senden")
+        return "App: Teile nicht gesendet (%s)." % base.fehlertext(ex)
 
 
 def zus_ausfuehren(args):

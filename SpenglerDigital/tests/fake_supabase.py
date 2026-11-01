@@ -22,6 +22,8 @@ class Zustand(object):
         self.status = []       # cad_auftragsstatus
         self.aenderungen = []  # cad_aenderungen
         self.rates = []        # rates (App, nur lesen)
+        self.teile = []        # cad_teile
+        self.measurements = [] # measurements (App, nur lesen)
         self.projects = []     # projects (App, nur lesen)
         self.versionen = []
         self.dateien = {}      # pfad → bytes
@@ -194,6 +196,24 @@ def server(z):
                         z.aenderungen.append(dict(d))
                     return self._antwort(201)
                 return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/cad_teile":
+                eigene = [r for r in z.teile if r["company_id"] == me["firma"]]
+                if m == "GET":
+                    return self._antwort(200, [r for r in eigene if r["auftrag"] == f.get("auftrag", "eq.")[3:]])
+                if m == "POST":
+                    for d in json.loads(body):
+                        if d.get("company_id") != me["firma"]:
+                            return self._antwort(403, {"message": "row-level security"})
+                        alt = next((r for r in eigene if (r["auftrag"], r["dokument"], r["teil_nr"]) == (d["auftrag"], d["dokument"], d["teil_nr"])), None)
+                        if alt:
+                            alt.update(d)
+                        else:
+                            z.teile.append(dict(d, status="neu", measurement_id=None))
+                    return self._antwort(201)
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/measurements":
+                pid = f.get("project_id", "eq.")[3:]
+                return self._antwort(200, [r for r in z.measurements if r["company_id"] == me["firma"] and str(r["project_id"]) == pid] if m == "GET" else [])
             if pfad == "/rest/v1/rates":
                 return self._antwort(200, [{"name": r["name"], "value": r["value"]} for r in z.rates if r["company_id"] == me["firma"]] if m == "GET" else [])
             if pfad == "/rest/v1/projects":
