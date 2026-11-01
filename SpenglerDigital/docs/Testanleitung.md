@@ -191,6 +191,17 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Im CAD dasselbe Teil nochmals senden | Kein doppeltes Teil in der App (wird überschrieben) |
 | ☐ | In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD **Vorlage aus App-Massaufnahme** | Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt) |
 
+## 9f. Aufträge App ↔ Fusion abgleichen (5 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | **Aufträge abgleichen** | Dialog: Projekte der App ohne Ordner und Ordner ohne Projekt, Zahl «in beiden», Abweichungen |
+| ☐ | Nur einen Eintrag aus «App → Ordner» angehakt lassen, OK | Ordner `Stamm/Jahr/Nummer Objekt` mit Unterordnern entsteht in Fusion |
+| ☐ | Einen Testordner `99998 Abgleich Test, Bern` in Fusion anlegen, abgleichen, nur diesen anhaken | Projekt «99998» erscheint in der App (Titel = Objekt) |
+| ☐ | Nochmals abgleichen | Beide Einträge sind jetzt «in beiden» |
+| ☐ | **Neuer Auftrag** mit Haken «Auch als Projekt in der App anlegen», Nummer 99997 | Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon» |
+| ☐ | Testprojekte in der App wieder löschen/archivieren | – |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |

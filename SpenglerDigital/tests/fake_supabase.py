@@ -217,7 +217,17 @@ def server(z):
             if pfad == "/rest/v1/rates":
                 return self._antwort(200, [{"name": r["name"], "value": r["value"]} for r in z.rates if r["company_id"] == me["firma"]] if m == "GET" else [])
             if pfad == "/rest/v1/projects":
-                treffer = [r for r in z.projects if r["company_id"] == me["firma"] and r["order_no"] == f.get("order_no", "eq.")[3:]]
+                if m == "POST":
+                    for d in json.loads(body):
+                        if any(r["company_id"] == me["firma"] and r["order_no"] == d["order_no"] for r in z.projects):
+                            return self._antwort(409, {"message": 'duplicate key value violates unique constraint "projects_company_order_no"'})
+                        neu = dict(d, company_id=me["firma"], id=100 + len(z.projects), status="offen", archived=False, created_at="2026-11-01T10:00:00+00:00")
+                        z.projects.append(neu)
+                        return self._antwort(201, [{k: v for k, v in neu.items() if k != "company_id"}])
+                if "order_no" in f:
+                    treffer = [r for r in z.projects if r["company_id"] == me["firma"] and r["order_no"] == f["order_no"][3:]]
+                else:
+                    treffer = [r for r in z.projects if r["company_id"] == me["firma"]]
                 return self._antwort(200, [{k: v for k, v in r.items() if k != "company_id"} for r in treffer] if m == "GET" else [])
             if pfad.startswith("/storage/v1/object/cad/"):
                 name = urllib.parse.unquote(pfad[len("/storage/v1/object/cad/"):])

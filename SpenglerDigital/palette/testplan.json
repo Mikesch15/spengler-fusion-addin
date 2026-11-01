@@ -613,6 +613,36 @@
      "id": "9.38",
      "text": "In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD Vorlage aus App-Massaufnahme",
      "erwartet": "Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt)"
+    },
+    {
+     "id": "9.39",
+     "text": "Aufträge abgleichen",
+     "erwartet": "Dialog: Projekte der App ohne Ordner und Ordner ohne Projekt, Zahl «in beiden», Abweichungen"
+    },
+    {
+     "id": "9.40",
+     "text": "Nur einen Eintrag aus «App → Ordner» angehakt lassen, OK",
+     "erwartet": "Ordner Stamm/Jahr/Nummer Objekt mit Unterordnern entsteht in Fusion"
+    },
+    {
+     "id": "9.41",
+     "text": "Einen Testordner 99998 Abgleich Test, Bern in Fusion anlegen, abgleichen, nur diesen anhaken",
+     "erwartet": "Projekt «99998» erscheint in der App (Titel = Objekt)"
+    },
+    {
+     "id": "9.42",
+     "text": "Nochmals abgleichen",
+     "erwartet": "Beide Einträge sind jetzt «in beiden»"
+    },
+    {
+     "id": "9.43",
+     "text": "Neuer Auftrag mit Haken «Auch als Projekt in der App anlegen», Nummer 99997",
+     "erwartet": "Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon»"
+    },
+    {
+     "id": "9.44",
+     "text": "Testprojekte in der App wieder löschen/archivieren",
+     "erwartet": ""
     }
    ]
   },

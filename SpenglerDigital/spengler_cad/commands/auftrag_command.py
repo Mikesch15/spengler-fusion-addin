@@ -4,7 +4,7 @@ import datetime
 
 import adsk.core
 
-from ..core import auftrag
+from ..core import abgleich, auftrag
 from ..diagnostics import logger
 from ..geometry import fusion_adapter as fa
 from ..storage.settings_service import Einstellungen
@@ -12,7 +12,8 @@ from . import base
 
 BID = "spenglerNeuerAuftrag"
 BID_WAHL = "spenglerAuftragWaehlen"
-Z = {"liste": [], "treffer": [], "status": {}, "app": {}}
+BID_ABGLEICH = "spenglerAuftraegeAbgleichen"
+Z = {"liste": [], "treffer": [], "status": {}, "app": {}, "abgleich": None}
 
 
 def _plan(inp, e):
@@ -31,6 +32,7 @@ def erstellt(args):
     else:
         inp.addIntegerSpinnerCommandInput("jahr", "Jahr (nicht verwendet)", 2000, 2100, 1, datetime.date.today().year).isEnabled = False
     inp.addBoolValueInput("speichern", "Aktuelles Dokument im Ordner «%s» speichern" % a["rollen"]["modelle"], True, "", False)
+    inp.addBoolValueInput("appprojekt", "Auch als Projekt in der App anlegen (falls es die Nummer dort noch nicht gibt)", True, "", True)
     inp.addTextBoxCommandInput("plan", "", "", 5, True)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, lambda x: _anzeigen(x.inputs))
     base.handler(adsk.core.ValidateInputsEventHandler, cmd.validateInputs, _pruefen)
@@ -72,6 +74,8 @@ def _ausfuehren_innen(self, args):
     except Exception:
         logger.warnung("Fertigungsstatus beim neuen Auftrag nicht gesetzt")
     gespeichert = ""
+    if inp.itemById("appprojekt").value:
+        gespeichert += "\n\n" + _projekt_in_app(nummer, objekt)
     if inp.itemById("speichern").value:
         a = auftrag.pruefe_einstellung(e.get("auftrag"))
         gespeichert = "\n\n" + fa.dokument_im_auftrag_speichern(p["wurzel"], p["name"], a["rollen"]["modelle"])
@@ -202,3 +206,86 @@ def _waehlen_ausfuehren(args):
 
 def registrieren_wahl():
     return [base.befehl_definieren(BID_WAHL, "Auftrag wählen", "Vorhandenen Auftrag aus der Ordnerstruktur wählen (aktiv für Stückliste, Etiketten, Export), Fertigungsstatus setzen und das Dokument darin speichern.", waehlen_erstellt)]
+
+
+# ---------------------------------------------------------------- Aufträge abgleichen (App ↔ Fusion-Ordner)
+MAX_ZEILEN = 40
+
+
+@base.sicher("Aufträge abgleichen")
+def _abgleich_erstellt(self, args):
+    cmd = args.command
+    inp = cmd.commandInputs
+    e = Einstellungen().laden()
+    a = auftrag.pruefe_einstellung(e.get("auftrag"))
+    from ..storage.cloud_client import Cloud
+    c = Cloud(timeout=12)
+    if not c.angemeldet:
+        raise fa.AdapterFehler("Für den Abgleich zuerst unter «Konto» mit dem App-Konto anmelden.")
+    projekte = c.projekte_lesen()
+    ordner = fa.auftraege_lesen(a["wurzelOrdner"])
+    Z["abgleich"] = abgleich.vergleiche(projekte, ordner)
+    erg = Z["abgleich"]
+    g1 = inp.addGroupCommandInput("g1", "In der App, aber kein Ordner in Fusion → Ordner anlegen (%d)" % len(erg["nur_app"]))
+    for i, x in enumerate(erg["nur_app"][:MAX_ZEILEN]):
+        g1.children.addBoolValueInput("a%d" % i, x["ordnername"], True, "", True)
+    g2 = inp.addGroupCommandInput("g2", "In Fusion, aber kein Projekt in der App → Projekt in der App anlegen (%d)" % len(erg["nur_fusion"]))
+    for i, x in enumerate(erg["nur_fusion"][:MAX_ZEILEN]):
+        g2.children.addBoolValueInput("f%d" % i, x["name"], True, "", True)
+    zeilen = ["In beiden: %d" % len(erg["beide"])]
+    if erg["abweichend"]:
+        zeilen.append("Unterschiedliches Objekt (nichts geändert): " + "; ".join("%s: App «%s» / Fusion «%s»" % (p["order_no"], p.get("object") or "", o["objekt"]) for p, o in erg["abweichend"][:6]))
+    if erg["uebersprungen"]:
+        zeilen.append("Nicht übernehmbar: " + "; ".join("%s (%s)" % (p.get("name") or p.get("id"), g) for p, g in erg["uebersprungen"][:6]))
+    if erg["archiviert"]:
+        zeilen.append("%d archivierte Projekte der App werden ignoriert." % erg["archiviert"])
+    if len(erg["nur_app"]) > MAX_ZEILEN or len(erg["nur_fusion"]) > MAX_ZEILEN:
+        zeilen.append("Es werden höchstens %d Einträge je Liste angezeigt; den Rest beim nächsten Abgleich." % MAX_ZEILEN)
+    inp.addTextBoxCommandInput("info", "", "<br>".join(zeilen), 5, True)
+    base.handler(adsk.core.CommandEventHandler, cmd.execute, _abgleich_ausfuehren)
+
+
+def abgleich_erstellt(args):
+    _abgleich_erstellt(None, args)
+
+
+@base.sicher("Aufträge abgleichen")
+def _abgleich_innen(self, args):
+    from ..storage.cloud_client import Cloud
+    inp = args.command.commandInputs
+    e = Einstellungen().laden()
+    a = auftrag.pruefe_einstellung(e.get("auftrag"))
+    erg = Z["abgleich"]
+    c = Cloud(timeout=12)
+    meldungen, fehler = [], []
+    for i, x in enumerate(erg["nur_app"][:MAX_ZEILEN]):
+        if not inp.itemById("a%d" % i).value:
+            continue
+        p = x["projekt"]
+        try:
+            plan = auftrag.plan(e.get("auftrag"), p["order_no"], x["ordnername"].split(" ", 1)[1], x["jahr"] or datetime.date.today().year)
+            pfad, _ = fa.auftrag_ordner_anlegen(plan)
+            meldungen.append("Ordner angelegt: %s" % pfad)
+        except Exception as ex:
+            logger.ausnahme("Abgleich: Ordner")
+            fehler.append("%s: %s" % (x["ordnername"], base.fehlertext(ex)))
+    for i, o in enumerate(erg["nur_fusion"][:MAX_ZEILEN]):
+        if not inp.itemById("f%d" % i).value:
+            continue
+        pr = abgleich.projekt_aus_ordner(o)
+        try:
+            c.projekt_anlegen(pr["order_no"], pr["object"], pr["name"])
+            meldungen.append("Projekt in der App angelegt: %s %s" % (pr["order_no"], pr["object"]))
+        except Exception as ex:
+            logger.warnung("Abgleich: Projekt", fehler=ex)
+            fehler.append("%s %s: %s" % (pr["order_no"], pr["object"], base.fehlertext(ex)))
+    logger.info("Aufträge abgeglichen", angelegt=len(meldungen), fehler=len(fehler))
+    base.melden("Aufträge abgleichen", ("\n".join(meldungen) or "Nichts angelegt.") + (("\n\nNicht geklappt:\n" + "\n".join(fehler)) if fehler else ""), bool(fehler) and not meldungen)
+
+
+def _abgleich_ausfuehren(args):
+    _abgleich_innen(None, args)
+
+
+def registrieren_abgleich():
+    return [base.befehl_definieren(BID_ABGLEICH, "Aufträge abgleichen", "Vergleicht die Projekte der App mit den Auftragsordnern in Fusion und legt Fehlendes auf der jeweils anderen Seite an (nach Ihrer Auswahl).", abgleich_erstellt)]

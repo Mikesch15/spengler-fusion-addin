@@ -5,7 +5,7 @@ import tempfile
 import unittest
 
 from _basis import DatenTest, test_material  # noqa: F401
-from spengler_cad.core import auftrag
+from spengler_cad.core import abgleich, auftrag
 from spengler_cad.manufacturing import bend_list, bestellung, kalkulation, mappe, profilblatt, pruefung
 
 OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "umschlag", "winkel": 180, "laenge": 6, "radius": 0.3}]
@@ -171,6 +171,34 @@ class ProfilblattTest(unittest.TestCase):
         self.assertTrue(r["pfad"].startswith(os.path.join(tmp, "exp")))
 
 
+class AbgleichTest(unittest.TestCase):
+    def P(self, nr, objekt, **k):
+        return dict({"id": len(str(nr)) + 1, "name": "Titel " + str(nr), "order_no": nr, "object": objekt, "archived": False, "created_at": "2025-09-27T09:41:00+00:00"}, **k)
+
+    def O(self, nr, objekt):
+        return {"nummer": nr, "objekt": objekt, "name": "%s %s" % (nr, objekt), "jahr": 2025}
+
+    def test_vergleich(self):
+        projekte = [self.P("17642", "Nägeligasse 1a, Bern"), self.P("17747", "Talstrasse 23, Kehrsatz"), self.P("18000", "Neu in der App, Bern"),
+                    self.P("", "ohne Nummer"), self.P("ABC1", "Buchstaben"), self.P("19000", "Alt", archived=True), self.P("18001", "A/B: C")]
+        ordner = [self.O("17642", "Nägeligasse 1a, Bern"), self.O("17747", "Talstrasse 23, Ittigen"), self.O("17999", "Nur in Fusion, Bern"), self.O("19000", "Alt")]
+        e = abgleich.vergleiche(projekte, ordner)
+        self.assertEqual([x["ordnername"] for x in e["nur_app"]], ["18000 Neu in der App, Bern", "18001 A-B- C"])
+        self.assertEqual(e["nur_app"][0]["jahr"], 2025)
+        self.assertEqual([o["nummer"] for o in e["nur_fusion"]], ["17999"], "19000 hat ein (archiviertes) Projekt → kein Doppelanlegen")
+        self.assertEqual([p["order_no"] for p, _ in e["beide"]], ["17642"])
+        self.assertEqual([p["order_no"] for p, _ in e["abweichend"]], ["17747"])
+        self.assertEqual(sorted(g.split(" ")[0] for _, g in e["uebersprungen"]), ["Auftragsnummer", "keine"])
+        self.assertEqual(e["archiviert"], 1)
+
+    def test_projekt_aus_ordner(self):
+        self.assertEqual(abgleich.projekt_aus_ordner(self.O("17999", "Weg 1, Bern")), {"order_no": "17999", "object": "Weg 1, Bern", "name": "Weg 1, Bern"})
+
+    def test_ordnername_ohne_objekt_nimmt_den_namen(self):
+        self.assertEqual(abgleich.ordnername_fuer_projekt({"order_no": "18308", "object": "", "name": "Mauerabdeckung Hirsbrunner"})[0], "18308 Mauerabdeckung Hirsbrunner")
+        self.assertIsNone(abgleich.ordnername_fuer_projekt({"order_no": "18308", "object": "", "name": ""})[0])
+
+
 class StatusTest(unittest.TestCase):
     def test_listentext(self):
         a = {"name": "18162 Sonneggweg 9, Bern", "nummer": "18162"}
@@ -179,6 +207,28 @@ class StatusTest(unittest.TestCase):
 
 
 class CloudStatusTest(unittest.TestCase):
+    def test_projekte_lesen_und_anlegen(self):
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud, CloudFehler
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "Sonneggweg", "object": "Sonneggweg 9, Bern", "status": "in_arbeit"}]
+        c = Cloud(tmp, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        self.assertEqual([p["order_no"] for p in c.projekte_lesen()], ["18162"])
+        neu = c.projekt_anlegen("17999", "Testweg 1, Bern")
+        self.assertEqual((neu["order_no"], neu["object"], neu["name"]), ("17999", "Testweg 1, Bern", "Testweg 1, Bern"))
+        self.assertEqual(len(c.projekte_lesen()), 2)
+        with self.assertRaises(CloudFehler) as cm:
+            c.projekt_anlegen("17999", "Nochmal")
+        self.assertIn("gibt es in der App schon", str(cm.exception))
+        self.assertEqual(len(z.projects), 2, "keine Doppelte")
+
     def test_status_und_app_daten_ueber_fake_supabase(self):
         import fake_supabase
         from spengler_cad.storage.cloud_client import Cloud, CloudFehler

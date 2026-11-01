@@ -269,6 +269,24 @@ class Cloud(object):
             return []
         return self._json("GET", "/rest/v1/measurements?select=id,title,type,staerke_mm,workflow_status,data&project_id=eq.%s&type=in.(freies_profil,dachrandblech)&archived=eq.false&order=id.desc&limit=100" % p["id"]) or []
 
+    def projekte_lesen(self):
+        """Projekte der App (nur lesen) → [{id,name,order_no,object,customer,status,archived,created_at}]."""
+        return self._json("GET", "/rest/v1/projects?select=id,name,order_no,object,customer,status,archived,created_at&order=order_no.desc&limit=1000") or []
+
+    def projekt_anlegen(self, order_no, objekt, name=None):
+        """Neues Projekt in der App – dieselben Felder wie die App beim Anlegen (name, order_no, customer, object). Auftragsnummern sind je Firma
+        eindeutig; die Datenbank meldet doppelte (→ CloudFehler mit Klartext). → angelegte Zeile (id, …)."""
+        try:
+            r = self._json("POST", "/rest/v1/projects", [{"name": (name or objekt)[:200], "order_no": str(order_no), "customer": "", "object": objekt}],
+                           kopf={"Prefer": "return=representation"})
+        except CloudFehler as ex:
+            if ex.status in (409,) or "duplicate" in str(ex).lower():
+                raise CloudFehler("Die Auftragsnummer %s gibt es in der App schon." % order_no, ex.status)
+            if ex.status in (401, 403):
+                raise CloudFehler("Keine Berechtigung, in der App Projekte anzulegen (Recht «Projekte» für dieses Konto).", ex.status)
+            raise
+        return (r or [{}])[0]
+
     def projekt_zu_auftrag(self, nummer):
         """Auftrag der App (Tabelle projects, nur lesen) zur Auftragsnummer → {name, order_no, customer, object, status} oder None."""
         z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status&archived=eq.false&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
