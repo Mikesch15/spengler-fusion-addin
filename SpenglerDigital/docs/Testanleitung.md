@@ -171,6 +171,15 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Fehlermeldung auslösen, Register **Berichte → Fehlerberichte laden** | Bericht mit Bildschirmfoto und Protokoll |
 | ☐ | Nach dem Update (neue Version) | Testpunkt 97.001 (Selbsttest) erscheint in der App-Datenbank |
 
+## 9d. Vorlage aus Profil lernen (5 Min.)
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | Dokument mit einem Profil aus 2–3 Flanschen/Falzen (z. B. «Winkelfalz 35») öffnen, **Vorlage aus Profil lernen** | Liste der Schritte in Zeitleistenreihenfolge, mit gelesenen Werten (Winkel, mm) |
+| ☐ | Name eingeben, OK | Meldung mit Kurzschrift; Vorlage erscheint in der Palette (Kategorie «Gelernt») |
+| ☐ | Vorlage im Editor öffnen | Winkel und Längen stimmen mit dem Profil überein; Vorschau prüfen, Richtungen (Vorzeichen) falls nötig ändern |
+| ☐ | Dokument ohne Flansche öffnen, Befehl starten | Meldung «keine Flansch- oder Saum-Features gefunden» |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |

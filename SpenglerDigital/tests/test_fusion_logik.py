@@ -1104,6 +1104,51 @@ class ZuschnittKoerperTest(unittest.TestCase):
         self.assertIn(("linie", "addByTwoPoints"), log)
 
 
+class ProfilLesenTest(unittest.TestCase):
+    """Flansch-/Saum-Features der Zeitleiste lesen (nur Werte) – mit nachgebauten Features, NICHT die echte Schnittstelle."""
+    def setUp(self):
+        self.alt = fa.design
+        self.addCleanup(setattr, fa, "design", self.alt)
+
+    def feature(self, typ, name, token, **eigenschaften):
+        e = type("Feat", (), dict({"objectType": typ, "name": name, "entityToken": token}, **eigenschaften))()
+        return e
+
+    def aufbau(self, features, parameter=()):
+        tl = type("TL", (), {"count": len(features), "item": lambda s_, i: type("It", (), {"entity": features[i]})()})()
+        d = type("D", (), {"timeline": tl, "allParameters": list(parameter)})()
+        fa.design = lambda: d
+
+    def test_eigenschaften_und_gespiegelt(self):
+        wp = lambda v: type("P", (), {"value": v})()
+        f1 = self.feature("adsk::fusion::FlangeFeature", "Kantenflansch 1", "t1", angle=wp(math.radians(88.0)), distance=wp(2.4), isFlipped=True)
+        sk = self.feature("adsk::fusion::Sketch", "Skizze1", "t0")
+        f2 = self.feature("adsk::fusion::HemFeature", "Falz 1", "t2", length=wp(0.7))
+        cf = self.feature("adsk::fusion::ContourFlangeFeature", "Konturflansch 1", "t3")
+        self.aufbau([sk, f1, f2, cf])
+        liste, hinweise = fa.profil_features_lesen()
+        self.assertEqual([x["art"] for x in liste], ["flansch", "umschlag"])
+        self.assertAlmostEqual(liste[0]["winkel_grad"], 88.0)
+        self.assertAlmostEqual(liste[0]["laenge_mm"], 24.0)
+        self.assertTrue(liste[0]["gespiegelt"])
+        self.assertAlmostEqual(liste[1]["laenge_mm"], 7.0)
+        self.assertIn("Konturflansch", hinweise[0])
+
+    def test_rueckfall_ueber_parameter_des_features(self):
+        f1 = self.feature("adsk::fusion::FlangeFeature", "Kantenflansch 1", "t1")
+        def p(rolle, wert, token="t1"):
+            return type("P", (), {"role": rolle, "name": "d1", "value": wert, "createdBy": type("C", (), {"entityToken": token})()})()
+        self.aufbau([f1], [p("Angle", math.radians(90.0)), p("Height", 2.5), p("Height", 9.9, "anderes")])
+        liste, _ = fa.profil_features_lesen()
+        self.assertAlmostEqual(liste[0]["winkel_grad"], 90.0)
+        self.assertAlmostEqual(liste[0]["laenge_mm"], 25.0, msg="nur Parameter dieses Features")
+
+    def test_nichts_lesbar(self):
+        self.aufbau([self.feature("adsk::fusion::FlangeFeature", "Kantenflansch 1", "t1")])
+        liste, _ = fa.profil_features_lesen()
+        self.assertEqual((liste[0]["winkel_grad"], liste[0]["laenge_mm"]), (None, None))
+
+
 class GruppeUmschlagTest(unittest.TestCase):
     """Umschlag als einziger Schritt an zusammenhängenden Kanten: gemeinsamer 179°-Flansch mit Gehrung (Live 31.10.: setFlatHem/setOpenHem nehmen nur
     EINE Kante, «U+ 12» an 2 Kanten wurde einzeln gebaut)."""

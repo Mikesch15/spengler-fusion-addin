@@ -563,6 +563,26 @@
      "id": "9.28",
      "text": "Nach dem Update (neue Version)",
      "erwartet": "Testpunkt 97.001 (Selbsttest) erscheint in der App-Datenbank"
+    },
+    {
+     "id": "9.29",
+     "text": "Dokument mit einem Profil aus 2–3 Flanschen/Falzen (z. B. «Winkelfalz 35») öffnen, Vorlage aus Profil lernen",
+     "erwartet": "Liste der Schritte in Zeitleistenreihenfolge, mit gelesenen Werten (Winkel, mm)"
+    },
+    {
+     "id": "9.30",
+     "text": "Name eingeben, OK",
+     "erwartet": "Meldung mit Kurzschrift; Vorlage erscheint in der Palette (Kategorie «Gelernt»)"
+    },
+    {
+     "id": "9.31",
+     "text": "Vorlage im Editor öffnen",
+     "erwartet": "Winkel und Längen stimmen mit dem Profil überein; Vorschau prüfen, Richtungen (Vorzeichen) falls nötig ändern"
+    },
+    {
+     "id": "9.32",
+     "text": "Dokument ohne Flansche öffnen, Befehl starten",
+     "erwartet": "Meldung «keine Flansch- oder Saum-Features gefunden»"
     }
    ]
   },

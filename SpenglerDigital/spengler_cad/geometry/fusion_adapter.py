@@ -1420,6 +1420,83 @@ def auftrag_ordner_anlegen(plan):
     return "/".join(pfad), hinweise
 
 
+# ------------------------------------------------------------------ Profil lesen (Vorlage lernen) – nur lesen, NICHT live geprüft
+def _zahl_aus(obj):
+    """Wert eines ModelParameter/ValueInput/Zahl in Fusion-Einheiten (cm bzw. rad) oder None."""
+    if obj is None:
+        return None
+    for n in ("value", "realValue"):
+        v = getattr(obj, n, None)
+        if isinstance(v, (int, float)) and not isinstance(v, bool):
+            return float(v)
+    if isinstance(obj, (int, float)) and not isinstance(obj, bool):
+        return float(obj)
+    return None
+
+
+def _feature_werte(ent, art):
+    """Winkel (Grad), Länge, Radius (mm) eines Flansch-/Saum-Features: erst über Eigenschaften des Features, dann über seine Parameter."""
+    erg = {"winkel_grad": None, "laenge_mm": None, "radius_mm": None}
+    for feld, namen in (("winkel_grad", ("angle", "flangeAngle")), ("laenge_mm", ("distance", "height", "length", "flangeHeight")),
+                        ("radius_mm", ("bendRadius", "radius"))):
+        for n in namen:
+            v = _zahl_aus(getattr(ent, n, None))
+            if v is not None:
+                erg[feld] = math.degrees(v) if feld == "winkel_grad" else v * 10.0
+                break
+    if None in (erg["laenge_mm"],) or (art == "flansch" and erg["winkel_grad"] is None):
+        try:
+            from ..core import lernen
+            token = ent.entityToken
+            for p in design().allParameters:
+                try:
+                    if p.createdBy is None or p.createdBy.entityToken != token:
+                        continue
+                except Exception:
+                    continue
+                feld = lernen.feld_zu_rolle("%s %s" % (getattr(p, "role", ""), getattr(p, "name", "")))
+                v = _zahl_aus(p)
+                if feld == "winkel" and erg["winkel_grad"] is None and v is not None:
+                    erg["winkel_grad"] = math.degrees(v)
+                elif feld == "laenge" and erg["laenge_mm"] is None and v is not None:
+                    erg["laenge_mm"] = v * 10.0
+                elif feld == "radius" and erg["radius_mm"] is None and v is not None:
+                    erg["radius_mm"] = v * 10.0
+        except Exception as ex:
+            logger.warnung("Parameter des Features nicht lesbar", fehler=ex)
+    return erg
+
+
+def profil_features_lesen():
+    """Flansch- und Saum-Features der Zeitleiste in Reihenfolge → (Liste für core.lernen, Hinweise). Verändert nichts."""
+    d = design()
+    tl = d.timeline
+    out, hinweise = [], []
+    for i in range(tl.count):
+        try:
+            ent = tl.item(i).entity
+            typ = str(getattr(ent, "objectType", "")).lower()
+        except Exception:
+            continue
+        if "hem" in typ and "feature" in typ:
+            art = "umschlag"
+        elif "flange" in typ and "contour" not in typ and "feature" in typ:
+            art = "flansch"
+        else:
+            if "contourflange" in typ:
+                hinweise.append("«%s» (Konturflansch) wird nicht gelesen." % getattr(ent, "name", "Feature"))
+            continue
+        werte = _feature_werte(ent, art)
+        try:
+            gesp = bool(getattr(ent, "isFlipped", False))
+        except Exception:
+            gesp = False
+        out.append(dict(werte, art=art, name=getattr(ent, "name", "Feature %d" % (i + 1)), gespiegelt=gesp))
+        if len(out) <= 3:       # Diagnose für die erste Rückmeldung: welche Eigenschaften/Parameter hat Fusion tatsächlich?
+            logger.info("Profil lesen", art=art, typ=typ, eigenschaften=_namen(ent), werte=werte)
+    return out, hinweise
+
+
 def dokument_name():
     try:
         return adsk.core.Application.get().activeDocument.name
