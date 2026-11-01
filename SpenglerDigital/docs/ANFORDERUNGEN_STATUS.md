@@ -195,3 +195,9 @@ Gewünscht vom Anwender («erstmal merken, später besprechen»). Die App hat be
 - **Stundensätze** (`rates`): werden gelesen (nur mit Berechtigung «rates»); offen, ob auch Material-/Lagerpreise (`materials`, `lagerbestand`) für die Kalkulation übernommen werden.
 - **Änderungsverlauf** (`audit_log`): das Add-in führt ein eigenes Protokoll (`cad_aenderungen`); offen, ob es in den App-Verlauf soll.
 - Berechtigungen: Die App steuert Zugriffe über `has_permission(...)`; das Add-in muss das bei neuen Zugriffen beachten.
+
+
+### Stand der App-Verbindung (1. 11. 2026)
+- CAD → App: Tabelle `cad_teile` (neu), Teile mit Zuschnitt und `app_data` (Freies Profil); App-Seite `js/104-cad-teile.js` auf Branch `claude/cad-teile-aus-dem-cad` (Anzeige im Cockpit, Übernahme über `measurementAlsVorlage()`, Verknüpfung `measurement_id`). Noch nicht auf `main`, Version nicht erhöht.
+- App → CAD: Massaufnahmen «Freies Profil»/«Dachrandblech» lesen und als Kantenvorlage übernehmen (nur Schenkel und Winkel).
+- Noch offen: Material der App automatisch zuordnen (heute von Hand), Reste (`reststuecke`), Rückmeldung des App-Status (gerüstet/erledigt) ins CAD, andere Massaufnahme-Arten.

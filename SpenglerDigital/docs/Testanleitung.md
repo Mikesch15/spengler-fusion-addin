@@ -180,6 +180,17 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Vorlage im Editor öffnen | Winkel und Längen stimmen mit dem Profil überein; Vorschau prüfen, Richtungen (Vorzeichen) falls nötig ändern |
 | ☐ | Dokument ohne Flansche öffnen, Befehl starten | Meldung «keine Flansch- oder Saum-Features gefunden» |
 
+## 9e. CAD ↔ App (8 Min.) – braucht die App-Version mit «Teile aus dem CAD»
+
+| ☐ | Schritt | Erwartet |
+|---|---|---|
+| ☐ | Testauftrag, der es in der App als Projekt mit gleicher Auftragsnummer gibt; Teile mit Vorlage bauen; **Stückliste & Zuschnitt** mit «Teile an die App senden» | Bericht: «App: n Teil(e) gesendet (Auftrag «…»)» |
+| ☐ | In der App das Projekt öffnen, Cockpit → Massaufnahmen | Unter der Liste «Teile aus dem CAD» mit Teilnummer, Zuschnitt, Material, Vorlage |
+| ☐ | «Als Massaufnahme übernehmen», Material wählen, speichern | Neue Massaufnahme «Freies Profil» mit den Schenkeln; Summe der Masse = Abwicklungsbreite; Teil zeigt «übernommen» und «Massaufnahme öffnen» |
+| ☐ | Zuschnitt und Werkstattansicht der App für diese Massaufnahme ansehen | Masse und Zuschnitt erscheinen wie bei einer selbst erfassten Massaufnahme |
+| ☐ | Im CAD dasselbe Teil nochmals senden | Kein doppeltes Teil in der App (wird überschrieben) |
+| ☐ | In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD **Vorlage aus App-Massaufnahme** | Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt) |
+
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
 | ☐ | Schritt | Erwartet |
