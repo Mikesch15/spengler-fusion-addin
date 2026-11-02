@@ -1,23 +1,27 @@
 """Werkzeugleiste: eigenes Register «SPENGLER» im Konstruktionsarbeitsbereich mit allen Befehlen.
 Falls die Register-API fehlt: Befehle im Blech- bzw. Volumenkörper-Panel «Erstellen» (wie Prototyp 0.1)."""
 from ..diagnostics import logger
-from . import app_massaufnahme_command, auftrag_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, lernen_command, settings_command
+from . import app_massaufnahme_command, auftrag_command, start_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, lernen_command, settings_command
 
 TAB_ID = "SpenglerDigitalTab"
-GRUPPEN = [  # (Panel-ID, Titel, Befehle)
-    ("SpenglerKantenPanel", "Kanten & Details", []),
-    ("SpenglerFertigungPanel", "Fertigung", []),
-    ("SpenglerVerwaltungPanel", "Verwaltung", []),
+GRUPPEN = [  # (Panel-ID, Titel, Befehle) – in der Reihenfolge der Arbeit: erst der Auftrag, dann Konstruieren, dann Fertigung
+    ("SpenglerAuftragPanel", "1 · Auftrag", []),
+    ("SpenglerKonstruierenPanel", "2 · Konstruieren", []),
+    ("SpenglerFertigungPanel2", "3 · Fertigung", []),
+    ("SpenglerVerwaltungPanel2", "Verwaltung", []),
 ]
+ALTE_PANELS = ("SpenglerKantenPanel", "SpenglerFertigungPanel", "SpenglerVerwaltungPanel")   # bis 0.4.33 – werden entfernt
 ERSATZ_PANELS = ("SheetMetalCreatePanel", "SolidCreatePanel")
 _angelegt = []   # (panel, control-id)
 
 
 def _definitionen():
-    kanten = [edge_apply_command.registrieren()] + detail_generator_command.registrieren() + [forming_command.registrieren()] + lernen_command.registrieren() + app_massaufnahme_command.registrieren()
-    fertigung = export_command.registrieren() + auftrag_command.registrieren() + auftrag_command.registrieren_wahl() + auftrag_command.registrieren_abgleich()
+    auftrag = start_command.registrieren() + auftrag_command.registrieren() + auftrag_command.registrieren_wahl() + auftrag_command.registrieren_abgleich()
+    konstruieren = ([edge_apply_command.registrieren()] + detail_generator_command.registrieren() + [forming_command.registrieren()]
+                    + lernen_command.registrieren() + app_massaufnahme_command.registrieren())
+    fertigung = export_command.registrieren()
     verwaltung = settings_command.registrieren()
-    return [kanten, fertigung, verwaltung]
+    return [auftrag, konstruieren, fertigung, verwaltung]
 
 
 def registrieren():
@@ -26,6 +30,13 @@ def registrieren():
     try:
         ws = ui.workspaces.itemById("FusionSolidEnvironment")
         tab = ws.toolbarTabs.itemById(TAB_ID) or ws.toolbarTabs.add(TAB_ID, "SPENGLER")
+        for alt in ALTE_PANELS:
+            try:
+                p = tab.toolbarPanels.itemById(alt)
+                if p:
+                    p.deleteMe()
+            except Exception:
+                pass
         for (pid, titel, _), defs in zip(GRUPPEN, gruppen):
             panel = tab.toolbarPanels.itemById(pid) or tab.toolbarPanels.add(pid, titel)
             for i, d in enumerate(defs):
@@ -33,6 +44,10 @@ def registrieren():
                 if i == 0:
                     c.isPromoted = True
                 _angelegt.append((panel, d.id))
+        try:
+            start_command.ereignisse_anmelden()
+        except Exception:
+            logger.ausnahme("Ereignisse für Start/Voraussetzungen")
         return "Register SPENGLER"
     except Exception:
         logger.ausnahme("Eigenes Register nicht möglich – Ersatz-Panels")
@@ -49,6 +64,10 @@ def registrieren():
 
 
 def entfernen():
+    try:
+        start_command.ereignisse_abmelden()
+    except Exception:
+        pass
     ui = base.ui()
     for panel, cid in _angelegt:
         try:

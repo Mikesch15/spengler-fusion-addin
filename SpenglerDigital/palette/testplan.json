@@ -57,6 +57,21 @@
      "id": "1.5",
      "text": "Ordner %APPDATA%\\SpenglerDigitalCAD (Mac: ~/Library/Application Support/SpenglerDigitalCAD)",
      "erwartet": "existiert, enthält protokoll und datenformat.json"
+    },
+    {
+     "id": "1.6",
+     "text": "Register SPENGLER ansehen",
+     "erwartet": "Vier Gruppen «1 · Auftrag», «2 · Konstruieren», «3 · Fertigung», «Verwaltung»; jeder Befehl hat ein eigenes, scharfes Symbol (auch im dunklen Fusion-Design)"
+    },
+    {
+     "id": "1.7",
+     "text": "Start / Übersicht",
+     "erwartet": "Liste mit ✅/⚠️ (Konto, Material, Vorlagen, Auftrag, Projekt in der App); «Nächster Schritt» ist vorgewählt"
+    },
+    {
+     "id": "1.8",
+     "text": "Ohne aktiven Auftrag Kanten bearbeiten starten",
+     "erwartet": "Der Befehl öffnet nicht; Hinweis «kein Auftrag aktiv … Jetzt dorthin wechseln?»; «Ja» startet «Auftrag wählen»"
     }
    ]
   },

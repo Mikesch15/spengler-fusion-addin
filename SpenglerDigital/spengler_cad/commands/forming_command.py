@@ -25,6 +25,8 @@ Z = {}
 
 
 def erstellt(args):
+    if base.gesperrt(args, BID):
+        return
     cmd = args.command
     inp = cmd.commandInputs
     e = Einstellungen().laden()

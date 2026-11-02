@@ -171,6 +171,7 @@ def standard_einstellungen():
                     "rollen": {"modelle": "Modelle", "plaene": "Pläne", "export": "Export"}, "lokalBasis": "", "teilnummerMitAuftrag": True},
         "kalkulation": {"stundensatzName": "", "stundensatzManuell": None, "ruestMinProTeil": 5.0, "minProBiegung": 1.5, "minProMeterZuschnitt": 2.0,
                         "zuschlagProzent": 0.0},       # Zeitannahmen: eigene Schätzwerte, in den Einstellungen anpassen; Stundensatz aus der App
+        "auftragErforderlich": True,   # Kanten bearbeiten, Abwicklung, Stückliste, Rundblech öffnen nur mit aktivem Auftrag
         "pruefung": {"minSchenkel": 10.0, "minRadiusFaktor": 1.0},   # Warnschwellen vor dem Export (Schenkel in mm, Radius × Blechdicke)
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",

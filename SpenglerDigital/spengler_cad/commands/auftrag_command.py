@@ -45,8 +45,8 @@ def _anzeigen(inp):
     try:
         p = _plan(inp, e)
         text = "Wird angelegt:<br>%s/%s<br>Unterordner: %s" % (p["wurzel"] or "(Projekt)", "/".join(p["pfad"]), ", ".join(p["unterordner"]) or "keine")
-    except auftrag.AuftragsFehler as ex:
-        text = "⚠ %s" % ex
+    except Exception as ex:      # AuftragsFehler = Eingabe unvollständig; alles andere (z. B. leere Felder) ebenso nur anzeigen
+        text = "⚠ %s" % (ex if isinstance(ex, auftrag.AuftragsFehler) else "Bitte Nummer und Objekt eingeben.")
     inp.itemById("plan").formattedText = text
 
 

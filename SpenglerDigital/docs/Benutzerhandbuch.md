@@ -16,18 +16,24 @@ Beim ersten Start legt das Add-in den Benutzerdatenordner an (siehe Kapitel 14).
 
 ## 2. Werkzeugleiste und Befehle
 
-Register **SPENGLER**, drei Gruppen:
+Register **SPENGLER**, vier Gruppen **in der Reihenfolge der Arbeit** (jeder Befehl hat ein eigenes Symbol):
 
 | Gruppe | Befehl | Zweck |
 |---|---|---|
-| Kanten & Details | Kanten bearbeiten | Eigene Kantenvorlage auf eine oder mehrere Blechkanten anwenden |
-| | 3D-Detail erfassen | Eigenes 3D-Blechdetail als Vorlage speichern |
-| | 3D-Detail anwenden | Gespeichertes Detail an eine Kante bzw. ein Falzende ansetzen |
-| | Rundblech / Umformung | Rundbleche, Kragen, Kegel: Beurteilung und Drehkörper |
-| Fertigung | Abwicklung & DXF | Fusion-Abwicklung, DXF-Export, Werkstattblatt |
-| | Stückliste & Zuschnitt | Teilenummern, Stückliste, Etiketten, Materialbedarf, Gewicht (Schätzung), Zuschnittplan |
-| Verwaltung | Vorlagen & Einstellungen | Palette: Vorlagen, 3D-Details, Materialien, Einstellungen, Sicherung |
+| 1 · Auftrag | **Start / Übersicht** | Zeigt, was eingerichtet ist (Konto, Material, Vorlagen, aktiver Auftrag, Projekt in der App, Dokument im Auftragsordner) und schlägt den **nächsten Schritt** vor – mit Sprung dorthin |
+| | Neuer Auftrag | Auftragsordner (Jahr, Unterordner) in Fusion und auf Wunsch das Projekt in der App anlegen |
+| | Auftrag wählen | Vorhandenen Auftrag aktiv setzen, Status, Dokument im Auftragsordner speichern |
+| | Aufträge abgleichen | Projekte der App und Auftragsordner in Fusion gegeneinander abgleichen |
+| 2 · Konstruieren | Kanten bearbeiten | Zuerst den Blechkörper wählen, dann Kantenvorlage auf seine Kanten anwenden |
+| | 3D-Detail erfassen / anwenden | Eigenes 3D-Blechdetail als Vorlage speichern bzw. ansetzen |
+| | Rundblech / Umformung | Rundbleche, Kragen, Kegel: Beurteilung, Drehkörper, Zuschnitt |
+| | Vorlage aus Profil lernen / aus App-Massaufnahme | Kantenvorlage aus einem vorhandenen Profil bzw. einer Massaufnahme der App |
+| 3 · Fertigung | Abwicklung & DXF | Fusion-Abwicklung, DXF-Export, Werkstattblatt |
+| | Stückliste & Zuschnitt | Teilenummern, Stückliste, Abkantliste, Kalkulation, Zuschnittplan, Mappe, Teile und Dateien an die App |
+| Verwaltung | Vorlagen & Einstellungen | Palette: Vorlagen, 3D-Details, Materialien, Einstellungen, Reste, Berichte, Sicherung, Konto |
 | | Hilfe | Hilfethemen, diese Anleitung, Fähigkeitsprüfung, Selbsttest |
+
+**Fehlbedienung vermeiden:** Befehle, die für einen Auftrag arbeiten (**Kanten bearbeiten, Abwicklung & DXF, Stückliste & Zuschnitt, Rundblech**), öffnen sich nicht ohne **aktiven Auftrag**. Stattdessen erklärt Fusion, was fehlt, und bietet «Jetzt dorthin wechseln?» an (Auftrag wählen bzw. Vorlagen & Einstellungen). Dasselbe gilt für fehlendes Materialprofil oder fehlende Kantenvorlage. Wer das nicht will, schaltet es unter Einstellungen → Aufträge → «Sicherheit» ab. Hilfe, Einstellungen und alle Auftragsbefehle sind immer frei.
 
 Fehlt in Ihrer Fusion-Version die API für eigene Register, erscheinen die Befehle in den Panels **Blech → Erstellen** bzw. **Volumenkörper → Erstellen**.
 

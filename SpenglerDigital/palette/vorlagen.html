@@ -4,40 +4,47 @@
 <meta charset="utf-8">
 <title>Spengler Digital CAD – Vorlagen</title>
 <style>
-:root{--rand:#c8ced6;--akzent:#1d4f7a;--grau:#5b6672;--fehler:#a3221b;--ok:#2d6a2d;--hg:#f7f8fa}
+:root{--rand:#d3d9e0;--akzent:#1f78c1;--dunkel:#17496f;--grau:#5b6672;--fehler:#b3261e;--ok:#2d6a2d;--hg:#f4f7fa;--orange:#f28c28}
 *{box-sizing:border-box}
-body{font:13px "Segoe UI",Arial,sans-serif;margin:0;color:#1b1f24;background:#fff}
-header{display:flex;align-items:center;gap:8px;padding:6px 10px;border-bottom:1px solid var(--rand);background:var(--hg)}
-header img{height:28px}
-header b{font-size:14px}
-nav{display:flex;gap:2px;padding:4px 8px 0;border-bottom:1px solid var(--rand)}
-nav button{border:1px solid var(--rand);border-bottom:none;background:var(--hg);padding:5px 10px;cursor:pointer}
-nav button.aktiv{background:#fff;font-weight:600}
-main{padding:10px}
+body{font:13px "Segoe UI",system-ui,Arial,sans-serif;margin:0;color:#1b1f24;background:#fff}
+header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:linear-gradient(135deg,var(--dunkel),var(--akzent));color:#fff}
+header img{height:34px;border-radius:8px;box-shadow:0 1px 3px rgba(0,0,0,.35)}
+header b{font-size:15px;letter-spacing:.2px}
+header .klein,header label{color:#d6e9f8}
+nav{display:flex;gap:0;padding:0 8px;border-bottom:1px solid var(--rand);background:#fff;overflow-x:auto;white-space:nowrap;position:sticky;top:0;z-index:5}
+nav button{border:none;border-bottom:3px solid transparent;background:transparent;padding:9px 12px;cursor:pointer;color:var(--grau);border-radius:0}
+nav button:hover{color:var(--akzent);background:var(--hg)}
+nav button.aktiv{color:var(--akzent);border-bottom-color:var(--orange);font-weight:600;background:#fff}
+main{padding:12px 14px}
 section{display:none}section.aktiv{display:block}
-.zeile{display:flex;gap:6px;align-items:center;margin:4px 0;flex-wrap:wrap}
+.zeile{display:flex;gap:6px;align-items:center;margin:5px 0;flex-wrap:wrap}
 label{color:var(--grau);min-width:110px}
-input,select,textarea{font:inherit;padding:3px 5px;border:1px solid var(--rand);border-radius:3px}
+input,select,textarea{font:inherit;padding:4px 7px;border:1px solid var(--rand);border-radius:6px;background:#fff}
+input:focus,select:focus,textarea:focus{outline:2px solid rgba(31,120,193,.35);border-color:var(--akzent)}
 input[type=number]{width:80px}
-button{font:inherit;padding:3px 9px;border:1px solid var(--rand);border-radius:3px;background:#fff;cursor:pointer}
-button.haupt{background:var(--akzent);color:#fff;border-color:var(--akzent)}
+input[type=checkbox]{accent-color:var(--akzent)}
+button{font:inherit;padding:4px 11px;border:1px solid var(--rand);border-radius:6px;background:#fff;cursor:pointer;color:#1b1f24}
+button:hover{background:var(--hg);border-color:#b7c2cd}
+button.haupt{background:var(--akzent);color:#fff;border-color:var(--akzent);box-shadow:0 1px 2px rgba(0,0,0,.2)}
+button.haupt:hover{background:var(--dunkel);border-color:var(--dunkel)}
 button.gefahr{color:var(--fehler)}
-table{border-collapse:collapse;width:100%;margin:6px 0}
-td,th{border-bottom:1px solid #e3e6ea;padding:3px 4px;text-align:left;vertical-align:middle}
-th{color:var(--grau);font-weight:600}
-.liste tr{cursor:pointer}.liste tr.gewaehlt{background:#e6eef6}
-.meldung{padding:6px 8px;margin:6px 0;border-radius:3px;white-space:pre-wrap}
-.meldung.fehler{background:#fbeaea;color:var(--fehler)}.meldung.ok{background:#eaf5ea;color:var(--ok)}.meldung.info{background:#eef2f6}
-.leer{color:var(--grau);padding:16px;text-align:center;border:1px dashed var(--rand);margin:8px 0}
+table{border-collapse:collapse;width:100%;margin:8px 0}
+td,th{border-bottom:1px solid #e8ecf0;padding:5px 6px;text-align:left;vertical-align:middle}
+th{color:var(--grau);font-weight:600;background:var(--hg);border-bottom:1px solid var(--rand)}
+tbody tr:hover{background:#f7fafc}
+.liste tr{cursor:pointer}.liste tr.gewaehlt{background:#e3f0fb}
+.meldung{padding:8px 10px;margin:8px 0;border-radius:6px;white-space:pre-wrap;border-left:4px solid transparent}
+.meldung.fehler{background:#fdeceb;color:var(--fehler);border-left-color:var(--fehler)}.meldung.ok{background:#eaf5ea;color:var(--ok);border-left-color:var(--ok)}.meldung.info{background:#eef5fb;border-left-color:var(--akzent)}
+.leer{color:var(--grau);padding:18px;text-align:center;border:1px dashed var(--rand);border-radius:8px;margin:10px 0;background:var(--hg)}
 .hilfe{border:1px solid var(--rand);border-radius:50%;width:20px;height:20px;padding:0;font-weight:700;color:var(--akzent)}
 .klein{font-size:11px;color:var(--grau)}
 main .experte{display:none}body.experte main .experte{display:block}
-.vorschau{color:#1b1f24;min-height:40px}.vorschau svg{max-width:100%;height:auto;border:1px solid #e3e6ea;background:#fff}.mini svg{width:90px;height:auto}
-.tblock{border:1px solid var(--rand);border-radius:3px;margin:6px 0;background:#fff}.tblock>summary{padding:5px 8px;cursor:pointer;font-weight:600;background:var(--hg)}
-.tpunkt{padding:6px 8px;border-top:1px solid #e3e6ea}.tpunkt.s-ok{background:#f1f9f1}.tpunkt.s-fehler{background:#fdf1f1}.tpunkt.s-uebersprungen{background:#f4f4f4;color:var(--grau)}
-.tstatus button{min-width:34px}.tstatus button.an-ok{background:var(--ok);color:#fff}.tstatus button.an-fehler{background:var(--fehler);color:#fff}.tstatus button.an-uebersprungen{background:var(--grau);color:#fff}
+.vorschau{color:#1b1f24;min-height:40px}.vorschau svg{max-width:100%;height:auto;border:1px solid #e3e6ea;background:#fff;border-radius:6px}.mini svg{width:90px;height:auto}
+.tblock{border:1px solid var(--rand);border-radius:8px;margin:8px 0;background:#fff;overflow:hidden}.tblock>summary{padding:7px 10px;cursor:pointer;font-weight:600;background:var(--hg)}
+.tpunkt{padding:7px 10px;border-top:1px solid #e8ecf0}.tpunkt.s-ok{background:#f1f9f1}.tpunkt.s-fehler{background:#fdf1f1}.tpunkt.s-uebersprungen{background:#f4f4f4;color:var(--grau)}
+.tstatus button{min-width:34px}.tstatus button.an-ok{background:var(--ok);color:#fff;border-color:var(--ok)}.tstatus button.an-fehler{background:var(--fehler);color:#fff;border-color:var(--fehler)}.tstatus button.an-uebersprungen{background:var(--grau);color:#fff;border-color:var(--grau)}
 .tpunkt input.tnotiz{flex:1;min-width:140px}
-fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:var(--akzent);font-weight:600}
+fieldset{border:1px solid var(--rand);border-radius:8px;margin:10px 0;padding:8px 12px;background:#fff}legend{color:var(--dunkel);font-weight:600;padding:0 6px}
 </style>
 </head>
 <body>
@@ -164,6 +171,7 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <div class="zeile"><label>Unterordner</label><input id="sAUnter" size="50"> <span class="klein">mit Komma getrennt, z. B. Modelle, Pläne, Export</span></div>
     <div class="zeile"><label>Ordner Modelle</label><input id="sAMod" size="14"> <label style="min-width:0">Pläne</label><input id="sAPla" size="14"> <label style="min-width:0">Export</label><input id="sAExp" size="14"></div>
     <div class="zeile"><label>Exporte auf dem PC</label><input id="sALokal" size="50"> <span class="klein">Basisordner; leer = Exportordner oben. Daraus wird Basis/Jahr/«Nummer Objekt»/Export</span></div>
+    <div class="zeile"><label>Sicherheit</label><input type="checkbox" id="sAReq"> <span class="klein">Kanten bearbeiten, Abwicklung, Stückliste und Rundblech nur mit aktivem Auftrag öffnen (empfohlen)</span></div>
     <div class="zeile"><label>Teilenummer</label><input type="checkbox" id="sANr"> <span class="klein">mit Auftragsnummer, z. B. 17642-01</span></div>
     <div class="zeile"><label>Prüfung vor Export</label><input id="sPMin" size="5"> <span class="klein">mm: kürzester Schenkel</span> <input id="sPRad" size="5"> <span class="klein">× Dicke: kleinster Innenradius</span></div>
   </fieldset>

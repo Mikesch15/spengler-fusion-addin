@@ -337,6 +337,7 @@ function zeigeEinstellungen() {
   $("sAWurzel").value = au.wurzelOrdner || ""; $("sAJahr").checked = !!au.jahresordner; $("sAUnter").value = (au.unterordner || []).join(", ");
   const ro = au.rollen || { modelle: "Modelle", plaene: "Pläne", export: "Export" };
   $("sAMod").value = ro.modelle; $("sAPla").value = ro.plaene; $("sAExp").value = ro.export;
+  $("sAReq").checked = e.auftragErforderlich !== false;
   $("sALokal").value = au.lokalBasis || ""; $("sANr").checked = au.teilnummerMitAuftrag !== false;
   const ka = e.kalkulation || { stundensatzName: "", stundensatzManuell: null, ruestMinProTeil: 5, minProBiegung: 1.5, minProMeterZuschnitt: 2, zuschlagProzent: 0 };
   $("sKName").value = ka.stundensatzName || ""; $("sKMan").value = ka.stundensatzManuell ?? ""; $("sKRuest").value = ka.ruestMinProTeil;
@@ -366,6 +367,7 @@ $("sSpeichern").onclick = async () => {
     rollen: { modelle: $("sAMod").value.trim(), plaene: $("sAPla").value.trim(), export: $("sAExp").value.trim() }, lokalBasis: $("sALokal").value.trim(), teilnummerMitAuftrag: $("sANr").checked };
   e.kalkulation = { stundensatzName: $("sKName").value.trim(), stundensatzManuell: zahlOderNull($("sKMan").value), ruestMinProTeil: zahlOderNull($("sKRuest").value) ?? 5,
     minProBiegung: zahlOderNull($("sKBieg").value) ?? 1.5, minProMeterZuschnitt: zahlOderNull($("sKSchn").value) ?? 2, zuschlagProzent: zahlOderNull($("sKZus").value) ?? 0 };
+  e.auftragErforderlich = $("sAReq").checked;
   e.pruefung = { minSchenkel: zahlOderNull($("sPMin").value) ?? 10, minRadiusFaktor: zahlOderNull($("sPRad").value) ?? 1 };
   e.labels = etikettenLesen();
   if (await tun(() => senden("einstellungen_speichern", { einstellungen: e }), "Einstellungen gespeichert.")) await laden();

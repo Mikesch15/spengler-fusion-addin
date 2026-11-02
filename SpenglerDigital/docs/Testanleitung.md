@@ -22,6 +22,9 @@ Live-Test in Fusion · zum Abhaken in der Palette (Register **Tests**) oder zum 
 | ☐ | Falls kein Register: Befehle unter Blech → Erstellen? | notieren, wo sie stehen |
 | ☐ | Fusion schliessen und neu starten | Add-in startet von selbst |
 | ☐ | Ordner `%APPDATA%\SpenglerDigitalCAD` (Mac: `~/Library/Application Support/SpenglerDigitalCAD`) | existiert, enthält `protokoll` und `datenformat.json` |
+| ☐ | Register SPENGLER ansehen | Vier Gruppen «1 · Auftrag», «2 · Konstruieren», «3 · Fertigung», «Verwaltung»; jeder Befehl hat ein eigenes, scharfes Symbol (auch im dunklen Fusion-Design) |
+| ☐ | **Start / Übersicht** | Liste mit ✅/⚠️ (Konto, Material, Vorlagen, Auftrag, Projekt in der App); «Nächster Schritt» ist vorgewählt |
+| ☐ | Ohne aktiven Auftrag **Kanten bearbeiten** starten | Der Befehl öffnet nicht; Hinweis «kein Auftrag aktiv … Jetzt dorthin wechseln?»; «Ja» startet «Auftrag wählen» |
 
 ## 2. Selbsttest und Fähigkeiten (5 Min.)
 

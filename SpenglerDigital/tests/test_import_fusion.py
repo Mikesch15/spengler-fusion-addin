@@ -54,9 +54,9 @@ class ImportTest(DatenTest):
 
     def test_dialoge_aufbauen(self):
         """Jeder Befehlsdialog lässt sich mit der Attrappe aufbauen (keine Python-Fehler in den Abläufen)."""
-        from spengler_cad.commands import detail_generator_command as d, edge_apply_command as e, export_command as x, forming_command as f, settings_command as s
+        from spengler_cad.commands import auftrag_command as a, detail_generator_command as d, edge_apply_command as e, export_command as x, forming_command as f, settings_command as s, start_command as st
         args = adsk.core.CommandCreatedEventArgs()
-        for fn in (e.erstellt, d.erfassen_erstellt, d.anwenden_erstellt, f.erstellt, x.abw_erstellt, x.zus_erstellt, s.hilfe_erstellt):
+        for fn in (e.erstellt, d.erfassen_erstellt, d.anwenden_erstellt, f.erstellt, x.abw_erstellt, x.zus_erstellt, s.hilfe_erstellt, st.erstellt, a.erstellt):
             del adsk.AUFRUFE[:]
             fn(args)
             self.assertFalse([a for n, a in adsk.AUFRUFE if n == "messageBox"], fn.__name__)

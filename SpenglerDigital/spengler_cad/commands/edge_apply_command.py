@@ -30,6 +30,8 @@ def _vorlagen():
 def erstellt(args):
     cmd = args.command
     inp = cmd.commandInputs
+    if base.gesperrt(args, BID):
+        return
     e = Einstellungen().laden()
     Z.clear()
     Z.update({"vorlagen": _vorlagen(), "materialien": MaterialBibliothek().liste(), "einst": e, "param_ids": []})

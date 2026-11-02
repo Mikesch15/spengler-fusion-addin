@@ -78,6 +78,8 @@ def _quelle(body):
 
 # ====================================================================== Abwicklung & DXF
 def abw_erstellt(args):
+    if base.gesperrt(args, BID_ABW):
+        return
     cmd = args.command
     inp = cmd.commandInputs
     s = inp.addSelectionInput("koerper", "Blechkörper", "Ein oder mehrere Blechkörper")
@@ -203,6 +205,8 @@ def abw_ausfuehren(args):
 
 # ====================================================================== Stückliste & Zuschnitt
 def zus_erstellt(args):
+    if base.gesperrt(args, BID_ZUS):
+        return
     cmd = args.command
     inp = cmd.commandInputs
     e = Einstellungen().laden()

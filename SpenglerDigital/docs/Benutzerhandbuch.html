@@ -11,18 +11,23 @@
 </ol>
 <p>Beim ersten Start legt das Add-in den Benutzerdatenordner an (siehe Kapitel 14). Danach empfiehlt sich <b>Hilfe → Selbsttest in neuem Dokument</b>: Er prüft in einem neuen, leeren Dokument die Fusion-Funktionen, die das Add-in benutzt, und schreibt das Ergebnis ins Protokoll.</p>
 <h2>2. Werkzeugleiste und Befehle</h2>
-<p>Register <b>SPENGLER</b>, drei Gruppen:</p>
+<p>Register <b>SPENGLER</b>, vier Gruppen <b>in der Reihenfolge der Arbeit</b> (jeder Befehl hat ein eigenes Symbol):</p>
 <table>
 <tr><th>Gruppe</th><th>Befehl</th><th>Zweck</th></tr>
-<tr><td>Kanten &amp; Details</td><td>Kanten bearbeiten</td><td>Eigene Kantenvorlage auf eine oder mehrere Blechkanten anwenden</td></tr>
-<tr><td></td><td>3D-Detail erfassen</td><td>Eigenes 3D-Blechdetail als Vorlage speichern</td></tr>
-<tr><td></td><td>3D-Detail anwenden</td><td>Gespeichertes Detail an eine Kante bzw. ein Falzende ansetzen</td></tr>
-<tr><td></td><td>Rundblech / Umformung</td><td>Rundbleche, Kragen, Kegel: Beurteilung und Drehkörper</td></tr>
-<tr><td>Fertigung</td><td>Abwicklung &amp; DXF</td><td>Fusion-Abwicklung, DXF-Export, Werkstattblatt</td></tr>
-<tr><td></td><td>Stückliste &amp; Zuschnitt</td><td>Teilenummern, Stückliste, Etiketten, Materialbedarf, Gewicht (Schätzung), Zuschnittplan</td></tr>
-<tr><td>Verwaltung</td><td>Vorlagen &amp; Einstellungen</td><td>Palette: Vorlagen, 3D-Details, Materialien, Einstellungen, Sicherung</td></tr>
+<tr><td>1 · Auftrag</td><td><b>Start / Übersicht</b></td><td>Zeigt, was eingerichtet ist (Konto, Material, Vorlagen, aktiver Auftrag, Projekt in der App, Dokument im Auftragsordner) und schlägt den <b>nächsten Schritt</b> vor – mit Sprung dorthin</td></tr>
+<tr><td></td><td>Neuer Auftrag</td><td>Auftragsordner (Jahr, Unterordner) in Fusion und auf Wunsch das Projekt in der App anlegen</td></tr>
+<tr><td></td><td>Auftrag wählen</td><td>Vorhandenen Auftrag aktiv setzen, Status, Dokument im Auftragsordner speichern</td></tr>
+<tr><td></td><td>Aufträge abgleichen</td><td>Projekte der App und Auftragsordner in Fusion gegeneinander abgleichen</td></tr>
+<tr><td>2 · Konstruieren</td><td>Kanten bearbeiten</td><td>Zuerst den Blechkörper wählen, dann Kantenvorlage auf seine Kanten anwenden</td></tr>
+<tr><td></td><td>3D-Detail erfassen / anwenden</td><td>Eigenes 3D-Blechdetail als Vorlage speichern bzw. ansetzen</td></tr>
+<tr><td></td><td>Rundblech / Umformung</td><td>Rundbleche, Kragen, Kegel: Beurteilung, Drehkörper, Zuschnitt</td></tr>
+<tr><td></td><td>Vorlage aus Profil lernen / aus App-Massaufnahme</td><td>Kantenvorlage aus einem vorhandenen Profil bzw. einer Massaufnahme der App</td></tr>
+<tr><td>3 · Fertigung</td><td>Abwicklung &amp; DXF</td><td>Fusion-Abwicklung, DXF-Export, Werkstattblatt</td></tr>
+<tr><td></td><td>Stückliste &amp; Zuschnitt</td><td>Teilenummern, Stückliste, Abkantliste, Kalkulation, Zuschnittplan, Mappe, Teile und Dateien an die App</td></tr>
+<tr><td>Verwaltung</td><td>Vorlagen &amp; Einstellungen</td><td>Palette: Vorlagen, 3D-Details, Materialien, Einstellungen, Reste, Berichte, Sicherung, Konto</td></tr>
 <tr><td></td><td>Hilfe</td><td>Hilfethemen, diese Anleitung, Fähigkeitsprüfung, Selbsttest</td></tr>
 </table>
+<p><b>Fehlbedienung vermeiden:</b> Befehle, die für einen Auftrag arbeiten (<b>Kanten bearbeiten, Abwicklung &amp; DXF, Stückliste &amp; Zuschnitt, Rundblech</b>), öffnen sich nicht ohne <b>aktiven Auftrag</b>. Stattdessen erklärt Fusion, was fehlt, und bietet «Jetzt dorthin wechseln?» an (Auftrag wählen bzw. Vorlagen &amp; Einstellungen). Dasselbe gilt für fehlendes Materialprofil oder fehlende Kantenvorlage. Wer das nicht will, schaltet es unter Einstellungen → Aufträge → «Sicherheit» ab. Hilfe, Einstellungen und alle Auftragsbefehle sind immer frei.</p>
 <p>Fehlt in Ihrer Fusion-Version die API für eigene Register, erscheinen die Befehle in den Panels <b>Blech → Erstellen</b> bzw. <b>Volumenkörper → Erstellen</b>.</p>
 <h2>3. Leere Vorlagenbibliothek</h2>
 <p>Die Vorlagenbibliothek ist beim ersten Start <b>leer</b>. Es werden bewusst keine Ortgänge, Traufen, Falze, Säume oder Standardmasse mitgeliefert – Sie legen jede Vorlage passend zu Ihrer Werkstatt selbst an. Auch die Materialbibliothek ist leer; das Add-in erfindet keine Radien, K-Faktoren oder Dichten.</p>

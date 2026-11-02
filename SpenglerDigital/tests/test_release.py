@@ -66,7 +66,10 @@ def server(db):
                     kod, inhalt = db.blobs.get(h, (None, None))
                     if kod is None:
                         continue
-                    roh = inhalt.encode("utf-8") if kod == "utf8" else base64.b64decode(inhalt)
+                    try:
+                        roh = inhalt.encode("utf-8") if kod == "utf8" else base64.b64decode(inhalt)
+                    except ValueError:      # verfälschte Binärdatei (Base64 kaputt) = Prüfsumme stimmt nicht
+                        continue
                     if hashlib.sha256(roh).hexdigest() == h:
                         gut.append({"sha256": h})
                 return self._antwort(200, gut)

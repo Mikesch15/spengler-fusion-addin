@@ -101,15 +101,44 @@ def handler(klasse, ereignis, funktion):
     return h
 
 
+# Symbolordner je Befehl (assets/icons/<Ordner>/16x16.png …); ohne Eintrag oder Ordner gilt das Logo in assets/icons
+ICON_FUER = {"spenglerStart": "start", "spenglerNeuerAuftrag": "auftrag_neu", "spenglerAuftragWaehlen": "auftrag_wahl", "spenglerAuftraegeAbgleichen": "abgleich",
+             "spenglerKantenBearbeiten": "kanten", "spenglerDetailErfassen": "details", "spenglerDetailAnwenden": "details", "spenglerRundblech": "rundblech",
+             "spenglerVorlageLernen": "lernen", "spenglerVorlageAusApp": "app_vorlage", "spenglerAbwicklungDxf": "abwicklung",
+             "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe"}
+
+
 def befehl_definieren(bid, name, tooltip, erstellt):
     """Button-Definition anlegen (alte gleiche ID vorher entfernen). erstellt(args) baut die Eingaben."""
     alt = ui().commandDefinitions.itemById(bid)
     if alt:
         alt.deleteMe()
     res = ICONS if os.path.isdir(ICONS) else ""
+    eigen = os.path.join(ICONS, ICON_FUER.get(bid, "_"))
+    if os.path.isdir(eigen):
+        res = eigen
     cdef = ui().commandDefinitions.addButtonDefinition(bid, name, tooltip, res)
     handler(adsk.core.CommandCreatedEventHandler, cdef.commandCreated, erstellt)
     return cdef
+
+
+def gesperrt(args, bid):
+    """Rückfall, falls Fusion den Befehlsstart nicht abbrechen lässt: Fehlen Voraussetzungen, zeigt der Dialog sie an und OK bleibt gesperrt.
+    → True, wenn gesperrt (der Aufrufer baut dann keine weiteren Eingaben)."""
+    try:
+        from ..core import start as logik
+        from . import zustand
+        z = zustand.lesen(mit_app=False)
+        probleme, _ = logik.voraussetzungen(bid, z, z.get("auftrag_erforderlich", True))
+        if not probleme:
+            return False
+        cmd = args.command
+        cmd.commandInputs.addTextBoxCommandInput("sperre", "", "<b>Bitte erst vorbereiten:</b><br>" + "<br>".join("• " + p for p in probleme), 5, True)
+        handler(adsk.core.ValidateInputsEventHandler, cmd.validateInputs, lambda a: setattr(a, "areInputsValid", False))
+        return True
+    except Exception:
+        logger.ausnahme("Voraussetzungen im Dialog prüfen")
+        return False
 
 
 def fehlertext(e):
