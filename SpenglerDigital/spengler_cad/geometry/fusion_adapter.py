@@ -1107,6 +1107,32 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                             rueckbau_ok=zurueck)
 
 
+def zeitleiste_stand():
+    """Anzahl der Zeitleisten-Einträge (für zeitleiste_gruppieren). Nicht live geprüft."""
+    try:
+        return design().timeline.count
+    except Exception:
+        return None
+
+
+def zeitleiste_gruppieren(von, name):
+    """Alles, was seit `von` in der Zeitleiste entstand, zu EINER Gruppe zusammenfassen (ein Strg+Z, übersichtlich benannt). → True/False;
+    ein Fehler hier ändert nie das Modell. Nicht live geprüft (Timeline.timelineGroups.add)."""
+    try:
+        if von is None:
+            return False
+        tl = design().timeline
+        bis = tl.count - 1
+        if bis - von < 1:
+            return False
+        g = tl.timelineGroups.add(von, bis)
+        g.name = name
+        return True
+    except Exception:
+        logger.warnung("Zeitleisten-Gruppe nicht angelegt")
+        return False
+
+
 def koerper_neu(token):
     """Körper nach dem Bauen über seinen entityToken neu holen (alte Referenzen werden in Fusion oft ungültig)."""
     try:

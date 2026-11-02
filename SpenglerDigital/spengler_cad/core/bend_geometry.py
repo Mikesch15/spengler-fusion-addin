@@ -140,7 +140,7 @@ def rueckversatz(op, t, ri_std):
     return _rueckversatz(op, t, ri_std)
 
 
-def profil_aus_operationen(basis_mm, ops, t):
+def profil_aus_operationen(basis_mm, ops, t, versatz_zeigen=False):
     """Kantenoperationen (ab der Kante) → Profiloperationen mit einem Basisschenkel davor.
 
     basis_mm: Länge des bestehenden Blechs bis zur (virtuellen) Kante, nur für Rechnung/Zeichnung.
@@ -148,6 +148,9 @@ def profil_aus_operationen(basis_mm, ops, t):
     prof = [{"typ": "schenkel", "L": float(basis_mm)}]
     for op in ops:
         modus = "hem" if op["typ"] == "umschlag" else "sharp"
+        v = op.get("versatz")
+        if versatz_zeigen and isinstance(v, (int, float)) and v:      # nur Darstellung: die Biegung rückt um v nach innen (+) bzw. aussen (−)
+            prof[-1]["L"] = max(1.0, prof[-1]["L"] - float(v))
         prof.append({"typ": "biegung", "winkel": float(op["winkel"]), "ri": op.get("radius"), "modus": modus})
         prof.append({"typ": "schenkel", "L": float(op["laenge"])})
     return prof

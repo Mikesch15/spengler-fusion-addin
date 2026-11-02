@@ -86,7 +86,10 @@ def _ausfuehren_innen(self, args):
 def _merken(e, nummer, objekt, jahr):
     """Auftrag als aktiven merken (für Stückliste, Etiketten, Werkstattblatt, lokalen Exportordner) – ein Fehler hier verhindert nichts."""
     try:
+        alt = e.get("order") or {}
         e["order"] = {"objekt": objekt, "auftrag": nummer, "jahr": jahr}
+        if alt.get("auftrag") == nummer and alt.get("materialId"):
+            e["order"]["materialId"] = alt["materialId"]
         Einstellungen().speichern(e)
     except Exception:
         logger.ausnahme("Auftragsangaben nicht gespeichert")

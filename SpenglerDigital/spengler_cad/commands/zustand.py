@@ -25,6 +25,7 @@ def lesen(mit_app=True):
     try:
         a = export_command.auftrag_angaben(e)
         z["auftrag"], z["objekt"] = a.get("auftrag") or "", a.get("objekt") or ""
+        z["material_gewaehlt"] = bool((e.get("order") or {}).get("materialId")) and (e.get("order") or {}).get("auftrag") == z["auftrag"]
         z["dokument_gespeichert"] = auftrag_logik.aus_pfad_voll(fa.dokument_ordnerpfad()) is not None
     except Exception:
         logger.ausnahme("Zustand: Auftrag")

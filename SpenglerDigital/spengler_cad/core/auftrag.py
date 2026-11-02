@@ -10,6 +10,25 @@ class AuftragsFehler(ValueError):
     pass
 
 
+def material_vorgabe(e, materialien):
+    """Material des aktiven Auftrags (wird einmal gewählt und gilt dann für Kanten, Zuschnitt und Kalkulation); sonst das Standardmaterial.
+    → Material-ID oder None. e: Einstellungen, materialien: Liste der Profile."""
+    ids = {m.get("id") for m in materialien}
+    o = (e or {}).get("order") or {}
+    if o.get("auftrag") and o.get("materialId") in ids:
+        return o["materialId"]
+    return (e or {}).get("defaultMaterialId")
+
+
+def material_merken(e, material_id):
+    """Material im aktiven Auftrag vermerken (nur wenn ein Auftrag aktiv ist). → True, wenn sich etwas geändert hat."""
+    o = (e or {}).get("order")
+    if not o or not o.get("auftrag") or not material_id or o.get("materialId") == material_id:
+        return False
+    o["materialId"] = material_id
+    return True
+
+
 def standard():
     return {"wurzelOrdner": "Projekte", "jahresordner": True, "unterordner": ["Modelle", "Pläne", "Export"],
             "rollen": {"modelle": "Modelle", "plaene": "Pläne", "export": "Export"},   # welcher Unterordner wofür dient

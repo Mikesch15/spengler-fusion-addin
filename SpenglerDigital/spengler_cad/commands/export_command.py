@@ -19,6 +19,7 @@ import adsk.fusion
 from .. import VERSION
 from ..diagnostics import logger
 from ..core import app_profil, auftrag
+from ..core import auftrag as auftrag_logik
 from ..geometry import fusion_adapter as fa
 from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
 from ..storage import json_store, paths
@@ -216,7 +217,7 @@ def zus_erstellt(args):
     s.setSelectionLimits(1, 0)
     md = inp.addDropDownCommandInput("material", "Material", adsk.core.DropDownStyles.TextListDropDownStyle)
     for m in Z["mat"]:
-        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == e.get("defaultMaterialId"))
+        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == auftrag_logik.material_vorgabe(e, Z["mat"]))
     if Z["mat"] and md.selectedItem is None:
         md.listItems.item(0).isSelected = True
     inp.addIntegerSpinnerCommandInput("stueck", "Stück je Teil", 1, 10000, 1, 1)

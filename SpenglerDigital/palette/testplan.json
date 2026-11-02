@@ -97,11 +97,31 @@
     },
     {
      "id": "2.4",
+     "text": "Kanten bearbeiten öffnen, noch nichts wählen",
+     "erwartet": "oben gelbe Ampel «Blechkörper wählen»; nach Körper + Kante grün «Bereit: …»; Kurzinfo unter «Vorlage» – Bildschirmfoto"
+    },
+    {
+     "id": "2.5",
+     "text": "Kanten bauen, dann Zeitleiste ansehen",
+     "erwartet": "eine Gruppe «Spengler: <Vorlage>»; Strg+Z nimmt sie ganz zurück; Meldung nennt das Material des Auftrags"
+    },
+    {
+     "id": "2.6",
+     "text": "Kanten bearbeiten nochmals öffnen",
+     "erwartet": "zuletzt benutzte Vorlage steht oben (↻), Material des Auftrags ist vorgewählt"
+    },
+    {
+     "id": "2.7",
+     "text": "Auftrag-Wahl zurücksetzen (Einstellungen → Aufträge) und «Kanten bearbeiten» öffnen",
+     "erwartet": "Sperre mit Knopf «Jetzt beheben: Auftrag wählen öffnen»"
+    },
+    {
+     "id": "2.8",
      "text": "SPENGLER → Verwaltung → Live-Test → «Test starten» (Haken «Ergebnis senden» an), 1–2 Min. nichts anklicken",
      "erwartet": "Meldung «x ok, y Warnungen, z Fehler»; Bericht als Testpunkt 97.002 in der App-Datenbank und in livetest.txt – dieses Ergebnis genügt, die Einzelprüfungen der Blöcke 5/8 müssen dafür nicht von Hand gemacht werden"
     },
     {
-     "id": "2.5",
+     "id": "2.9",
      "text": "Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen»",
      "erwartet": "Texte erscheinen, PDF öffnet"
     }

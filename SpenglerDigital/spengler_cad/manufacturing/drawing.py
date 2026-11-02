@@ -140,7 +140,7 @@ def abwicklung_svg(res, breite=300, schrift=11, ab=0.0):
             % (breite, _z(h), breite, _z(h), schrift, _STIL_ABW, "\n".join(teile)))
 
 
-def kanten_profil(ops, t, ri, k):
+def kanten_profil(ops, t, ri, k, versatz_zeigen=False):
     """Operationen ab der Kante → (res, ab): Profil mit kurzem Basisstück, dessen gerader Teil 0 ist.
     ab = Länge bis zum Beginn der ersten Biegung (für die Abwicklung «ab Kante»)."""
     from ..core.bend_geometry import profil_aus_operationen
@@ -150,7 +150,7 @@ def kanten_profil(ops, t, ri, k):
     basis = rueckversatz(erste, t, ri)
     # sichtbares Stück Blech vor der Kante (nur Zeichnung): halbe erste Schenkellänge
     zeichen_basis = basis + max(5.0, 0.5 * float(ops[0]["laenge"]))
-    res = berechne(0.0, profil_aus_operationen(zeichen_basis, ops, t), t, ri, k)
+    res = berechne(0.0, profil_aus_operationen(zeichen_basis, ops, t, versatz_zeigen), t, ri, k)
     return res, zeichen_basis - basis
 
 
@@ -166,7 +166,7 @@ def vorlagen_vorschau(vorlage, material=None, breite=260, hoehe=170, schrift=11)
         if m.get("kFactor") is None:
             m["kFactor"] = 0.5   # wirkt nur auf die Abwicklung, nicht auf den Querschnitt
         ops, _ = template_engine.aufloesen(vorlage, {}, m)
-        res, _ = kanten_profil(ops, m["thickness"], m["innerRadius"], m["kFactor"])
+        res, _ = kanten_profil(ops, m["thickness"], m["innerRadius"], m["kFactor"], versatz_zeigen=True)
     except (template_engine.VorlagenFehler, short_syntax.KurzschriftFehler, ProfilFehler, KeyError, TypeError, ValueError) as e:
         return None, str(e).splitlines()[-1] if str(e) else "keine Vorschau"
     return profil_svg(res, breite, hoehe, rand=26, schrift=schrift, basis_segment=True, kante_a="Kante", kante_b=False), None

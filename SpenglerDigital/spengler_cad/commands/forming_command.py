@@ -9,7 +9,7 @@ import os
 
 import adsk.core
 
-from ..core import units
+from ..core import auftrag as auftrag_logik, units
 from ..diagnostics import logger
 from ..forming import forming as fo
 from ..manufacturing import dxf_writer
@@ -40,7 +40,7 @@ def erstellt(args):
     inp.addValueInput("r2", "Radius oben (Kegel)", "mm", adsk.core.ValueInput.createByString("50 mm"))
     md = inp.addDropDownCommandInput("material", "Material", adsk.core.DropDownStyles.TextListDropDownStyle)
     for m in Z["mat"]:
-        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == e.get("defaultMaterialId"))
+        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == auftrag_logik.material_vorgabe(e, Z["mat"]))
     if Z["mat"] and md.selectedItem is None:
         md.listItems.item(0).isSelected = True
     vd = inp.addDropDownCommandInput("verfahren", "Werkstattverfahren", adsk.core.DropDownStyles.TextListDropDownStyle)

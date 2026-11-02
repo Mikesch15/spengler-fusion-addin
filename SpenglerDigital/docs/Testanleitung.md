@@ -33,6 +33,10 @@ Live-Test in Fusion · zum Abhaken in der Palette (Register **Tests**) oder zum 
 | ☐ | SPENGLER → Hilfe → **Fusion-Fähigkeiten prüfen** | **Versionsnummer = installierte Version** und richtiger Ladeordner; Liste mit ✓/✗ – **Bildschirmfoto** |
 | ☐ | Hilfe → **Selbsttest in neuem Dokument** | neues Dokument; ✓ Einheiten, ✓ Rundblech (Ø ca. 200.7 mm), ✓ 3D-Detail (Ursprung ca. (0, 100, 0) mm, «neu beim Import: SD_H_1», «Original SD_H unverändert») – **Bildschirmfoto** |
 | ☐ | Testdokument ohne Speichern schliessen | – |
+| ☐ | Kanten bearbeiten öffnen, noch nichts wählen | oben gelbe Ampel «Blechkörper wählen»; nach Körper + Kante grün «Bereit: …»; Kurzinfo unter «Vorlage» – **Bildschirmfoto** |
+| ☐ | Kanten bauen, dann Zeitleiste ansehen | eine Gruppe «Spengler: <Vorlage>»; Strg+Z nimmt sie ganz zurück; Meldung nennt das Material des Auftrags |
+| ☐ | Kanten bearbeiten nochmals öffnen | zuletzt benutzte Vorlage steht oben (↻), Material des Auftrags ist vorgewählt |
+| ☐ | Auftrag-Wahl zurücksetzen (Einstellungen → Aufträge) und «Kanten bearbeiten» öffnen | Sperre mit Knopf «Jetzt beheben: Auftrag wählen öffnen» |
 | ☐ | SPENGLER → Verwaltung → **Live-Test** → «Test starten» (Haken «Ergebnis senden» an), 1–2 Min. nichts anklicken | Meldung «x ok, y Warnungen, z Fehler»; Bericht als Testpunkt 97.002 in der App-Datenbank und in `livetest.txt` – **dieses Ergebnis genügt**, die Einzelprüfungen der Blöcke 5/8 müssen dafür nicht von Hand gemacht werden |
 | ☐ | Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen» | Texte erscheinen, PDF öffnet |
 

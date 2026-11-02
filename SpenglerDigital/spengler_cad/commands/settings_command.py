@@ -107,6 +107,12 @@ def beim_start():
         selbsttest_nach_update()
     except Exception:
         logger.ausnahme("Selbsttest nach Update")
+    try:
+        from ..storage import backup_service
+        if backup_service.taeglich(addin_version=VERSION):
+            logger.info("Tägliche Sicherung erstellt")
+    except Exception:
+        logger.ausnahme("Tägliche Sicherung")
     e = Einstellungen().laden().get("cloud", {})
     c = Cloud(timeout=6)
     if not c.angemeldet:

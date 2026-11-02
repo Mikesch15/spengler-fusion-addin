@@ -14,6 +14,16 @@ BRAUCHT_AUFTRAG = {"spenglerKantenBearbeiten": "Kanten bearbeiten", "spenglerAbw
 BRAUCHT_MATERIAL = {"spenglerKantenBearbeiten", "spenglerMaterialZuschnitt"}
 
 
+def ablauf(z):
+    """Schrittleiste: [(Name, True/False/None)] – None = lässt sich nicht automatisch feststellen."""
+    return [("Auftrag", bool(z.get("auftrag")) and bool(z.get("dokument_gespeichert"))), ("Material", bool(z.get("material_gewaehlt"))), ("Kanten", None),
+            ("Prüfen & Zuschnitt", None), ("App", True if z.get("projekt_in_app") else (False if z.get("projekt_in_app") is False else None))]
+
+
+def ablauf_text(z):
+    return "  ›  ".join(("✅ " if ok else "⬜ " if ok is False else "▫ ") + n for n, ok in ablauf(z))
+
+
 def bewerte(z):
     """z: {'angemeldet': bool, 'auftrag': str, 'objekt': str, 'projekt_in_app': True/False/None (unbekannt/nicht geprüft), 'materialien': int, 'vorlagen': int,
     'dokument_gespeichert': bool, 'fehlende_funktionen': [str]} → {'zeilen': [{'ok': True/False/None, 'text': str}], 'naechster': Schlüssel aus SCHRITTE}"""
@@ -47,7 +57,7 @@ def bewerte(z):
         n = "abgleich"
     else:
         n = "kanten"
-    return {"zeilen": zeilen, "naechster": n}
+    return {"zeilen": zeilen, "naechster": n, "ablauf": ablauf_text(z)}
 
 
 def voraussetzungen(befehl_id, z, auftrag_erforderlich=True):

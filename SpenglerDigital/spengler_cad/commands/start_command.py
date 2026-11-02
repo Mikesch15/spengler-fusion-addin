@@ -19,6 +19,7 @@ def _erstellt(self, args):
     z = zustand.lesen(mit_app=True)
     e = logik.bewerte(z)
     symbol = {True: "✅", False: "⚠️", None: "ℹ️"}
+    inp.addTextBoxCommandInput("ablauf", "", "<b>Ablauf:</b> " + e["ablauf"], 2, True)
     inp.addTextBoxCommandInput("status", "", "<br>".join("%s %s" % (symbol[x["ok"]], x["text"]) for x in e["zeilen"]), 7, True)
     dd = inp.addDropDownCommandInput("naechster", "Nächster Schritt", adsk.core.DropDownStyles.TextListDropDownStyle)
     for k, name in logik.SCHRITTE:

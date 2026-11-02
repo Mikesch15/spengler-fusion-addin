@@ -58,6 +58,12 @@ def fehlerbericht_senden(titel, text):
 
 
 def melden(titel, text, fehler=False):
+    if fehler:
+        try:
+            from ..core import fehlerhilfe
+            text = fehlerhilfe.mit_hilfe(text)
+        except Exception:
+            pass
     if fehler and fehlerbericht_senden(titel, text):
         text += "\n\n(Fehlerbericht mit Protokoll wurde an Spengler Digital übermittelt.)"
     try:
@@ -108,6 +114,24 @@ ICON_FUER = {"spenglerStart": "start", "spenglerNeuerAuftrag": "auftrag_neu", "s
              "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe", "spenglerLiveTest": "hilfe"}
 
 
+# Einheitliche Beschriftung des OK-Knopfs: immer ein Verb, das sagt, was jetzt passiert
+OK_TEXT = {"spenglerNeuerAuftrag": "Auftrag anlegen", "spenglerAuftragWaehlen": "Auftrag aktivieren", "spenglerAuftraegeAbgleichen": "Abgleichen",
+           "spenglerKantenBearbeiten": "Kanten bauen", "spenglerAbwicklungDxf": "Abwicklung erstellen", "spenglerMaterialZuschnitt": "Listen erstellen",
+           "spenglerRundblech": "Rundblech bauen", "spenglerDetailErfassen": "Detail erfassen", "spenglerDetailAnwenden": "Detail einfügen",
+           "spenglerVorlageLernen": "Vorlage anlegen", "spenglerVorlageAusApp": "Vorlage anlegen", "spenglerLiveTest": "Test starten"}
+
+
+def _mit_ok_text(bid, erstellt):
+    def f(args):
+        erstellt(args)
+        try:
+            if bid in OK_TEXT:
+                args.command.okButtonText = OK_TEXT[bid]
+        except Exception:
+            pass
+    return f
+
+
 def befehl_definieren(bid, name, tooltip, erstellt):
     """Button-Definition anlegen (alte gleiche ID vorher entfernen). erstellt(args) baut die Eingaben."""
     alt = ui().commandDefinitions.itemById(bid)
@@ -118,7 +142,7 @@ def befehl_definieren(bid, name, tooltip, erstellt):
     if os.path.isdir(eigen):
         res = eigen
     cdef = ui().commandDefinitions.addButtonDefinition(bid, name, tooltip, res)
-    handler(adsk.core.CommandCreatedEventHandler, cdef.commandCreated, erstellt)
+    handler(adsk.core.CommandCreatedEventHandler, cdef.commandCreated, _mit_ok_text(bid, erstellt))
     return cdef
 
 
@@ -129,12 +153,24 @@ def gesperrt(args, bid):
         from ..core import start as logik
         from . import zustand
         z = zustand.lesen(mit_app=False)
-        probleme, _ = logik.voraussetzungen(bid, z, z.get("auftrag_erforderlich", True))
+        probleme, loesung = logik.voraussetzungen(bid, z, z.get("auftrag_erforderlich", True))
         if not probleme:
             return False
         cmd = args.command
         cmd.commandInputs.addTextBoxCommandInput("sperre", "", "<b>Bitte erst vorbereiten:</b><br>" + "<br>".join("• " + p for p in probleme), 5, True)
         handler(adsk.core.ValidateInputsEventHandler, cmd.validateInputs, lambda a: setattr(a, "areInputsValid", False))
+        if loesung:
+            try:
+                d = ui().commandDefinitions.itemById(loesung)
+                cmd.commandInputs.addBoolValueInput("loesen", "Jetzt beheben: «%s» öffnen" % (d.name if d else loesung), False, "", False)
+
+                def geklickt(a):
+                    if a.input.id == "loesen":
+                        from . import start_command
+                        start_command.befehl_folgen(loesung)
+                handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, geklickt)
+            except Exception:
+                logger.ausnahme("Beheben-Knopf")
         return True
     except Exception:
         logger.ausnahme("Voraussetzungen im Dialog prüfen")

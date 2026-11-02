@@ -18,6 +18,11 @@ def pruefe_teile(teile, einstellung=None):
             w.append("%s: keine Teilenummer." % n)
         else:
             gesehen.setdefault(str(t["nr"]), []).append(n)
+        mt = (t.get("material") or {}).get("thickness") if isinstance(t.get("material"), dict) else None
+        if mt and t.get("dicke") and abs(mt - t["dicke"]) > 0.01:
+            w.append("%s: Blechdicke %.2f mm passt nicht zum Material (%.2f mm)." % (n, t["dicke"], mt))
+        if t.get("blech") is False:
+            w.append("%s: ist kein Blechkörper." % n)
         if t.get("abwicklung") is False:
             w.append("%s: keine Fusion-Abwicklung – Mass/Gewicht nur geschätzt." % n)
         dicke = t.get("dicke")

@@ -8,7 +8,7 @@ import adsk.core
 import adsk.fusion
 
 from .. import VERSION
-from ..core import operation_plan, short_syntax, template_engine
+from ..core import auftrag as auftrag_logik, operation_plan, short_syntax, statusanzeige, template_engine, vorlagen_reihenfolge
 from ..core.models import BuildResult, kopie
 from ..diagnostics import logger
 from ..geometry import edge_resolver, fusion_adapter as fa
@@ -24,7 +24,9 @@ Z = {}   # Zustand des offenen Dialogs
 
 def _vorlagen():
     e = Einstellungen().laden()
-    return VorlagenRepository(projekt_ordner=e.get("projectLibraryFolder") or None).liste("kantenvorlage")
+    alle = VorlagenRepository(projekt_ordner=e.get("projectLibraryFolder") or None).liste("kantenvorlage")
+    geordnet, Z["marken"] = vorlagen_reihenfolge.ordnen(alle, (e.get("ui") or {}).get("zuletzt"))
+    return geordnet
 
 
 def erstellt(args):
@@ -33,9 +35,12 @@ def erstellt(args):
     if base.gesperrt(args, BID):
         return
     e = Einstellungen().laden()
+    cmd.okButtonText = "Kanten bauen"
     Z.clear()
+    Z["marken"] = {}
     Z.update({"vorlagen": _vorlagen(), "materialien": MaterialBibliothek().liste(), "einst": e, "param_ids": []})
     # Erst der Blechkörper, dann dessen Kanten – bei mehreren Blechen nebeneinander ist so klar, wofür die Kanten gelten.
+    inp.addTextBoxCommandInput("status", "", statusanzeige.html("gelb", "Schritt 1: Blechkörper wählen."), 2, True)
     kb = inp.addSelectionInput("koerper", "Blechkörper", help_content.TOOLTIPS["koerper"])
     kb.addSelectionFilter("SolidBodies")
     kb.setSelectionLimits(1, 1)
@@ -49,11 +54,12 @@ def erstellt(args):
     dd = inp.addDropDownCommandInput("vorlage", "Vorlage", adsk.core.DropDownStyles.TextListDropDownStyle)
     dd.tooltip = help_content.TOOLTIPS["vorlage"]
     for i, v in enumerate(Z["vorlagen"]):
-        dd.listItems.add(("★ " if v.get("favorite") else "") + "%s  [%s, V%s]" % (v["name"], v.get("category"), v.get("version")), i == 0)
+        dd.listItems.add((Z["marken"].get(v.get("id")) + " " if Z["marken"].get(v.get("id")) else "") + "%s  [%s, V%s]" % (v["name"], v.get("category"), v.get("version")), i == 0)
+    inp.addTextBoxCommandInput("kurzinfo", "", "", 2, True)
     md = inp.addDropDownCommandInput("material", "Material", adsk.core.DropDownStyles.TextListDropDownStyle)
     md.tooltip = help_content.TOOLTIPS["material"]
     for m in Z["materialien"]:
-        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == e.get("defaultMaterialId"))
+        md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == auftrag_logik.material_vorgabe(e, Z["materialien"]))
     if Z["materialien"] and md.selectedItem is None:
         md.listItems.item(0).isSelected = True
     inp.addGroupCommandInput("parameter", "Parameter")
@@ -66,6 +72,7 @@ def erstellt(args):
     inp.addTextBoxCommandInput("plan", "Bauplan", "", 8, True)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     _parameter_aufbauen(inp)
+    _kurzinfo(inp)
     _sichtbarkeit(inp)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, geaendert)
     base.handler(adsk.core.ValidateInputsEventHandler, cmd.validateInputs, pruefen)
@@ -78,6 +85,24 @@ def _gewaehlte_vorlage(inp):
     if not Z["vorlagen"] or dd.selectedItem is None:
         return None
     return Z["vorlagen"][dd.selectedItem.index]
+
+
+def _kurzinfo(inp):
+    """Beschreibung und Kurzschrift der gewählten Vorlage direkt im Dialog (Kurzhilfe)."""
+    try:
+        v = _gewaehlte_vorlage(inp)
+        if v is None:
+            return
+        teile = []
+        if v.get("description"):
+            teile.append(v["description"])
+        try:
+            teile.append("<i>Folge: %s</i>" % short_syntax.als_text(v.get("operations") or []))
+        except Exception:
+            pass
+        inp.itemById("kurzinfo").text = "<br>".join(teile)
+    except Exception:
+        logger.ausnahme("Kurzinfo")
 
 
 def _material(inp):
@@ -251,6 +276,7 @@ def geaendert(args):
     i = args.input
     if i.id == "vorlage":
         _parameter_aufbauen(inp)
+        _kurzinfo(inp)
     if i.id == "experte":
         _sichtbarkeit(inp)
     if i.id == "koerper":
@@ -267,6 +293,7 @@ def geaendert(args):
         return
     plan, fehler = _plan_gemerkt(inp)
     inp.itemById("plan").text = (fehler or operation_plan.beschreibung(plan)).replace("\n", "<br>")
+    _status(inp, plan, fehler)
 
 
 def _fremde_entfernen(inp):
@@ -291,6 +318,14 @@ def _fremde_entfernen(inp):
         logger.info("Kanten anderer Körper aus der Auswahl genommen", entfernt=len(alle) - len(gut))
     except Exception:
         logger.ausnahme("Fremde Kanten entfernen")
+
+
+def _status(inp, plan, fehler):
+    try:
+        farbe, text = statusanzeige.ampel(plan, fehler, inp.itemById("koerper").selectionCount > 0, inp.itemById("kanten").selectionCount)
+        inp.itemById("status").text = statusanzeige.html(farbe, text)
+    except Exception:
+        logger.ausnahme("Statusanzeige")
 
 
 def pruefen(args):
@@ -390,7 +425,20 @@ def vorschau(args):
 def _ausfuehren(self, args):
     inp = args.command.commandInputs
     r = BuildResult()
+    von = fa.zeitleiste_stand()
     plan = _bauen(inp, r)
+    if not r.fehler:
+        if fa.zeitleiste_gruppieren(von, "Spengler: %s" % (plan.get("templateName") or "Kantenfolge")):
+            r.ausgefuehrt.append("In der Zeitleiste als Gruppe «Spengler: %s» abgelegt – ein Strg+Z nimmt alles zurück." % (plan.get("templateName") or "Kantenfolge"))
+        try:
+            e = Einstellungen().laden()
+            geaendert_ = auftrag_logik.material_merken(e, ((plan.get("material") or {}).get("id")))
+            e.setdefault("ui", {})["zuletzt"] = vorlagen_reihenfolge.merken(e["ui"].get("zuletzt"), plan.get("templateId"))
+            Einstellungen().speichern(e)
+            if geaendert_:
+                r.ausgefuehrt.append("Material «%s» gilt jetzt für diesen Auftrag (Kanten, Zuschnitt, Kalkulation)." % (plan["material"].get("name") or ""))
+        except Exception:
+            logger.ausnahme("Material des Auftrags nicht gemerkt")
     v, angepasst = _vorlage_effektiv(inp)
     if angepasst and inp.itemById("speichern").value and not r.fehler:
         v = kopie(v)

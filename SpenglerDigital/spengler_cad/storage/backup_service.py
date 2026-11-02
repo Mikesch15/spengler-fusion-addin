@@ -137,6 +137,17 @@ def liste(wurzel=None):
     return sorted((os.path.join(ordner, n) for n in os.listdir(ordner) if n.endswith(".zip")), reverse=True)
 
 
+def taeglich(wurzel=None, addin_version="", stunden=20):
+    """Höchstens alle `stunden` Stunden eine automatische Sicherung («_taeglich.zip»). → Pfad der neuen Sicherung oder None."""
+    import time
+    alt = [p for p in liste(wurzel) if p.endswith("_taeglich.zip")]
+    if alt and time.time() - os.path.getmtime(alt[0]) < stunden * 3600:
+        return None
+    pfad = sichern(wurzel, grund="taeglich", addin_version=addin_version)
+    automatische_aufraeumen(wurzel)
+    return pfad
+
+
 def automatische_aufraeumen(wurzel=None, behalten=20):
     """Nur automatisch erstellte Sicherungen über der Anzahl entfernen – manuelle bleiben immer."""
     auto = [p for p in liste(wurzel) if not p.endswith("_manuell.zip")]
