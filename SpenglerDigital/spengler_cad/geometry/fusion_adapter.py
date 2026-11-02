@@ -419,9 +419,8 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     bauarten = [("Regel", None, None)]
     if t:
         bauarten = [("offen, Spalt %.2f" % t, None, t), ("Regel", None, None), ("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None)]
-    if radius_mm:       # Radius der Vorlage: zuerst als offener Saum mit diesem Biegeradius (Spalt = Dicke, ohne Dicke 2 × Radius); scheitert das, die übrigen
-        spalt0 = t or 2 * radius_mm
-        bauarten.insert(0, ("offen, Spalt %.2f, Radius %.2f" % (spalt0, radius_mm), radius_mm, spalt0))
+    if radius_mm:       # «Radius» der Vorlage = «Abstand» im Fusion-Dialog «Falz» (Typ Offen): offener Saum mit diesem Abstand zuerst, dann die übrigen
+        bauarten.insert(0, ("offen, Abstand %.2f" % radius_mm, None, radius_mm))
     versuche = []
     for art, rad, spalt in bauarten:
         for flip in richtungen:
@@ -953,7 +952,10 @@ def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
     """Umschlag an mehreren zusammenhängenden Kanten MIT Gehrung. Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (Fusions Dialog «Falz»
     kann mehrere). Deshalb als gemeinsamer Flansch mit fast 180° (Gehrung rechnet Fusion dort, live bestätigt) und Innenradius = halbe Dicke
     (Spalt ≈ Dicke wie beim offenen Saum). Rückfall auf weniger spitze Winkel, falls Fusion 179° ablehnt. NICHT live geprüft."""
-    radius = op.get("radius") if op.get("radius") is not None else ((dicke_mm / 2.0) if dicke_mm else None)
+    # «Radius» des Umschlags = Abstand zwischen den Lagen (Fusion-Dialog «Falz», Typ Offen); bei einer Biegung von fast 180° ist der Innenradius
+    # die Hälfte davon. Ohne Angabe gilt Abstand = Blechdicke.
+    abstand = op.get("radius") if op.get("radius") is not None else dicke_mm
+    radius = (abstand / 2.0) if abstand else None
     letzter = None
     for winkel in (179.0, 178.0, 175.0):
         try:
@@ -1039,6 +1041,8 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                         hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
             except AdapterFehler as ex:
                 logger.warnung("Gemeinsamer Schritt nicht möglich – weiter je Kante", schritt=i, grund=ex)
+                hinweise.append("Schritt %d konnte nicht gemeinsam (mit Gehrung) gebaut werden – er wird je Kante gebaut, die Ecken bleiben stumpf. Grund: %s" % (
+                    i, str(ex).splitlines()[0][:300]))
                 try:
                     if feat2 is not None and feat2.isValid:
                         feat2.deleteMe()

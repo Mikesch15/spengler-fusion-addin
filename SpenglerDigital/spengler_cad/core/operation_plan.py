@@ -79,7 +79,7 @@ def erstelle(vorlage, eingaben, material, kanten):
         return plan
     # Biegeradius: Standard ist der Innenradius des Materialprofils; nur ein ausdrücklich eingetragener Radius der Vorlage gilt vor ihm.
     if material and material.get("innerRadius") is not None:
-        ops = [dict(o, radius=material["innerRadius"]) if o.get("radius") is None and o.get("typ") != "umschlag" else o for o in ops]
+        ops = [dict(o, radius=material["innerRadius"]) if o.get("radius") is None else o for o in ops]
         plan["operations"] = ops
     if (vorlage.get("manufacturing") or {}).get("cutsAllowed"):
         warn.append("Die Vorlage erlaubt Einschnitte/Freistellungen.")

@@ -305,11 +305,6 @@ class UmschlagTest(unittest.TestCase):
         self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
         self.assertEqual(len(hf.hinzu), 1)
 
-    def test_radius_der_vorlage_macht_keinen_offenen_saum(self):
-        inp = HemEingabe()
-        fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
-        self.assertEqual(inp.aufrufe[0][0], "flat", "Live-Test: offener Saum scheiterte, Radius kommt aus der Blechregel")
-
     def test_fusion_lehnt_ab_oder_wirft(self):
         for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):
             hf = Sammlung(inp)
@@ -423,11 +418,6 @@ class UmschlagTest(unittest.TestCase):
         name, kante, laenge, geflippt, position = inp.aufrufe[0]
         self.assertEqual((name, kante, laenge, geflippt), ("flat", k, "7 mm", True))
         self.assertEqual(len(hf.hinzu), 1)
-
-    def test_radius_der_vorlage_macht_keinen_offenen_saum(self):
-        inp = HemEingabe()
-        fa.umschlag(kante_mit(hem=Sammlung(inp)), 10, False, radius_mm=1.5)
-        self.assertEqual(inp.aufrufe[0][0], "flat", "Live-Test: offener Saum scheiterte, Radius kommt aus der Blechregel")
 
     def test_fusion_lehnt_ab_oder_wirft(self):
         for inp, text in ((HemEingabe(ergebnis=False), "abgelehnt"), (HemEingabe(wirft="Kante ungültig"), "Kante ungültig")):
@@ -1221,13 +1211,13 @@ class GruppeUmschlagTest(unittest.TestCase):
         self.assertEqual(len(erzeugt), 1)
         kanten, winkel, laenge, radius, gespiegelt = self.aufrufe[0]
         self.assertEqual((kanten, winkel, laenge, gespiegelt), ([k1, k2], 179.0, 12, False))
-        self.assertAlmostEqual(radius, 0.3, msg="Innenradius = halbe Dicke (Spalt ≈ Dicke wie beim offenen Saum)")
+        self.assertAlmostEqual(radius, 0.3, msg="Abstand = Dicke 0.6 → Innenradius 0.3")
         self.assertIn("179°-Flansch", hinweise[0])
 
     def test_nach_hinten_und_rueckfall_auf_kleineren_winkel(self):
         self.ablehnen = 1
         fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": -180, "laenge": 12, "radius": 1.0}], 0.6, {}, [])
-        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 1.0, True), (-178.0, 1.0, True)])
+        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 0.5, True), (-178.0, 0.5, True)])
 
     def test_alles_abgelehnt_gibt_fehler_fuer_den_rueckfall_je_kante(self):
         self.ablehnen = 9
@@ -1251,14 +1241,13 @@ class GemeinsameSchritteTest(unittest.TestCase):
         fa._schritt_gruppe(["k1", "k2"], {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}, 0.7, True)
         self.assertEqual([(a[1], a[3], a[4]) for a in aufrufe], [(90, 1.5, False), (45, None, False), (-179.0, 0.35, True)])
 
-    def test_radius_der_vorlage_wird_beim_saum_zuerst_versucht(self):
-        """Live 2.11.: «die Biegeradien der Kantenvorlage werden nicht berücksichtigt» – beim Umschlag wurde der Radius ignoriert."""
+    def test_radius_der_vorlage_ist_der_abstand_des_offenen_saums(self):
+        """Live 2.11.: Im Fusion-Dialog «Falz» heisst der Radius «Abstand» (Typ Offen) – die Vorlage setzt genau diesen Abstand."""
         inp = HemEingabe()
-        inp.bendRadiusOverride = Radiusueberschreibung()
         hf = Sammlung(inp)
-        fa.umschlag(kante_mit(hem=hf), 7, False, 1.5, None, 0.6)
-        self.assertEqual(inp.bendRadiusOverride.wert, "1.5 mm")
-        self.assertEqual(inp.aufrufe[0][0], "open", "offener Saum mit dem Radius der Vorlage zuerst")
+        fa.umschlag(kante_mit(hem=hf), 10, False, 1.5, None, 0.6)
+        name, _, laenge, spalt, geflippt, _ = inp.aufrufe[0]
+        self.assertEqual((name, laenge, spalt), ("open", "10 mm", "1.5 mm"))
 
     def test_saum_werkzeug_nimmt_nur_die_erste_kante(self):
         inp = HemEingabe()

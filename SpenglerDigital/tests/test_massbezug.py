@@ -49,7 +49,7 @@ class MassbezugTest(unittest.TestCase):
         k = {"ref": 1, "text": "Kante 1", "kurve": "linie", "laenge": 500.0, "flaechen": 2, "blech": True, "dicke": 0.7, "frei": True}
         m = test_material()
         ops = operation_plan.erstelle(v, {}, m, [k])["operations"]
-        self.assertEqual([o["radius"] for o in ops], [m["innerRadius"], 2.0, None], "Flansch: Materialradius, eigener Radius gilt, Umschlag unberührt")
+        self.assertEqual([o["radius"] for o in ops], [m["innerRadius"], 2.0, m["innerRadius"]], "Material-Innenradius ist der Standard (auch Umschlag-Abstand), eigener Radius gilt")
 
     def test_versatz_pruefen_aufloesen_anzeigen(self):
         f, _ = validation.pruefe_operationen([op(versatz=5), op(versatz="a*2")], ["a"])
