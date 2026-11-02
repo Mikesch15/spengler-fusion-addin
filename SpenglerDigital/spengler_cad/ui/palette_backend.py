@@ -372,6 +372,20 @@ class Backend(object):
             logger.warnung("Gemeinsames Änderungsprotokoll nicht lesbar – lokaler Stand")
         return list(reversed((json_store.lesen(self._aenderungsdatei()) or [])[-n:]))
 
+    def a_protokoll_senden(self, d):
+        """Protokollauszug (letzte Zeilen) mit einer Notiz als Bericht an die eigene Firma – wenn etwas nicht wie erwartet geht, aber keine Fehlermeldung kam."""
+        import datetime
+        import time
+        from ..diagnostics import logger
+        c = self._cloud()
+        if not c.angemeldet:
+            raise RuntimeError("Zum Senden zuerst unter «Konto» anmelden.")
+        notiz = str(d.get("notiz", "")).strip()[:3000] or "(ohne Notiz)"
+        c.test_speichern({"test_id": "98.%03d" % ((int(time.time()) // 600) % 1000), "text": ("Protokoll gesendet: " + notiz)[:1000], "status": "offen",
+                          "notiz": notiz, "protokoll": logger.ende(zeilen=400, max_zeichen=19000), "addin_version": VERSION,
+                          "fusion_version": logger.fusion_version(), "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
+        return {"gesendet": True}
+
     def a_fehlerberichte(self, d):
         """Automatisch übermittelte Fehlerberichte der eigenen Firma (neueste zuerst)."""
         c = self._cloud()

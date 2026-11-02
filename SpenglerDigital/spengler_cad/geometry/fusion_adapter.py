@@ -348,6 +348,7 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
         ov = getattr(inp, "bendRadiusOverride", None)
         try:
             ok = bool(ov is not None and ov.setOverride(_vi_mm(radius_mm)))
+            logger.info("Biegeradius der Vorlage gesetzt", radius_mm=radius_mm, angenommen=ok, aktiv=getattr(ov, "isOverridden", None))
         except Exception as e:
             logger.warnung("Biegeradius-Override fehlgeschlagen", fehler=e)
             ok = False
@@ -418,8 +419,9 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     bauarten = [("Regel", None, None)]
     if t:
         bauarten = [("offen, Spalt %.2f" % t, None, t), ("Regel", None, None), ("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None)]
-    if radius_mm:
-        bauarten.insert(1, ("Radius %.2f" % radius_mm, radius_mm, None))
+    if radius_mm:       # Radius der Vorlage: zuerst als offener Saum mit diesem Biegeradius (Spalt = Dicke, ohne Dicke 2 × Radius); scheitert das, die übrigen
+        spalt0 = t or 2 * radius_mm
+        bauarten.insert(0, ("offen, Spalt %.2f, Radius %.2f" % (spalt0, radius_mm), radius_mm, spalt0))
     versuche = []
     for art, rad, spalt in bauarten:
         for flip in richtungen:
@@ -961,32 +963,12 @@ def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
     raise letzter
 
 
-def _gemeinsamer_umschlag(kanten, ops, dicke_mm, rahmen, v):
-    """Umschlag als ein Feature an mehreren zusammenhängenden Kanten als zweiter Schritt (Richtung wie bei Einzelkanten gemessen und bei
-    Abweichung gespiegelt neu angelegt). → Feature oder None (dann baut der Aufrufer je Kante). NICHT live geprüft."""
-    op = ops[1]
-    feat = None
-    try:
-        for flip in (False, True):
-            feat = _umschlag_gruppe(kanten, op, dicke_mm, flip)
-            if rahmen[0] is None or v is None:
-                return feat
-            neu = neue_aussenkante(feat, kanten[0], op["laenge"], dicke_mm or 1.0)
-            gemessen = _gemessen(kanten[0], neu, rahmen[0][0])
-            stimmt = richtung_stimmt(ops[0]["winkel"], op["winkel"], gemessen, rahmen[0][1], v) if gemessen is not None else None
-            if stimmt is not False:
-                return feat
-            feat.deleteMe()
-            feat = None
-        return None
-    except Exception as ex:
-        logger.warnung("Gemeinsamer Umschlag nicht möglich – es wird je Kante gebaut", grund=ex)
-        try:
-            if feat is not None and feat.isValid:
-                feat.deleteMe()
-        except Exception:
-            pass
-        return None
+def _schritt_gruppe(kanten, op, dicke_mm, gespiegelt):
+    """Ein Schritt als EIN Feature an mehreren zusammenhängenden Kanten (Gehrung): Flansch direkt, Umschlag als fast-180°-Flansch."""
+    if op["typ"] == "umschlag":
+        return _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt)
+    return flansch(list(kanten), -abs(op["winkel"]) if gespiegelt else abs(op["winkel"]), op["laenge"], op.get("radius"), gespiegelt,
+                   op.get("bezug"), op.get("lage"))
 
 
 def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
@@ -1027,18 +1009,55 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             gemessen = _gemessen(edges[0], neue[0], rahmen[0][0])
             quer = _einheit(_ohne_komponente(gemessen, rahmen[0][1])) if gemessen is not None else None
             v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
-        if len(ops) == 2 and ops[1]["typ"] == "umschlag":
-            phase = "Gemeinsamer Umschlag (Gehrung)"
-            f2 = _gemeinsamer_umschlag(neue, ops, dicke_mm, rahmen, v)
-            if f2 is not None:
-                erzeugt.append(f2)
-                markieren(f2, dict(markierung, schritt=2, kanten=len(neue)))
-                hinweise.append("Umschlag an %d Kanten gemeinsam mit Gehrung gebaut." % len(neue))
+        # Weitere Schritte ebenfalls GEMEINSAM (Gehrung an den Ecken – Live 2.11.: Umschläge und spätere Flansche wurden je Kante gebaut, die Ecken
+        # blieben stumpf). Scheitert ein gemeinsamer Schritt, wird ab dort je Kante weitergebaut (wie bisher).
+        aktuell, lauf, i = list(neue), op["winkel"], 2
+        while i <= len(ops):
+            o = ops[i - 1]
+            if o.get("versatz"):
+                break
+            phase = "Gemeinsamer Schritt %d (Gehrung)" % i
+            feat2, nxt = None, None
+            try:
+                feat2 = _schritt_gruppe(aktuell, o, dicke_mm, False)
+                if i < len(ops) or (rahmen[0] is not None and v is not None):
+                    try:
+                        nxt = [neue_aussenkante(feat2, e, o["laenge"], dicke_mm or 1.0) for e in aktuell]
+                    except AdapterFehler:
+                        if i < len(ops):
+                            raise
+                        hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
+                if nxt is not None and rahmen[0] is not None and v is not None:
+                    gem = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                    if gem is not None and richtung_stimmt(lauf, o["winkel"], gem, rahmen[0][1], v) is False:
+                        feat2.deleteMe()
+                        feat2 = _schritt_gruppe(aktuell, o, dicke_mm, True)
+                        nxt = [neue_aussenkante(feat2, e, o["laenge"], dicke_mm or 1.0) for e in aktuell]
+                        gem2 = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                        if gem2 is not None and richtung_stimmt(lauf, o["winkel"], gem2, rahmen[0][1], v) is False:
+                            raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab." % i)
+                        hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
+            except AdapterFehler as ex:
+                logger.warnung("Gemeinsamer Schritt nicht möglich – weiter je Kante", schritt=i, grund=ex)
+                try:
+                    if feat2 is not None and feat2.isValid:
+                        feat2.deleteMe()
+                except Exception:
+                    pass
+                break
+            erzeugt.append(feat2)
+            markieren(feat2, dict(markierung, schritt=i, kanten=len(aktuell)))
+            logger.info("Gemeinsamer Schritt erzeugt", schritt=i, typ=o["typ"], kanten=len(aktuell))
+            lauf += o["winkel"]
+            if i == len(ops):
                 return erzeugt
-        for nr, (e, n) in enumerate(zip(edges, neue), 1):
-            phase = "Kante %d, weitere Schritte" % nr
-            erzeugt.extend(folge_anbringen(n, ops, dicke_mm, markierung, hinweise,
-                                           start={"i": 2, "lauf": op["winkel"], "v": v, "rahmen": rahmen[nr - 1]}))
+            aktuell = nxt
+            i += 1
+        if i <= len(ops):
+            for nr, n in enumerate(aktuell, 1):
+                phase = "Kante %d, weitere Schritte" % nr
+                erzeugt.extend(folge_anbringen(n, ops, dicke_mm, markierung, hinweise,
+                                               start={"i": i, "lauf": lauf, "v": v, "rahmen": rahmen[nr - 1]}))
         return erzeugt
     except Exception as e:
         logger.ausnahme("Gemeinsamer Flansch abgebrochen", phase=phase)

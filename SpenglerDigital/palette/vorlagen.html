@@ -201,6 +201,10 @@ fieldset{border:1px solid var(--rand);margin:8px 0;padding:6px 8px}legend{color:
     <div class="zeile"><button id="fbLaden">Fehlerberichte laden</button><span class="klein" id="fbHinweis">Nur mit Konto (Register Konto). Jede Fehlermeldung im Add-in schickt Meldung und Protokollauszug an die eigene Firma.</span></div>
     <div id="fbListe"></div>
   </fieldset>
+  <fieldset><legend>Protokoll senden (wenn etwas nicht wie erwartet geht)</legend>
+    <div class="zeile"><input id="pNotiz" size="60" placeholder="Was war los? (z. B. «Umschlag an der Ecke nicht auf Gehrung»)"> <button id="pSenden">Protokoll senden</button></div>
+    <div class="klein">Schickt die letzten Protokollzeilen und deine Notiz an die eigene Firma (nur angemeldet). Direkt nach dem Versuch senden.</div>
+  </fieldset>
   <fieldset><legend>Änderungsprotokoll (Vorlagen, Materialien – dieser PC)</legend>
     <div class="zeile"><button id="acLaden">Aktualisieren</button></div>
     <table><thead><tr><th>Zeit</th><th>Benutzer</th><th>Aktion</th><th>Name</th><th>Version</th></tr></thead><tbody id="acListe"></tbody></table>

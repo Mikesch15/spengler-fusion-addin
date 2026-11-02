@@ -348,6 +348,15 @@ class TestergebnisseTest(CloudBasis):
         with self.assertRaises(RuntimeError):
             self.backend(i=1, anmelden=False).a_fehlerberichte({})
 
+    def test_protokoll_manuell_senden(self):
+        b = self.backend()
+        self.assertEqual(b.a_protokoll_senden({"notiz": "Umschlag an der Ecke nicht auf Gehrung"}), {"gesendet": True})
+        z = [t for t in self.z.tests if t["test_id"].startswith("98.")][0]
+        self.assertEqual((z["status"], z["notiz"]), ("offen", "Umschlag an der Ecke nicht auf Gehrung"))
+        self.assertIn("Protokoll gesendet", z["text"])
+        with self.assertRaises(RuntimeError):
+            self.backend(i=1, anmelden=False).a_protokoll_senden({})
+
     def test_aenderungsprotokoll(self):
         import json as _json
         b = self.backend(anmelden=False)

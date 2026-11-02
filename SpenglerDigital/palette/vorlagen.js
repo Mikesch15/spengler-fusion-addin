@@ -481,3 +481,7 @@ $("rListe").addEventListener("click", async (ev) => {
 });
 document.querySelector('nav button[data-tab="reste"]').addEventListener("click", resteLaden);
 document.querySelector('nav button[data-tab="berichte"]').addEventListener("click", aenderungenLaden);
+
+$("pSenden").onclick = async () => {
+  if (await tun(() => senden("protokoll_senden", { notiz: $("pNotiz").value }), "Protokoll gesendet.")) $("pNotiz").value = "";
+};
