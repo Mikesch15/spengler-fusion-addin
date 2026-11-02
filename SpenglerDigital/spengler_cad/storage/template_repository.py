@@ -17,7 +17,8 @@ from ..core.models import SCHEMA, jetzt, kopie, neue_id
 from ..core.validation import pruefe_kantenvorlage
 from . import json_store, paths
 
-TYPEN = {"kantenvorlage": "kanten", "detailvorlage": "details"}
+TYPEN = {"kantenvorlage": "kanten", "detailvorlage": "details", "bauteilvorlage": "bauteile"}
+PRAEFIX = {"kantenvorlage": "kv", "detailvorlage": "dv", "bauteilvorlage": "bv"}
 
 
 class VorlagenSpeicherFehler(RuntimeError):
@@ -103,6 +104,9 @@ class VorlagenRepository(object):
             raise VorlagenSpeicherFehler("Diese Vorlage stammt aus einer neueren Programmversion und wird nicht verändert.")
         if typ == "kantenvorlage":
             fehler, _ = pruefe_kantenvorlage(vorlage)
+        elif typ == "bauteilvorlage":
+            from ..core.bauteil import pruefe_bauteilvorlage
+            fehler, _ = pruefe_bauteilvorlage(vorlage)
         else:
             from ..details.detail_validation import pruefe_detailvorlage
             fehler, _ = pruefe_detailvorlage(vorlage)
@@ -112,7 +116,7 @@ class VorlagenRepository(object):
         for k in ("_ebene", "_datei", "_nurLesen", "_fehler"):
             v.pop(k, None)
         if not v.get("id"):
-            v["id"] = neue_id("kv" if typ == "kantenvorlage" else "dv")
+            v["id"] = neue_id(PRAEFIX[typ])
         pfad = self._datei(typ, v["id"], ebene)
         alt = json_store.lesen(pfad)
         if alt is not None:
@@ -148,7 +152,7 @@ class VorlagenRepository(object):
         v = kopie(quelle)
         for k in ("_ebene", "_datei", "_nurLesen"):
             v.pop(k, None)
-        v["id"] = neue_id("kv" if typ == "kantenvorlage" else "dv")
+        v["id"] = neue_id(PRAEFIX[typ])
         v["name"] = neuer_name or ("Kopie von " + quelle.get("name", ""))
         v["version"] = 1
         v["created"] = jetzt()
@@ -264,7 +268,7 @@ class VorlagenRepository(object):
             kopie_noetig = v.get("id") in vorhandene and not ueberschreiben
             if kopie_noetig:
                 v.setdefault("metadata", {})["importedAsCopyOf"] = v["id"]
-                v["id"] = neue_id("kv" if v["typ"] == "kantenvorlage" else "dv")
+                v["id"] = neue_id(PRAEFIX[v["typ"]])
                 v["version"] = 1
             rel = (v.get("source") or {}).get("file")
             if rel and rel in paket.get("geometrie", {}):

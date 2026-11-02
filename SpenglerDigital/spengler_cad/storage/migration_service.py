@@ -119,7 +119,7 @@ def _pruefe(alt, neu):
 
 def _alle_dateien(wurzel):
     out = [os.path.join(wurzel, "einstellungen.json")]
-    for name in ("kanten", "details", "materialien"):
+    for name in ("kanten", "details", "bauteile", "materialien"):
         o = os.path.join(wurzel, paths.UNTERORDNER[name])
         if os.path.isdir(o):
             out += [os.path.join(o, n) for n in sorted(os.listdir(o)) if n.endswith(".json") and not n.startswith(".")]

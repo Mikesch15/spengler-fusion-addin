@@ -200,6 +200,10 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Im CAD dasselbe Teil nochmals senden | Kein doppeltes Teil in der App (wird überschrieben) |
 | ☐ | In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD **Vorlage aus App-Massaufnahme** | Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt) |
 | ☐ | Im Testauftrag **Blech aus Massaufnahme** (Konstruieren), Massaufnahme «Freies Profil» wählen, Länge prüfen, OK | Neue Komponente mit Grundblech (Breite = erster Schenkel) und den Kanten der App; Zeitleisten-Gruppe «Spengler: …»; Hinweis bei abweichender Blechregel – **Bildschirmfoto** |
+| ☐ | Palette → Register **Bauteile** → «Neues Bauteil erstellen»: Name, Verlauf *Grundrissverlauf*, Beispiel `3000 L90 2000 L90 3000 L90 2000 L90`, Haken «Ring», Breite `Mauer+2*Ue`, Kante am Verlauf `90 Tropf U+ 8`, «Parameter erkennen», Standardwerte 300 / 35 / 40, Speichern | Vorschau zeigt Ring (blaue Kante am Verlauf, orange Gegenkante) und den Querschnitt; Bauteil steht in der Liste |
+| ☐ | **Bauteil erstellen** (Konstruieren), dieses Bauteil, Haken «Geschlossener Ring» | Ampel grün «Bereit: Breite 380 mm, 4 Strecken (Ring) …»; nach OK Blech als Rahmen mit Flansch und Umschlag an der Verlaufskante, Ecken auf Gehrung – **Bildschirmfoto** der Ecken |
+| ☐ | Dasselbe mit offenem Verlauf `3000 L90 2000` (Haken «Ring» aus) und Seite «rechts» | Winkelförmiges Blech; Kantenfolge an beiden Strecken der Verlaufskante gemeinsam, Gehrung an der Ecke |
+| ☐ | Bauteil mit Verlauf *gerade* und Länge 2000 | Ebenes Streifenblech mit den Kantenfolgen |
 
 ## 9f. Aufträge App ↔ Fusion abgleichen (5 Min.)
 

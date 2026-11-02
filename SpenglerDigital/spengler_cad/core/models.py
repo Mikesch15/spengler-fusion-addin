@@ -19,6 +19,7 @@ import uuid
 SCHEMA = {
     "kantenvorlage": 1,
     "detailvorlage": 1,
+    "bauteilvorlage": 1,
     "materialprofil": 1,
     "einstellungen": 1,
     "bibliothek_export": 1,
@@ -78,6 +79,33 @@ def operation(typ, winkel, laenge, radius=None, **extra):
     op = {"typ": typ, "winkel": winkel, "laenge": laenge, "radius": radius}
     op.update(extra)
     return op
+
+
+# ------------------------------------------------------------------ E Bauteilvorlage (Blech mit Breite, Verlauf und Kantenfolgen je Seite)
+SEITEN = ("verlauf", "gegen", "start", "ende")
+SEITEN_TEXT = {"verlauf": "Kante am Verlauf", "gegen": "Gegenkante", "start": "Stirn Anfang", "ende": "Stirn Ende"}
+
+
+def neue_bauteilvorlage(name, **extra):
+    v = {
+        "schemaVersion": SCHEMA["bauteilvorlage"],
+        "typ": "bauteilvorlage",
+        "id": neue_id("bv"),
+        "name": name,
+        "description": "",
+        "category": KATEGORIE_OHNE,
+        "favorite": False,
+        "version": 1,
+        "created": jetzt(),
+        "modified": jetzt(),
+        "parameters": [],
+        "verlauf": {"art": "gerade", "beispiel": "", "seite": "links"},   # gerade (Länge) | grundriss (Verlauf aus Strecken/Winkeln, auch als Ring)
+        "breite": "",                                                    # Ausdruck (mm): Breite des Grundblechs quer zum Verlauf
+        "seiten": {s: [] for s in SEITEN},                               # Kantenfolge je Seite (Operationen wie in der Kantenvorlage)
+        "metadata": {"author": "", "notes": ""},
+    }
+    v.update(extra)
+    return v
 
 
 # ------------------------------------------------------------------ B 3D-Detailvorlage

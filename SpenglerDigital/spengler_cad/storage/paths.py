@@ -40,6 +40,7 @@ def ist_innerhalb(pfad, ordner):
 UNTERORDNER = {
     "kanten": os.path.join("vorlagen", "kanten"),
     "details": os.path.join("vorlagen", "details"),
+    "bauteile": os.path.join("vorlagen", "bauteile"),
     "geometrie": os.path.join("vorlagen", "details", "geometrie"),
     "versionen": os.path.join("vorlagen", "versionen"),
     "papierkorb": os.path.join("vorlagen", "papierkorb"),

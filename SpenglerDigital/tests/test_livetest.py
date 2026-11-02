@@ -166,3 +166,126 @@ class BlechAusApp(unittest.TestCase):
         self.assertTrue(any("Länge" in h for h in g["hinweise"]))
         self.assertTrue(any("Breite" in h for h in g["hinweise"]))
         self.assertEqual(a.grundblech_aus_app(None)["ops"], [])
+
+
+class Grundriss(unittest.TestCase):
+    def test_parse_und_text(self):
+        from spengler_cad.core import grundriss as g
+        s = g.parse("2500 L90 1800 R45 2500")
+        self.assertEqual([(x["laenge"], x["drehung"]) for x in s], [(2500, 90), (1800, -45), (2500, 0)])
+        self.assertEqual(g.als_text(s), "2500 L90 1800 R45 2500")
+        self.assertEqual(g.parse("100 L 200")[0]["drehung"], 90)             # ohne Zahl = 90°
+        for schlecht in ("", "L90 100", "100 X5", "0 L90", "100 L200"):
+            with self.assertRaises(g.VerlaufFehler):
+                g.parse(schlecht)
+
+    def test_offenes_band_l_form(self):
+        from spengler_cad.core import grundriss as g
+        b = g.band(g.parse("300 L90 200"), 100, links=True)
+        # Verlauf (0,0)→(300,0)→(300,200); links = innen: Gegenkante (0,100)→(200,100)→(200,200)
+        self.assertEqual([tuple(round(c) for c in p) for p in b["gegen"]], [(0, 100), (200, 100), (200, 200)])
+        self.assertEqual(len(b["ketten"]["verlauf"]), 2)
+        self.assertEqual(len(b["ketten"]["start"]), 1)
+        self.assertAlmostEqual(b["flaeche"], 300 * 100 + 100 * 100, delta=1)       # Winkel aus 2 Rechtecken
+        rechts = g.band(g.parse("300 L90 200"), 100, links=False)
+        self.assertEqual([tuple(round(c) for c in p) for p in rechts["gegen"]], [(0, -100), (400, -100), (400, 200)])
+
+    def test_ring(self):
+        from spengler_cad.core import grundriss as g
+        b = g.band(g.parse("3000 L90 2000 L90 3000 L90 2000 L90"), 200, links=True, geschlossen=True)
+        self.assertEqual(len(b["schleifen"]), 2)
+        self.assertEqual(len(b["ketten"]["verlauf"]), 4)
+        self.assertNotIn("start", b["ketten"])
+        self.assertAlmostEqual(b["flaeche"], 3000 * 2000 - 2600 * 1600, delta=1)
+        self.assertIn("Ring", b["text"])
+        self.assertIn("<svg", g.svg(b))
+
+    def test_fehler(self):
+        from spengler_cad.core import grundriss as g
+        with self.assertRaises(g.VerlaufFehler) as c:
+            g.band(g.parse("3000 L90 2000 L90 3000 L90 1000 L90"), 100, True, True)
+        self.assertIn("schliesst nicht", str(c.exception))
+        with self.assertRaises(g.VerlaufFehler) as c:
+            g.band(g.parse("300 L90 200"), 250, True)            # Breite grösser als die kurze Strecke → Gegenkante klappt um
+        with self.assertRaises(g.VerlaufFehler):
+            g.band(g.parse("100 L90 100"), 0, True)
+        s = g.parse("100 L120 100")                                # sehr spitze Ecke bleibt baubar, 150° nicht
+        g.band(s, 10, True)
+
+    def test_gerade_strecken_werden_zusammengefasst(self):
+        from spengler_cad.core import grundriss as g
+        z = g.zusammenfassen(g.parse("100 200 L90 300"))
+        self.assertEqual([(s["laenge"], s["drehung"]) for s in z], [(300, 90), (300, 0)])
+
+
+class Bauteilvorlage(unittest.TestCase):
+    def vorlage(self):
+        from spengler_cad.core import bauteil, models
+        v = models.neue_bauteilvorlage("Mauerabdeckung")
+        v["breite"] = "Mauer+2*Ue"
+        v["verlauf"] = {"art": "grundriss", "beispiel": "3000 L90 2000 L90 3000 L90 2000 L90", "seite": "links"}
+        v["seiten"] = bauteil.seiten_aus_texten({"verlauf": "90 Tropf U+ 8", "gegen": "90 Tropf", "start": "", "ende": ""})
+        bauteil.parameter_abgleichen(v)
+        for p in v["parameters"]:
+            p["default"] = {"Mauer": 300, "Ue": 40, "Tropf": 35}[p["name"]]
+        return v
+
+    MAT = {"thickness": 1.0, "innerRadius": 1.0, "kFactor": 0.4}
+
+    def test_parameter_aus_texten(self):
+        v = self.vorlage()
+        self.assertEqual([p["name"] for p in v["parameters"]], ["Mauer", "Tropf", "Ue"])
+        from spengler_cad.core import bauteil
+        v["seiten"] = bauteil.seiten_aus_texten({"verlauf": "90 Tropf"})
+        v["breite"] = "Mauer"
+        bauteil.parameter_abgleichen(v)
+        self.assertEqual([p["name"] for p in v["parameters"]], ["Mauer", "Tropf"])          # Ue entfällt
+        self.assertEqual(v["parameters"][0]["default"], 300)                                # Einstellungen bleiben
+
+    def test_plan_ring(self):
+        from spengler_cad.core import bauteil
+        p = bauteil.plan(self.vorlage(), {}, self.MAT, "3000 L90 2000 L90 3000 L90 2000 L90", None, True, True)
+        self.assertEqual(p["breite"], 380)
+        self.assertEqual(p["seiten"]["start"], [])
+        self.assertEqual([o["typ"] for o in p["seiten"]["verlauf"]], ["flansch", "umschlag"])
+        self.assertEqual(p["seiten"]["verlauf"][0]["laenge"], 35)
+
+    def test_gerade_braucht_laenge(self):
+        from spengler_cad.core import bauteil, grundriss
+        v = self.vorlage()
+        v["verlauf"]["art"] = "gerade"
+        with self.assertRaises(grundriss.VerlaufFehler):
+            bauteil.plan(v, {}, self.MAT, "", None)
+        p = bauteil.plan(v, {}, self.MAT, "", 2000)
+        self.assertEqual(len(p["geometrie"]["ketten"]["verlauf"]), 1)
+        self.assertEqual(len(p["geometrie"]["ketten"]["start"]), 1)
+
+    def test_pruefung(self):
+        from spengler_cad.core import bauteil
+        v = self.vorlage()
+        v["breite"] = ""
+        self.assertTrue(any("Breite" in f for f in bauteil.pruefe_bauteilvorlage(v)[0]))
+        v = self.vorlage()
+        v["verlauf"]["beispiel"] = "100 XY"
+        self.assertTrue(any("Beispielverlauf" in f for f in bauteil.pruefe_bauteilvorlage(v)[0]))
+        v = self.vorlage()
+        v["seiten"]["gegen"] = []
+        v["seiten"]["verlauf"] = []
+        self.assertTrue(any("Keine Kantenfolge" in w for w in bauteil.pruefe_bauteilvorlage(v)[1]))
+
+    def test_speichern_duplizieren_sync_typ(self):
+        import tempfile
+        from spengler_cad.storage.template_repository import VorlagenRepository
+        from spengler_cad.storage import sync_service
+        r = VorlagenRepository(tempfile.mkdtemp(), system_ordner=tempfile.mkdtemp())
+        v = r.speichern(self.vorlage())
+        self.assertTrue(v["id"].startswith("bv-"))
+        k = r.duplizieren(v["id"], "bauteilvorlage")
+        self.assertEqual(len(r.liste("bauteilvorlage")), 2)
+        self.assertEqual(k["typ"], "bauteilvorlage")
+        self.assertIn("bauteilvorlage", sync_service.TYPEN)
+        ungueltig = self.vorlage()
+        ungueltig["breite"] = ""
+        from spengler_cad.storage.template_repository import VorlagenSpeicherFehler
+        with self.assertRaises(VorlagenSpeicherFehler):
+            r.speichern(ungueltig)

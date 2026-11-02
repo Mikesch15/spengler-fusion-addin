@@ -1114,17 +1114,32 @@ def neue_komponente(name):
     return occ.component
 
 
-def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
-    """Ebenes Blech (Basisflansch aus einem Rechteck auf der XY-Ebene, Ecke im Ursprung: X = Länge, Y = Breite) in `comp`. → Blechkörper.
-    Aufrufformen von FlangeFeatures.createBaseFlangeInput werden nacheinander versucht, alle Antworten stehen im Fehlertext.
+def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
+    """Ebenes Blech (Basisflansch) aus einem oder zwei geschlossenen Polygonzügen auf der XY-Ebene (mm; ein Polygon = Fläche, zwei = Ring mit Loch).
+    Aufrufformen von FlangeFeatures.createBaseFlangeInput werden nacheinander versucht, alle Antworten stehen im Fehlertext. → Blechkörper.
     NICHT live geprüft (der Live-Test prüft genau diese Funktion)."""
     ff = getattr(comp.features, "flangeFeatures", None)
     if ff is None or not hasattr(ff, "createBaseFlangeInput"):
         raise AdapterFehler("FlangeFeatures.createBaseFlangeInput fehlt in dieser Fusion-Version – kein Grundblech möglich.")
     vorher = comp.bRepBodies.count
     sk = comp.sketches.add(comp.xYConstructionPlane)
-    sk.sketchCurves.sketchLines.addTwoPointRectangle(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(laenge_mm / 10.0, breite_mm / 10.0, 0))
-    prof = sk.profiles.item(0)
+    for poly in schleifen_mm:
+        n = len(poly)
+        for i in range(n):
+            a_, b_ = poly[i], poly[(i + 1) % n]
+            sk.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(a_[0] / 10.0, a_[1] / 10.0, 0), adsk.core.Point3D.create(b_[0] / 10.0, b_[1] / 10.0, 0))
+    prof = None
+    for i in range(sk.profiles.count):
+        p_ = sk.profiles.item(i)
+        try:
+            schleifen = p_.profileLoops.count
+        except Exception:
+            schleifen = 1
+        if schleifen == len(schleifen_mm):
+            prof = p_
+            break
+    if prof is None:
+        raise AdapterFehler("Aus dem Verlauf entstand keine geschlossene Fläche in der Skizze (%d Profil(e))." % sk.profiles.count)
     antworten = []
     for name in ("Liste", "ObjectCollection"):
         profile = [prof]
@@ -1149,6 +1164,72 @@ def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
             if feat is not None and comp.bRepBodies.count > vorher:
                 return comp.bRepBodies.item(comp.bRepBodies.count - 1)
     raise AdapterFehler("Das Grundblech liess sich nicht erzeugen. Fusion meldet: " + " | ".join(antworten))
+
+
+def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
+    """Rechteckiges Grundblech (Ecke im Ursprung, X = Länge, Y = Breite). Nicht live geprüft."""
+    return blech_aus_profil(comp, [[(0, 0), (laenge_mm, 0), (laenge_mm, breite_mm), (0, breite_mm)]], dicke_mm)
+
+
+def _oberseite(body):
+    bester = None
+    for f in body.faces:
+        try:
+            if isinstance(f.geometry, adsk.core.Plane) and flaechennormale(f)[2] > 0.99 and (bester is None or f.area > bester.area):
+                bester = f
+        except Exception:
+            continue
+    if bester is None:
+        raise AdapterFehler("Die Oberseite des Grundblechs wurde nicht gefunden.")
+    return bester
+
+
+def kanten_nach_ketten(body, ketten, tol_mm=0.05):
+    """Randkanten der Oberseite den Strecken eines Grundrissverlaufs zuordnen. ketten: {name: [((x1, y1), (x2, y2)), …]} in mm.
+    → {name: [entityToken …]} in Reihenfolge der Strecken. Eine Strecke ohne passende Kante ist ein Fehler. Nicht live geprüft."""
+    kanten = []
+    for e in _oberseite(body).edges:
+        try:
+            p, q = e.startVertex.geometry, e.endVertex.geometry
+            kanten.append((e, (p.x * 10, p.y * 10), (q.x * 10, q.y * 10)))
+        except Exception:
+            continue
+
+    def gleich(a, b):
+        return abs(a[0] - b[0]) <= tol_mm and abs(a[1] - b[1]) <= tol_mm
+    out = {}
+    for name, segmente in ketten.items():
+        tokens = []
+        for nr, (a, b) in enumerate(segmente, 1):
+            treffer = [e for e, p, q in kanten if (gleich(a, p) and gleich(b, q)) or (gleich(a, q) and gleich(b, p))]
+            if len(treffer) != 1:
+                raise AdapterFehler("Für Strecke %d (%s) wurde %s Kante am Grundblech gefunden." % (nr, name, "keine" if not treffer else "mehr als eine"))
+            tokens.append(treffer[0].entityToken)
+        out[name] = tokens
+    return out
+
+
+def kanten_folge_bauen(tokens, ops, dicke_mm, markierung, hinweise):
+    """Kantenfolge an mehreren Kanten (entityTokens): zusammenhängende Kanten gemeinsam (Gehrung an den Ecken), sonst je Kante. → Liste Features.
+    Scheitert ein gemeinsamer Bau, wird je Kante gebaut und im Hinweis erwähnt. Nicht live geprüft."""
+    def kante(t):
+        k = _kante_aufloesen(t, None)
+        if k is None:
+            raise AdapterFehler("Eine Kante ist nach dem vorherigen Schritt nicht mehr auffindbar.")
+        return k
+    kanten = [kante(t) for t in tokens]
+    erz = []
+    for gruppe in gruppen_bilden(kanten):
+        if len(gruppe) >= 2 and (ops[0]["typ"] != "umschlag" or len(ops) == 1):
+            try:
+                erz += folge_anbringen_gruppe([kante(tokens[i]) for i in gruppe], ops, dicke_mm, markierung, hinweise)
+                continue
+            except AdapterFehler as e:
+                hinweise.append("Kanten %s: gemeinsam (mit Gehrung) nicht möglich, einzeln gebaut. Grund: %s" % (
+                    "+".join(str(i + 1) for i in gruppe), str(e).splitlines()[0][:200]))
+        for i in gruppe:
+            erz += folge_anbringen(kante(tokens[i]), ops, dicke_mm, markierung, hinweise)
+    return erz
 
 
 def grundblech_kante(body, seite_y="max"):

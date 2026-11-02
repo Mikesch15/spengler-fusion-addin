@@ -21,7 +21,7 @@ from .cloud_client import CloudFehler
 from .material_library import MaterialBibliothek
 from .template_repository import VorlagenRepository
 
-TYPEN = ("kantenvorlage", "detailvorlage", "materialprofil")
+TYPEN = ("kantenvorlage", "detailvorlage", "bauteilvorlage", "materialprofil")
 OHNE = ("version", "modified", "_ebene", "_datei", "_nurLesen", "_fehler", "_vorschau", "_vorschauGrund")
 
 
@@ -49,7 +49,7 @@ class Abgleich(object):
     # ------------------------------------------------------------------ lokale Ablage
     def _lokal(self):
         out = {}
-        for typ in ("kantenvorlage", "detailvorlage"):
+        for typ in ("kantenvorlage", "detailvorlage", "bauteilvorlage"):
             for v in self.repo.liste(typ):
                 if v.get("_ebene") == "benutzer" and not v.get("_fehler"):
                     out[(typ, v["id"])] = v
@@ -206,7 +206,7 @@ class Abgleich(object):
     def _konflikt_kopie(self, typ, L, b, stand, hochladen=True):
         k = _sauber(kopie(L))
         alt = k["id"]
-        k["id"] = neue_id({"kantenvorlage": "kv", "detailvorlage": "dv", "materialprofil": "mat"}[typ])
+        k["id"] = neue_id({"kantenvorlage": "kv", "detailvorlage": "dv", "bauteilvorlage": "bv", "materialprofil": "mat"}[typ])
         k["name"] = "%s (Konflikt %s)" % (k.get("name", ""), datetime.date.today().strftime("%d.%m."))
         k["version"] = 1
         k.setdefault("metadata", {})["konfliktVon"] = alt

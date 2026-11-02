@@ -7,7 +7,7 @@ import json
 import os
 
 from .. import VERSION
-from ..core import models, operation_plan, short_syntax, template_engine
+from ..core import bauteil, grundriss, models, operation_plan, short_syntax, template_engine
 from ..core.bend_geometry import ProfilFehler, zugabe_abwicklung
 from ..manufacturing import drawing
 from ..storage import backup_service, paths
@@ -57,6 +57,11 @@ class Backend(object):
         v["_vorschau"], v["_vorschauGrund"] = drawing.vorlagen_vorschau(v, material, 150, 100, 9)
         return v
 
+    def _bauteil_ansicht(self, v):
+        v = _ohne_intern(v)
+        v["_texte"] = bauteil.texte_der_vorlage(v)
+        return v
+
     def zustand(self):
         e = Einstellungen(self.wurzel).laden()
         r = self.repo
@@ -64,6 +69,7 @@ class Backend(object):
         return {"version": VERSION, "datenordner": self.wurzel or paths.daten_ordner(),
                 "vorlagen": [self._mit_vorschau(v, m) for v in r.liste("kantenvorlage")],
                 "details": [_ohne_intern(v) for v in r.liste("detailvorlage")],
+                "bauteile": [self._bauteil_ansicht(v) for v in r.liste("bauteilvorlage")],
                 "kategorien": r.kategorien("kantenvorlage"),
                 "materialien": MaterialBibliothek(self.wurzel).liste(),
                 "einstellungen": e,
@@ -79,6 +85,47 @@ class Backend(object):
 
     def a_neue_vorlage(self, d):
         return models.neue_kantenvorlage(d.get("name") or "Neue Vorlage")
+
+    def a_neues_bauteil(self, d):
+        v = models.neue_bauteilvorlage(d.get("name") or "Neues Bauteil")
+        return self._bauteil_ansicht(v)
+
+    def a_bauteil_erkennen(self, d):
+        """Kurzschrift der vier Seiten + Breite → Operationen, Parameterliste (vorhandene Einstellungen der Parameter bleiben)."""
+        v = d["vorlage"]
+        v["seiten"] = bauteil.seiten_aus_texten(d.get("texte") or {})
+        bauteil.parameter_abgleichen(v)
+        return self._bauteil_ansicht(v)
+
+    def a_bauteil_vorschau(self, d):
+        """Draufsicht des Bandes + Querschnitt je Seite mit den Standardwerten der Vorlage (oder den übergebenen Werten)."""
+        v = d["vorlage"]
+        e = Einstellungen(self.wurzel).laden()
+        m = self._standardmaterial(e, d.get("materialId"))
+        mat = dict(m) if m else {"name": "Skizze", "thickness": 1.0, "innerRadius": 1.0, "kFactor": 0.5}
+        mat.setdefault("innerRadius", mat["thickness"])
+        if mat.get("innerRadius") is None:
+            mat["innerRadius"] = mat["thickness"]
+        if mat.get("kFactor") is None:
+            mat["kFactor"] = 0.5
+        fehlen = [p["name"] for p in v.get("parameters", []) if p.get("default") is None and p["name"] not in (d.get("eingaben") or {})]
+        if fehlen:
+            return {"grund": "Für die Vorschau braucht jeder Parameter einen Standardwert (fehlt: %s)." % ", ".join(fehlen)}
+        links = d.get("seite", (v.get("verlauf") or {}).get("seite", "links")) != "rechts"
+        try:
+            p = bauteil.plan(v, d.get("eingaben") or {}, mat, d.get("verlauf") or (v.get("verlauf") or {}).get("beispiel") or "", d.get("laenge") or 1000.0,
+                             links, bool(d.get("geschlossen")))
+        except (template_engine.VorlagenFehler, grundriss.VerlaufFehler, short_syntax.KurzschriftFehler) as ex:
+            return {"grund": str(ex)}
+        quer = {}
+        for s in models.SEITEN:
+            ops = (v.get("seiten") or {}).get(s) or []
+            if not ops:
+                continue
+            pseudo = models.neue_kantenvorlage(v.get("name") or "Bauteil", operations=ops, parameters=v.get("parameters", []))
+            svg, grund = drawing.vorlagen_vorschau(pseudo, mat, 250, 170, 10)
+            quer[s] = {"titel": models.SEITEN_TEXT[s], "svg": svg, "grund": grund}
+        return {"grundriss": grundriss.svg(p["geometrie"]), "text": p["text"], "querschnitte": quer, "warnungen": p["warnungen"], "grund": None}
 
     def a_kurzschrift(self, d):
         """Kurzschrift → Operationen (für Expertenmodus) inkl. neu erkannter Parameter."""

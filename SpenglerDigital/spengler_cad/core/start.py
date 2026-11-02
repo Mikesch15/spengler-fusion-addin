@@ -10,8 +10,8 @@ BEFEHL_ID = {"auftrag_wahl": "spenglerAuftragWaehlen", "auftrag_neu": "spenglerN
 
 # Befehle, die einen aktiven Auftrag verlangen (Schlüssel = Befehls-ID)
 BRAUCHT_AUFTRAG = {"spenglerKantenBearbeiten": "Kanten bearbeiten", "spenglerAbwicklungDxf": "Abwicklung & DXF",
-                   "spenglerMaterialZuschnitt": "Stückliste & Zuschnitt", "spenglerRundblech": "Rundblech / Umformung"}
-BRAUCHT_MATERIAL = {"spenglerKantenBearbeiten", "spenglerMaterialZuschnitt"}
+                   "spenglerMaterialZuschnitt": "Stückliste & Zuschnitt", "spenglerRundblech": "Rundblech / Umformung", "spenglerBauteil": "Bauteil erstellen"}
+BRAUCHT_MATERIAL = {"spenglerKantenBearbeiten", "spenglerMaterialZuschnitt", "spenglerBauteil"}
 
 
 def ablauf(z):

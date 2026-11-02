@@ -67,6 +67,7 @@ td,th,.tpunkt{border-color:#2b343e}
   <label style="min-width:0"><input type="checkbox" id="experte"> Expertenmodus</label></header>
 <nav>
   <button data-tab="vorlagen" class="aktiv">Kantenvorlagen</button>
+  <button data-tab="bauteile">Bauteile</button>
   <button data-tab="auftraege">Aufträge</button>
   <button data-tab="details">3D-Details</button>
   <button data-tab="materialien">Materialien</button>
@@ -207,6 +208,41 @@ td,th,.tpunkt{border-color:#2b343e}
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="bauteile">
+  <div class="zeile"><button class="haupt" id="bNeu">Neues Bauteil erstellen</button><button id="bKopie">Duplizieren</button><button class="gefahr" id="bLoeschen">Löschen</button></div>
+  <div class="klein">Ein Bauteil ist ein Blech mit Breite, Verlauf und Kantenfolgen. Der Verlauf kann <b>gerade</b> (nur eine Länge) oder ein <b>Grundrissverlauf</b> sein (Strecken mit Richtungswechseln, auch als geschlossener Ring um ein Gebäude oder einen Kamin). Erstellt wird das Bauteil dann in Fusion mit «Bauteil erstellen» (Konstruieren).</div>
+  <div id="bLeer" class="leer">Noch keine Bauteile. Mit «Neues Bauteil erstellen» legen Sie Ihr erstes an, z. B. eine Mauerabdeckung.</div>
+  <table class="liste" id="btListe" style="display:none"><thead><tr><th>Name</th><th>Kategorie</th><th>Version</th><th>Verlauf</th><th>Kantenfolgen</th></tr></thead><tbody></tbody></table>
+  <div id="bEditor" style="display:none">
+    <fieldset><legend>Bauteil</legend>
+      <div class="zeile"><label>Name</label><input id="bName" size="34"> <span class="klein" id="bVersion"></span></div>
+      <div class="zeile"><label>Beschreibung</label><input id="bBeschr" size="50"></div>
+      <div class="zeile"><label>Kategorie</label><input id="bKat" size="20"> <label style="min-width:0"><input type="checkbox" id="bFav"> Favorit</label></div>
+      <div class="zeile"><label>Verlauf</label><select id="bArt"><option value="gerade">gerade (nur eine Länge)</option><option value="grundriss">Grundrissverlauf (Strecken und Richtungswechsel)</option></select>
+        <label style="min-width:0">Blech liegt</label><select id="bSeite"><option value="links">links vom Verlauf</option><option value="rechts">rechts vom Verlauf</option></select></div>
+      <div class="zeile" id="bBspZeile"><label>Beispielverlauf</label><input id="bBsp" size="50" placeholder="3000 L90 2000 L90 3000 L90 2000 L90"> <label style="min-width:0"><input type="checkbox" id="bRing"> Ring</label></div>
+      <div class="klein" id="bBspHilfe">Schreibweise: Zahl = Länge der Strecke in mm, <b>L90</b> = Richtungswechsel nach links (<b>R45</b> = rechts) am Ende der Strecke. Bei «Ring» muss der Verlauf am Anfang wieder ankommen.</div>
+      <div class="zeile"><label>Breite des Blechs</label><input id="bBreite" size="34" placeholder="Mauer+2*Ueberstand"> mm <span class="klein">Breite quer zum Verlauf; Zahl oder Ausdruck mit Parametern (t = Dicke)</span></div>
+    </fieldset>
+    <fieldset><legend>Kantenfolgen (Kurzschrift wie bei den Kantenvorlagen)</legend>
+      <div class="klein">Winkel und Schenkellänge im Wechsel, z. B. <code>90 Tropf U+ 8</code> (90° abkanten, Schenkel «Tropf», dann Umschlag 8 mm). Namen werden zu Parametern. Leer = Seite bleibt ungebogen.</div>
+      <div class="zeile"><label>Kante am Verlauf</label><input id="bT_verlauf" size="50"></div>
+      <div class="zeile"><label>Gegenkante</label><input id="bT_gegen" size="50"></div>
+      <div class="zeile experte2"><label>Stirn Anfang</label><input id="bT_start" size="50"></div>
+      <div class="zeile experte2"><label>Stirn Ende</label><input id="bT_ende" size="50"></div>
+      <div class="zeile"><button id="bErkennen">Parameter erkennen / übernehmen</button></div>
+    </fieldset>
+    <fieldset><legend>Parameter</legend>
+      <table id="bParam"><thead><tr><th>Name</th><th>Beschriftung</th><th>Einheit</th><th>Standardwert</th><th>Min</th><th>Max</th></tr></thead><tbody></tbody></table>
+    </fieldset>
+    <fieldset><legend>Vorschau</legend>
+      <div class="zeile"><label>Material</label><select id="bMat"></select> <label style="min-width:0">Länge (gerade)</label><input id="bLaenge" size="6" value="1000"> mm</div>
+      <div id="bVorschau" class="vorschau"></div>
+      <div id="bMeld" class="klein"></div>
+    </fieldset>
+    <div class="zeile"><button class="haupt" id="bSpeichern">Speichern</button><button id="bAbbrechen">Schliessen</button></div>
+  </div>
 </section>
 <section id="auftraege">
   <div class="zeile"><button class="haupt" id="aLaden">Aktualisieren</button>

@@ -63,7 +63,7 @@ async function laden() {
   $("ordner").textContent = Z.datenordner;
   document.body.classList.toggle("experte", Z.einstellungen.ui.mode === "experte");
   $("experte").checked = Z.einstellungen.ui.mode === "experte";
-  zeigeVorlagen(); zeigeDetails(); zeigeMaterialien(); zeigeEinstellungen(); zeigeSicherung();
+  zeigeVorlagen(); zeigeDetails(); zeigeMaterialien(); zeigeEinstellungen(); zeigeSicherung(); bListeZeigen();
   await zeigeKonto().catch((e) => meldung(e.message, "fehler"));
 }
 $("kAnmelden").onclick = async () => {
@@ -457,6 +457,103 @@ $("eProfil").onclick = async () => {
   const r = await tun(() => senden("profilblatt", { vorlage: editorLesen(), materialId: $("eMat").value || null }));
   if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
 };
+
+// ------------------------------------------------------------------ Bauteile (Blech mit Breite, Verlauf und Kantenfolgen)
+let B = null;
+const B_SEITEN = ["verlauf", "gegen", "start", "ende"];
+function bListeZeigen() {
+  const l = Z.bauteile || [];
+  $("bLeer").style.display = l.length ? "none" : "block";
+  $("btListe").style.display = l.length ? "" : "none";
+  $("btListe").querySelector("tbody").innerHTML = l.map((v) => `<tr data-bid="${esc(v.id)}" class="${B && B.id === v.id ? "gewaehlt" : ""}"><td>${v.favorite ? "★ " : ""}${esc(v.name)}</td>
+    <td>${esc(v.category)}</td><td>${esc(v.version)}</td><td>${v.verlauf?.art === "grundriss" ? "Grundriss" : "gerade"}</td>
+    <td class="klein">${B_SEITEN.filter((s) => (v._texte || {})[s]).map((s) => esc(s + ": " + v._texte[s])).join(" · ")}</td></tr>`).join("");
+  $("bMat").innerHTML = '<option value="">– Skizze (t = 1 mm) –</option>' + Z.materialien.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} (${m.thickness} mm)</option>`).join("");
+  $("bMat").value = Z.einstellungen.defaultMaterialId || "";
+}
+function bOeffnen(v) {
+  B = JSON.parse(JSON.stringify(v));
+  $("bEditor").style.display = "block";
+  $("bName").value = B.name || ""; $("bBeschr").value = B.description || ""; $("bKat").value = B.category || ""; $("bFav").checked = !!B.favorite;
+  $("bVersion").textContent = B.version ? `Version ${B.version}` : "";
+  $("bArt").value = B.verlauf?.art || "gerade"; $("bSeite").value = B.verlauf?.seite || "links"; $("bBsp").value = B.verlauf?.beispiel || "";
+  $("bRing").checked = false; $("bBreite").value = B.breite || "";
+  for (const s of B_SEITEN) $("bT_" + s).value = (B._texte || {})[s] || "";
+  bArtZeigen(); bParamZeigen(); bListeZeigen(); bVorschau();
+}
+function bArtZeigen() {
+  const g = $("bArt").value === "grundriss";
+  $("bBspZeile").style.display = g ? "" : "none"; $("bBspHilfe").style.display = g ? "" : "none";
+  $("bLaenge").disabled = g;
+}
+function bParamZeigen() {
+  $("bParam").querySelector("tbody").innerHTML = (B.parameters || []).map((p, i) => `<tr>
+    <td>${esc(p.name)}</td><td><input data-bp="${i}" data-f="label" value="${esc(p.label)}" size="16"></td>
+    <td><select data-bp="${i}" data-f="unit">${["mm", "deg", ""].map((u) => `<option value="${u}" ${p.unit === u ? "selected" : ""}>${u || "–"}</option>`).join("")}</select></td>
+    <td><input type="number" step="any" data-bp="${i}" data-f="default" value="${p.default ?? ""}"></td>
+    <td><input type="number" step="any" data-bp="${i}" data-f="min" value="${p.min ?? ""}"></td>
+    <td><input type="number" step="any" data-bp="${i}" data-f="max" value="${p.max ?? ""}"></td></tr>`).join("") || "<tr><td colspan='6' class='klein'>Noch keine Parameter – sie entstehen aus den Namen in Breite und Kantenfolgen.</td></tr>";
+}
+function bLesen() {
+  B.name = $("bName").value.trim(); B.description = $("bBeschr").value; B.category = $("bKat").value.trim() || "Ohne Kategorie"; B.favorite = $("bFav").checked;
+  B.verlauf = Object.assign({}, B.verlauf, { art: $("bArt").value, seite: $("bSeite").value, beispiel: $("bBsp").value.trim() });
+  B.breite = $("bBreite").value.trim();
+  const t = {}; for (const s of B_SEITEN) t[s] = $("bT_" + s).value.trim();
+  return t;
+}
+async function bErkennen() {   // Kurzschrift → Operationen, Parameterliste abgleichen (Einstellungen der Parameter bleiben)
+  const texte = bLesen();
+  const v = await tun(() => senden("bauteil_erkennen", { vorlage: B, texte }));
+  if (v) { B = v; bParamZeigen(); }
+  return !!v;
+}
+let bUhr = null;
+function bVorschau() {
+  clearTimeout(bUhr);
+  bUhr = setTimeout(async () => {
+    if (!B) return;
+    try {
+      const texte = bLesen();
+      const vorher = (B.parameters || []).map((p) => p.name).join(",");
+      const v = await senden("bauteil_erkennen", { vorlage: B, texte }); B = v;
+      if ((B.parameters || []).map((p) => p.name).join(",") !== vorher) bParamZeigen();      // Tabelle nur neu zeichnen, wenn sich die Namen ändern (sonst springt die Eingabe)
+      const r = await senden("bauteil_vorschau", { vorlage: B, materialId: $("bMat").value || null, laenge: zahlOderNull($("bLaenge").value) || 1000, geschlossen: $("bRing").checked,
+        verlauf: B.verlauf.beispiel, seite: B.verlauf.seite });
+      $("bVorschau").innerHTML = r.grund ? `<span class="klein">Keine Vorschau: ${esc(r.grund)}</span>`
+        : `<div class="zeile">${r.grundriss}${Object.values(r.querschnitte).map((q) => `<div>${q.svg || ""}<div class="klein">${esc(q.titel)}</div></div>`).join("")}</div><div class="klein">${esc(r.text)}</div>`;
+      $("bMeld").textContent = (r.warnungen || []).join(" ");
+    } catch (e) { $("bVorschau").innerHTML = `<span class="klein">Keine Vorschau: ${esc(e.message)}</span>`; }
+  }, 450);
+}
+$("bNeu").onclick = async () => { const v = await tun(() => senden("neues_bauteil", { name: "Neues Bauteil" })); if (v) bOeffnen(v); };
+$("btListe").addEventListener("click", (ev) => { const tr = ev.target.closest("tr[data-bid]"); if (tr) bOeffnen(Z.bauteile.find((x) => x.id === tr.dataset.bid)); });
+$("bErkennen").onclick = async () => { if (await bErkennen()) { meldung("Parameter übernommen – Standardwerte bitte eintragen.", "ok"); bVorschau(); } };
+$("bArt").onchange = () => { bArtZeigen(); bVorschau(); };
+$("bEditor").addEventListener("input", (ev) => {
+  const t = ev.target;
+  if (t.dataset.bp !== undefined) {
+    const p = B.parameters[+t.dataset.bp];
+    p[t.dataset.f] = t.dataset.f === "label" || t.dataset.f === "unit" ? t.value : zahlOderNull(t.value);
+  }
+  bVorschau();
+});
+$("bEditor").addEventListener("change", (ev) => { if (ev.target.id === "bMat" || ev.target.id === "bRing" || ev.target.id === "bSeite") bVorschau(); });
+$("bSpeichern").onclick = async () => {
+  if (!(await bErkennen())) return;
+  const v = await tun(() => senden("speichern", { vorlage: B }));
+  if (v) { await laden(); bOeffnen(Z.bauteile.find((x) => x.id === v.id) || v); meldung(`Bauteil gespeichert (Version ${v.version}).`, "ok"); }
+};
+$("bAbbrechen").onclick = () => { B = null; $("bEditor").style.display = "none"; bListeZeigen(); };
+$("bKopie").onclick = async () => {
+  if (!B || !B.id || !Z.bauteile.some((x) => x.id === B.id)) return meldung("Erst speichern, dann duplizieren.", "fehler");
+  const v = await tun(() => senden("duplizieren", { id: B.id, typ: "bauteilvorlage" })); if (v) { await laden(); bOeffnen(v); meldung("Kopie erstellt.", "ok"); }
+};
+$("bLoeschen").onclick = async () => {
+  if (!B || !B.id || !Z.bauteile.some((x) => x.id === B.id)) return meldung("Dieses Bauteil ist noch nicht gespeichert.", "fehler");
+  if (!(await frage(`Bauteil «${B.name}» wirklich löschen? Es wird in den Papierkorb verschoben.`))) return;
+  if (await tun(() => senden("loeschen", { id: B.id, typ: "bauteilvorlage", bestaetigt: true }), "In den Papierkorb verschoben.") !== undefined) { B = null; $("bEditor").style.display = "none"; await laden(); }
+};
+document.querySelector('nav button[data-tab="bauteile"]').addEventListener("click", bListeZeigen);
 
 // ------------------------------------------------------------------ Aufträge (Übersicht)
 async function auftraegeLaden() {

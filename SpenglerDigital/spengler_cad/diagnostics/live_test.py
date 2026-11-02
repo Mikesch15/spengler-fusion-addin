@@ -257,6 +257,35 @@ def t_ordnerpfad(ctx):
     return "Dokument «%s», Ordnerpfad %s" % (n, "/".join(pfad) if pfad else "(ungespeichert, leer)")
 
 
+def _bauteil(ctx, verlauf, ring, seiten, name):
+    """Bauteil im Grundriss wie der Befehl «Bauteil erstellen»: Band aus dem Verlauf, Grundblech, Kantenfolgen an den Ketten."""
+    from ..core import bauteil, models
+    v = models.neue_bauteilvorlage("Livetest")
+    v["breite"] = "100"
+    v["verlauf"] = {"art": "grundriss", "beispiel": verlauf, "seite": "links"}
+    v["seiten"] = bauteil.seiten_aus_texten(seiten)
+    p = bauteil.plan(v, {}, {"thickness": 1.0, "innerRadius": 1.0, "kFactor": 0.4}, verlauf, None, True, ring)
+    g = p["geometrie"]
+    body = fa.blech_aus_profil(ctx.root, g["schleifen"], 1.0)
+    ketten = fa.kanten_nach_ketten(body, g["ketten"])
+    hin, txt = [], [p["text"]]
+    for seite, ops in p["seiten"].items():
+        if ops and seite in ketten:
+            erz = fa.kanten_folge_bauen(ketten[seite], ops, ctx.dicke, {"livetest": 1}, hin)
+            txt.append("%s: %d Feature(s) an %d Kante(n)" % (seite, len(erz), len(ketten[seite])))
+    if hin:
+        raise _Warnung("%s – %s: %s" % (name, "\n".join(txt), "\n".join(hin)))
+    return "%s: %s" % (name, "; ".join(txt))
+
+
+def t_bauteil_l(ctx):
+    return _bauteil(ctx, "300 L90 200", False, {"verlauf": "90 20"}, "L-förmiger Verlauf, Flansch an der Verlaufskante (Gehrung an der Ecke)")
+
+
+def t_bauteil_ring(ctx):
+    return _bauteil(ctx, "300 L90 200 L90 300 L90 200 L90", True, {"verlauf": "90 20", "gegen": "90 15"}, "Ring mit Flansch an beiden Kanten")
+
+
 class _Warnung(Exception):
     """Schritt lief, aber das Ergebnis ist auffällig."""
 
@@ -275,6 +304,8 @@ SCHRITTE = [
     ("Gehrung: Umschlag an 2 Eckkanten", t_gehrung_umschlag, True),
     ("Versatz +5 mm und −5 mm", t_versatz, True),
     ("Abwicklung und DXF", t_abwicklung, True),
+    ("Bauteil: L-förmiger Grundrissverlauf", t_bauteil_l, False),
+    ("Bauteil: geschlossener Ring", t_bauteil_ring, False),
     ("Bildschirmfoto der Ansicht", t_bildschirmfoto, False),
     ("Ordnerpfad des Dokuments lesen", t_ordnerpfad, False),
 ]
