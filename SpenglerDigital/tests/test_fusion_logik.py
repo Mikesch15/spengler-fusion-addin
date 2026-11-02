@@ -1212,21 +1212,58 @@ class GruppeUmschlagTest(unittest.TestCase):
         kanten, winkel, laenge, radius, gespiegelt = self.aufrufe[0]
         self.assertEqual((kanten, winkel, laenge, gespiegelt), ([k1, k2], 179.0, 12, False))
         self.assertAlmostEqual(radius, 0.3, msg="Abstand = Dicke 0.6 → Innenradius 0.3")
-        self.assertIn("179°-Flansch", hinweise[0])
+        self.assertIn("gemeinsam gebaut", hinweise[0])
 
     def test_nach_hinten_und_rueckfall_auf_kleineren_winkel(self):
         self.ablehnen = 1
         fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": -180, "laenge": 12, "radius": 1.0}], 0.6, {}, [])
-        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 0.5, True), (-178.0, 0.5, True)])
+        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 0.5, True), (-179.0, 0.6, True)])
 
     def test_alles_abgelehnt_gibt_fehler_fuer_den_rueckfall_je_kante(self):
-        self.ablehnen = 9
+        self.ablehnen = 99
         with self.assertRaises(fa.AdapterFehler):
             fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}], 0.6, {}, [])
 
     def test_umschlag_mit_weiteren_schritten_bleibt_einzeln(self):
         with self.assertRaises(fa.AdapterFehler):
             fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.6, {}, [])
+
+
+class SaumMehrereKantenTest(unittest.TestCase):
+    """Weg A: Saum-Werkzeug mit mehreren Kanten in einer Eingabe (Fusions Dialog «Falz»), nur gültig, wenn alle Kanten umgeschlagen wurden."""
+    def setUp(self):
+        self.alt = (fa.neue_aussenkante, fa.flansch)
+        self.addCleanup(lambda: (setattr(fa, "neue_aussenkante", self.alt[0]), setattr(fa, "flansch", self.alt[1])))
+        fa.flansch = lambda *a, **k: Feature([], "Ersatzflansch")
+
+    def aufbau(self):
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        k1, k2 = kante_mit(hem=hf), kante_mit(hem=hf)
+        return inp, hf, k1, k2
+
+    OP = {"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": 1.5}
+
+    def test_alle_kanten_werden_in_die_eingabe_gegeben_und_geprueft(self):
+        inp, hf, k1, k2 = self.aufbau()
+        fa.neue_aussenkante = lambda f, v, L, t: "neu"
+        feat = fa._umschlag_gruppe([k1, k2], self.OP, 0.6, False)
+        self.assertEqual(len(hf.hinzu), 1, "ein Saum-Feature")
+        self.assertEqual([a[1] for a in inp.aufrufe], [k1, k2], "setOpenHem für jede Kante")
+        self.assertEqual({a[3] for a in inp.aufrufe}, {"1.5 mm"}, "Abstand = Radius der Vorlage")
+        self.assertIsNot(feat.name, "Ersatzflansch")
+
+    def test_nur_eine_kante_umgeschlagen_dann_ersatz_ueber_flansch(self):
+        inp, hf, k1, k2 = self.aufbau()
+
+        def nur_k2(f, v, L, t):
+            if v is k1:
+                raise fa.AdapterFehler("nicht gefunden")
+            return "neu"
+        fa.neue_aussenkante = nur_k2
+        feat = fa._umschlag_gruppe([k1, k2], self.OP, 0.6, False)
+        self.assertEqual(feat.name, "Ersatzflansch")
+        self.assertTrue(hf.hinzu[0].geloescht if hasattr(hf.hinzu[0], "geloescht") else True)
 
 
 class GemeinsameSchritteTest(unittest.TestCase):

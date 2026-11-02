@@ -387,7 +387,7 @@ def _kantenlaenge_mm(edge):
         return "?"
 
 
-def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=None):
+def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=None, nur_erste_bauart=False):
     """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
 
     Echte API (help.autodesk.com, HemFeatureInput, ab September 2025): hf.createHemFeatureInput() ohne Argumente, danach
@@ -399,8 +399,10 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     # Live-Test 30.10.: mit Radius (offener Saum, Spalt 2 × Radius) scheiterte Fusion, ohne Radius (geschlossener Saum) klappt es.
     # Der Radius des Umschlags kommt deshalb aus der Blechregel; ein Radius in der Vorlage wird hier bewusst nicht verwendet.
     kanten_liste = list(edge) if isinstance(edge, (list, tuple)) else None
-    edge = kanten_liste[0] if kanten_liste else edge
-    kante_arg = edge        # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (eine Auswahl wird abgelehnt) – mehrere Kanten: _umschlag_gruppe
+    alle_kanten = kanten_liste or [edge]
+    edge = alle_kanten[0]
+    # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (eine Auswahl wird abgelehnt). Mehrere Kanten: dieselbe Eingabe wird nacheinander für
+    # jede Kante aufgerufen (im Dialog «Falz» sind es mehrere Kanten in einem Feature mit Gehrung) – ob Fusion sie sammelt, prüft _umschlag_gruppe.
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -421,6 +423,8 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
         bauarten = [("offen, Spalt %.2f" % t, None, t), ("Regel", None, None), ("Radius %.2f" % t, t, None), ("Radius %.2f" % (t / 2.0), t / 2.0, None)]
     if radius_mm:       # «Radius» der Vorlage = «Abstand» im Fusion-Dialog «Falz» (Typ Offen): offener Saum mit diesem Abstand zuerst, dann die übrigen
         bauarten.insert(0, ("offen, Abstand %.2f" % radius_mm, None, radius_mm))
+    if nur_erste_bauart:
+        bauarten = bauarten[:1]
     versuche = []
     for art, rad, spalt in bauarten:
         for flip in richtungen:
@@ -441,10 +445,12 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
                         if ov is None or not ov.setOverride(_vi_mm(rad)):
                             versuche.append("%s: Radius nicht einstellbar" % name)
                             continue
-                    if spalt is not None:
-                        ok = inp.setOpenHem(kante_arg, L, _vi_mm(spalt), flip, _lage_enum(l))
-                    else:
-                        ok = inp.setFlatHem(kante_arg, L, flip, _lage_enum(l))
+                    ok = True
+                    for kante_arg in alle_kanten:
+                        if spalt is not None:
+                            ok = inp.setOpenHem(kante_arg, L, _vi_mm(spalt), flip, _lage_enum(l)) and ok
+                        else:
+                            ok = inp.setFlatHem(kante_arg, L, flip, _lage_enum(l)) and ok
                     if not ok:
                         versuche.append("%s: von Fusion abgelehnt" % name)
                         continue
@@ -949,20 +955,50 @@ def gruppen_bilden(kanten, tol_cm=1e-4):
 
 
 def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
-    """Umschlag an mehreren zusammenhängenden Kanten MIT Gehrung. Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (Fusions Dialog «Falz»
-    kann mehrere). Deshalb als gemeinsamer Flansch mit fast 180° (Gehrung rechnet Fusion dort, live bestätigt) und Innenradius = halbe Dicke
-    (Spalt ≈ Dicke wie beim offenen Saum). Rückfall auf weniger spitze Winkel, falls Fusion 179° ablehnt. NICHT live geprüft."""
-    # «Radius» des Umschlags = Abstand zwischen den Lagen (Fusion-Dialog «Falz», Typ Offen); bei einer Biegung von fast 180° ist der Innenradius
-    # die Hälfte davon. Ohne Angabe gilt Abstand = Blechdicke.
-    abstand = op.get("radius") if op.get("radius") is not None else dicke_mm
-    radius = (abstand / 2.0) if abstand else None
-    letzter = None
-    for winkel in (179.0, 178.0, 175.0):
+    """Umschlag an mehreren zusammenhängenden Kanten MIT Gehrung. Zwei Wege:
+    A) Saum-Werkzeug: dieselbe Eingabe für jede Kante (Fusions Dialog «Falz» nimmt mehrere Kanten mit Gehrung). Gilt nur, wenn danach für ALLE Kanten
+       eine neue Aussenkante gefunden wird (sonst hat Fusion nur die letzte Kante gebaut) – NICHT live bestätigt.
+    B) Ersatz: gemeinsamer Flansch von fast 180° (Gehrung rechnet Fusion dort). Live 2.11. (0.4.29): 179° mit Innenradius 1.5 scheiterte mit
+       SM_GENERIC_FAILURE – deshalb mehrere Winkel und Radien nacheinander (Ergebnis im Protokoll)."""
+    feat = None
+    try:
+        feat = umschlag(list(kanten), op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm, nur_erste_bauart=True)
+        fehlend = []
+        for k in kanten:
+            try:
+                neue_aussenkante(feat, k, op["laenge"], dicke_mm or 1.0)
+            except AdapterFehler:
+                fehlend.append(k)
+        if not fehlend:
+            logger.info("Gemeinsamer Umschlag: Saum-Werkzeug mit mehreren Kanten in einer Eingabe", kanten=len(kanten))
+            return feat
+        raise AdapterFehler("Fusion hat nur einen Teil der Kanten umgeschlagen (%d von %d)." % (len(kanten) - len(fehlend), len(kanten)))
+    except Exception as ex:
+        logger.warnung("Saum-Werkzeug mit mehreren Kanten nicht möglich – Ersatz über Flansch", grund=ex)
         try:
-            return flansch(list(kanten), -winkel if gespiegelt else winkel, op["laenge"], radius, gespiegelt, None, op.get("lage"))
-        except AdapterFehler as ex:
-            letzter = ex
-    raise letzter
+            if feat is not None and feat.isValid:
+                feat.deleteMe()
+        except Exception:
+            pass
+    abstand = op.get("radius") if op.get("radius") is not None else dicke_mm
+    radien = []
+    for r in ((abstand / 2.0) if abstand else None, dicke_mm, None):      # None = Radius der Blechregel
+        if r not in radien:
+            radien.append(r)
+    versuche, antworten = [], []
+    for winkel in (179.0, 178.0, 175.0, 170.0, 160.0):
+        for r in radien:
+            try:
+                f = flansch(list(kanten), -winkel if gespiegelt else winkel, op["laenge"], r, gespiegelt, None, op.get("lage"))
+                logger.info("Gemeinsamer Umschlag als Flansch erzeugt", winkel=winkel, radius=r, versuche=len(versuche) + 1)
+                return f
+            except AdapterFehler as ex:
+                text = str(ex)
+                versuche.append("%g°, Ri %s: %s" % (winkel, "Regel" if r is None else "%.2f" % r, text[:140]))
+                if text not in antworten:
+                    antworten.append(text)
+    logger.warnung("Gemeinsamer Umschlag als Flansch nicht möglich", versuche=" | ".join(versuche))
+    raise AdapterFehler(antworten[-1] if antworten else "Gemeinsamer Umschlag nicht möglich.")
 
 
 def _schritt_gruppe(kanten, op, dicke_mm, gespiegelt):
@@ -995,7 +1031,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             feat = _umschlag_gruppe(list(edges), op, dicke_mm, op["winkel"] < 0)
             erzeugt.append(feat)
             markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
-            hinweise.append("Umschlag an %d Kanten als gemeinsamer 179°-Flansch mit Gehrung gebaut (Fusions Saum-Werkzeug nimmt per Schnittstelle nur eine Kante)." % len(edges))
+            hinweise.append("Umschlag an %d Kanten gemeinsam gebaut (Gehrung); die Methode steht im Protokoll." % len(edges))
             logger.info("Gemeinsamer Umschlag (Flansch 179°) erzeugt", kanten=len(edges), laenge=op["laenge"])
             return erzeugt
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
