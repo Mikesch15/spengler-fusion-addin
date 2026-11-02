@@ -1,7 +1,7 @@
 """Werkzeugleiste: eigenes Register «SPENGLER» im Konstruktionsarbeitsbereich mit allen Befehlen.
 Falls die Register-API fehlt: Befehle im Blech- bzw. Volumenkörper-Panel «Erstellen» (wie Prototyp 0.1)."""
 from ..diagnostics import logger
-from . import app_massaufnahme_command, auftrag_command, start_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, lernen_command, settings_command
+from . import app_massaufnahme_command, auftrag_command, start_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, lernen_command, livetest_command, settings_command
 
 TAB_ID = "SpenglerDigitalTab"
 GRUPPEN = [  # (Panel-ID, Titel, Befehle) – in der Reihenfolge der Arbeit: erst der Auftrag, dann Konstruieren, dann Fertigung
@@ -20,7 +20,7 @@ def _definitionen():
     konstruieren = ([edge_apply_command.registrieren()] + detail_generator_command.registrieren() + [forming_command.registrieren()]
                     + lernen_command.registrieren() + app_massaufnahme_command.registrieren())
     fertigung = export_command.registrieren()
-    verwaltung = settings_command.registrieren()
+    verwaltung = settings_command.registrieren() + livetest_command.registrieren()
     return [auftrag, konstruieren, fertigung, verwaltung]
 
 
@@ -90,7 +90,7 @@ def entfernen():
         pass
     settings_command.aufraeumen()
     for defs in (edge_apply_command.BID, detail_generator_command.BID_ERFASSEN, detail_generator_command.BID_ANWENDEN, forming_command.BID,
-                 export_command.BID_ABW, export_command.BID_ZUS, settings_command.BID_PALETTE, settings_command.BID_HILFE):
+                 export_command.BID_ABW, export_command.BID_ZUS, settings_command.BID_PALETTE, settings_command.BID_HILFE, livetest_command.BID):
         try:
             d = ui.commandDefinitions.itemById(defs)
             if d:

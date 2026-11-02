@@ -105,7 +105,7 @@ def handler(klasse, ereignis, funktion):
 ICON_FUER = {"spenglerStart": "start", "spenglerNeuerAuftrag": "auftrag_neu", "spenglerAuftragWaehlen": "auftrag_wahl", "spenglerAuftraegeAbgleichen": "abgleich",
              "spenglerKantenBearbeiten": "kanten", "spenglerDetailErfassen": "details", "spenglerDetailAnwenden": "details", "spenglerRundblech": "rundblech",
              "spenglerVorlageLernen": "lernen", "spenglerVorlageAusApp": "app_vorlage", "spenglerAbwicklungDxf": "abwicklung",
-             "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe"}
+             "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe", "spenglerLiveTest": "hilfe"}
 
 
 def befehl_definieren(bid, name, tooltip, erstellt):

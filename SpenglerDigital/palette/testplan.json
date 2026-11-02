@@ -97,6 +97,11 @@
     },
     {
      "id": "2.4",
+     "text": "SPENGLER → Verwaltung → Live-Test → «Test starten» (Haken «Ergebnis senden» an), 1–2 Min. nichts anklicken",
+     "erwartet": "Meldung «x ok, y Warnungen, z Fehler»; Bericht als Testpunkt 97.002 in der App-Datenbank und in livetest.txt – dieses Ergebnis genügt, die Einzelprüfungen der Blöcke 5/8 müssen dafür nicht von Hand gemacht werden"
+    },
+    {
+     "id": "2.5",
      "text": "Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen»",
      "erwartet": "Texte erscheinen, PDF öffnet"
     }
