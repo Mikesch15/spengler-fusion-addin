@@ -6,7 +6,7 @@ import unittest
 from _basis import DatenTest, test_material  # noqa: F401
 import fake_supabase
 from spengler_cad.core import app_profil
-from spengler_cad.storage.cloud_client import Cloud
+from spengler_cad.storage.cloud_client import Cloud, CloudFehler
 
 OPS = [{"typ": "flansch", "winkel": 90, "laenge": 25, "radius": None}, {"typ": "umschlag", "winkel": -180, "laenge": 7, "radius": None}]
 
@@ -71,6 +71,45 @@ class AppDatenbankTest(unittest.TestCase):
     def test_teil_ohne_operationen(self):
         z = app_profil.teile_zeilen([{"nr_zahl": "", "nr": "", "name": "Roh", "stueck": 1, "breite": 100.0, "laenge": 100.0, "flaeche": None, "material": None, "operationen": None}], "1", "D")
         self.assertEqual((z[0]["app_data"], z[0]["teil_nr"], z[0]["material_name"]), ({}, 1, ""))
+
+    def test_dateien_am_projekt_ablegen_und_ersetzen(self):
+        self.z.speicher.clear()
+        self.assertEqual(self.c.projekt_datei_ablegen(7, "CAD – Stückliste 18162.html", b"<html>v1</html>", "text/html"), "neu")
+        self.assertEqual(self.c.projekt_datei_ablegen(7, "CAD – Stückliste 18162.csv", b"a;b", "text/csv"), "neu")
+        self.assertEqual(len(self.z.projektdateien), 2)
+        self.assertTrue(all(k.startswith("project-files/7/") for k in self.z.speicher))
+        alt = self.z.projektdateien[0]["file_path"]
+        self.assertEqual(self.c.projekt_datei_ablegen(7, "CAD – Stückliste 18162.html", b"<html>v2</html>", "text/html"), "ersetzt")
+        self.assertEqual(len(self.z.projektdateien), 2, "gleicher Name → keine Verdopplung")
+        neu = self.z.projektdateien[0]
+        self.assertNotEqual(neu["file_path"], alt)
+        self.assertEqual(self.z.speicher[neu["file_path"]], b"<html>v2</html>")
+        self.assertNotIn(alt, self.z.speicher, "alte Datei wird entfernt")
+        self.assertEqual((neu["size_bytes"], neu["mime_type"]), (len(b"<html>v2</html>"), "text/html"))
+        with self.assertRaises(CloudFehler) as cm:
+            self.c.projekt_datei_ablegen(99, "x.txt", b"x")      # fremdes/unbekanntes Projekt
+        self.assertIn("Keine Berechtigung", str(cm.exception))
+
+    def test_export_legt_vorhandene_dateien_ab(self):
+        import os
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "fusion_stub"))
+        from spengler_cad.commands import export_command as ex
+        from spengler_cad.storage import cloud_client
+        ordner = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, ordner, True)
+        for n, inhalt in (("stueckliste.html", "<html/>"), ("stueckliste.csv", "x;y"), ("auftragsmappe.html", "<html>mappe</html>")):
+            open(os.path.join(ordner, n), "w", encoding="utf-8").write(inhalt)
+        alt = cloud_client.Cloud
+        cloud_client.Cloud = lambda *a, **k: self.c
+        self.addCleanup(setattr, cloud_client, "Cloud", alt)
+        self.z.projektdateien.clear()
+        t = ex._dateien_am_projekt({"id": 7, "name": "Sonneggweg"}, "18162", ordner)
+        self.assertIn("3 neu, 0 ersetzt", t)
+        self.assertEqual(sorted(r["name"] for r in self.z.projektdateien),
+                         ["CAD – Auftragsmappe 18162.html", "CAD – Stückliste 18162.csv", "CAD – Stückliste 18162.html"])
+        self.assertIn("0 neu, 3 ersetzt", ex._dateien_am_projekt({"id": 7}, "18162", ordner))
+        self.assertIn("nicht gefunden", ex._dateien_am_projekt(None, "18162", ordner))
 
     def test_massaufnahmen_des_auftrags_lesen(self):
         liste = self.c.massaufnahmen_zum_auftrag("18162")

@@ -648,6 +648,16 @@
      "id": "9.44",
      "text": "Testprojekte in der App wieder löschen/archivieren",
      "erwartet": ""
+    },
+    {
+     "id": "9.45",
+     "text": "Stückliste & Zuschnitt mit «Dateien am Projekt in der App ablegen»; in der App Projekt → Cockpit → Dateien",
+     "erwartet": "«CAD – Stückliste …», «CAD – Auftragsmappe …» usw. sind da und lassen sich öffnen; Meldung «App-Dateien am Projekt: n neu»"
+    },
+    {
+     "id": "9.46",
+     "text": "Dasselbe nochmals ausführen",
+     "erwartet": "Meldung «… ersetzt», keine doppelten Dateien in der Liste"
     }
    ]
   },

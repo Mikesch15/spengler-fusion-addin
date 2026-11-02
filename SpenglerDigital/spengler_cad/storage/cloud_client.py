@@ -287,6 +287,36 @@ class Cloud(object):
             raise
         return (r or [{}])[0]
 
+    def projekt_datei_ablegen(self, projekt_id, name, inhalt, mime="application/octet-stream"):
+        """Datei am Projekt der App ablegen (Ablage «Dateien» im Projekt-Cockpit: Bucket measurements, Pfad project-files/<Projekt>/<Datei>,
+        Zeile in project_files – genau wie die App selbst). Gibt es am Projekt schon eine Datei mit diesem Namen, wird sie ERSETZT (neue Datei
+        zuerst hochladen, Eintrag umbiegen, alte Datei danach entfernen) – so häufen sich bei erneutem Ausführen keine Duplikate.
+        → "neu" | "ersetzt". Rechte wie in der App (Projekte bearbeiten)."""
+        import random
+        import string
+        ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+        pfad = "project-files/%s/%d_%s%s" % (projekt_id, int(time.time() * 1000), "".join(random.choice(string.ascii_lowercase + string.digits) for _ in range(6)),
+                                              ("." + ext) if ext else "")
+        try:
+            self._anfrage("POST", "/storage/v1/object/measurements/%s" % urllib.parse.quote(pfad), roh=inhalt, kopf={"Content-Type": mime})
+            vorhanden = self._json("GET", "/rest/v1/project_files?select=id,file_path&project_id=eq.%s&name=eq.%s&limit=1" % (projekt_id, urllib.parse.quote(name))) or []
+            if vorhanden:
+                self._anfrage("PATCH", "/rest/v1/project_files?id=eq.%s" % vorhanden[0]["id"],
+                              {"file_path": pfad, "size_bytes": len(inhalt), "mime_type": mime, "updated_at": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())},
+                              kopf={"Prefer": "return=minimal"})
+                try:
+                    self._anfrage("DELETE", "/storage/v1/object/measurements/%s" % urllib.parse.quote(vorhanden[0]["file_path"]))
+                except CloudFehler:
+                    pass        # die alte Datei bleibt dann liegen, der Eintrag zeigt auf die neue
+                return "ersetzt"
+            self._anfrage("POST", "/rest/v1/project_files", [{"project_id": projekt_id, "name": name, "file_path": pfad, "size_bytes": len(inhalt), "mime_type": mime}],
+                          kopf={"Prefer": "return=minimal"})
+            return "neu"
+        except CloudFehler as ex:
+            if ex.status in (401, 403):
+                raise CloudFehler("Keine Berechtigung, am Projekt Dateien abzulegen (Recht «Projekte bearbeiten» in der App).", ex.status)
+            raise
+
     def projekt_zu_auftrag(self, nummer):
         """Auftrag der App (Tabelle projects, nur lesen) zur Auftragsnummer → {name, order_no, customer, object, status} oder None."""
         z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status&archived=eq.false&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []

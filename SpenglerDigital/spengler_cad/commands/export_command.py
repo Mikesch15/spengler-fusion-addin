@@ -230,6 +230,7 @@ def zus_erstellt(args):
     inp.addBoolValueInput("bestell", "Bestellliste für den ganzen Auftrag (alle Dokumente)", True, "", False)
     inp.addBoolValueInput("kalk", "Kalkulation (Arbeitszeit × Stundensatz der App)", True, "", True)
     inp.addBoolValueInput("appsenden", "Teile an die App senden (Zentrale, als Massaufnahme übernehmbar)", True, "", True)
+    inp.addBoolValueInput("appdateien", "Dateien (Stückliste, Mappe …) am Projekt in der App ablegen", True, "", True)
     inp.addBoolValueInput("mappe", "Auftragsmappe (alles in einer Datei zum Drucken/PDF)", True, "", False)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged,
@@ -330,8 +331,10 @@ def _zus(self, args):
                 t["nr"], t["name"], t["breite"], t["laenge"], r["breite_mm"], r["laenge_mm"], r.get("material_name") or "Material egal") for t, r in treffer) + "\n\n"
     except Exception:
         logger.ausnahme("Reststücke prüfen")
-    if inp.itemById("appsenden").value:
-        text += _an_die_app(teile, auftrag_nr) + "\n\n"
+    app_projekt = None
+    if inp.itemById("appsenden").value or inp.itemById("appdateien").value:
+        meldung, app_projekt = _an_die_app(teile, auftrag_nr, senden=inp.itemById("appsenden").value)
+        text += meldung + "\n\n"
     if warn:
         text += "Prüfung:\n" + "\n".join("⚠ " + w for w in warn) + "\n\n"
     text += "Teile: " + ", ".join("%s %s" % (t["nr"], t["name"]) for t in teile) + "\n"
@@ -374,6 +377,8 @@ def _zus(self, args):
     if fehlt:
         text += "\nOhne Abwicklung (nicht berechnet): " + ", ".join(fehlt)
     text += "\n\nAnnahme: Teile als umschliessendes Rechteck der Abwicklung; Rechnung der Spengler-Digital-App (ohne Rollenmischung)."
+    if inp.itemById("appdateien").value:
+        text += "\n" + _dateien_am_projekt(app_projekt, auftrag_nr, ordner)
     with open(os.path.join(ordner, "bericht.txt"), "w", encoding="utf-8") as f:
         f.write(text)
     base.melden("Stückliste & Zuschnitt", text + "\n\nErstellt: " + (", ".join(dateien) or "–") + ", bericht.txt\nOrdner: " + ordner)
@@ -383,25 +388,64 @@ def _zus(self, args):
         pass
 
 
-def _an_die_app(teile, auftrag_nr):
-    """Teile in die App (cad_teile) schreiben → Text für den Bericht. Ohne Anmeldung/Netz/Auftragsnummer nur ein Hinweis, nichts geht verloren."""
+def _an_die_app(teile, auftrag_nr, senden=True):
+    """Teile in die App (cad_teile) schreiben → (Text für den Bericht, Projekt der App oder None). Ohne Anmeldung/Netz/Auftragsnummer nur ein Hinweis."""
     if not auftrag_nr:
-        return "App: keine Auftragsnummer – Teile nicht gesendet."
+        return "App: keine Auftragsnummer – nichts gesendet.", None
     try:
         from ..storage.cloud_client import Cloud
         c = Cloud(timeout=12)
         if not c.angemeldet:
-            return "App: nicht angemeldet – Teile nicht gesendet (Register Konto)."
+            return "App: nicht angemeldet – nichts gesendet (Register Konto).", None
         try:
             p = c.projekt_zu_auftrag(auftrag_nr)
         except Exception:
             p = None
+        if not senden:
+            return "", p
         zeilen = app_profil.teile_zeilen(teile, auftrag_nr, fa.dokument_name(), (p or {}).get("id"), VERSION)
         n = c.teile_senden(zeilen)
-        return "App: %d Teil(e) gesendet%s." % (n, (" (Auftrag «%s»)" % p["name"]) if p else " – der Auftrag wurde in der App nicht gefunden, Zuordnung zum Projekt folgt später")
+        return "App: %d Teil(e) gesendet%s." % (n, (" (Auftrag «%s»)" % p["name"]) if p else " – der Auftrag wurde in der App nicht gefunden, Zuordnung zum Projekt folgt später"), p
     except Exception as ex:
         logger.ausnahme("Teile an die App senden")
-        return "App: Teile nicht gesendet (%s)." % base.fehlertext(ex)
+        return "App: Teile nicht gesendet (%s)." % base.fehlertext(ex), None
+
+
+DATEIEN_AM_PROJEKT = (("stueckliste.html", "Stückliste", "text/html"), ("stueckliste.csv", "Stückliste", "text/csv"), ("abkantliste.html", "Abkantliste", "text/html"),
+                      ("kalkulation.html", "Kalkulation", "text/html"), ("auftragsmappe.html", "Auftragsmappe", "text/html"),
+                      ("bestellliste.txt", "Bestellliste", "text/plain"), ("zuschnittplan.svg", "Zuschnittplan", "image/svg+xml"),
+                      ("zuschnittplan.csv", "Zuschnittplan", "text/csv"))
+MAX_DATEI_BYTES = 50 * 1024 * 1024
+
+
+def _dateien_am_projekt(projekt, auftrag_nr, ordner):
+    """Erzeugte Dateien am Projekt der App ablegen (Projekt-Cockpit → Dateien), je Name ersetzt statt verdoppelt → Text. Fehler sind nur ein Hinweis."""
+    if not projekt or not projekt.get("id"):
+        return "App-Dateien: der Auftrag wurde in der App nicht gefunden – nichts abgelegt."
+    try:
+        from ..storage.cloud_client import Cloud
+        c = Cloud(timeout=30)
+        neu, ersetzt, fehler = [], [], []
+        for datei, titel, mime in DATEIEN_AM_PROJEKT:
+            pfad = os.path.join(ordner, datei)
+            if not os.path.isfile(pfad):
+                continue
+            if os.path.getsize(pfad) > MAX_DATEI_BYTES:
+                fehler.append("%s (über 50 MB)" % datei)
+                continue
+            name = "CAD – %s %s.%s" % (titel, auftrag_nr, datei.rsplit(".", 1)[-1])
+            try:
+                with open(pfad, "rb") as f:
+                    r = c.projekt_datei_ablegen(projekt["id"], name, f.read(), mime)
+                (neu if r == "neu" else ersetzt).append(name)
+            except Exception as ex:
+                logger.warnung("Datei nicht am Projekt abgelegt", datei=datei, fehler=ex)
+                fehler.append("%s: %s" % (datei, base.fehlertext(ex)))
+        text = "App-Dateien am Projekt: %d neu, %d ersetzt" % (len(neu), len(ersetzt))
+        return text + (("; nicht abgelegt: " + "; ".join(fehler)) if fehler else "") + "."
+    except Exception as ex:
+        logger.ausnahme("Dateien am Projekt ablegen")
+        return "App-Dateien: nicht abgelegt (%s)." % base.fehlertext(ex)
 
 
 def zus_ausfuehren(args):

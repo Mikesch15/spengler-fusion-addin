@@ -23,6 +23,8 @@ class Zustand(object):
         self.aenderungen = []  # cad_aenderungen
         self.rates = []        # rates (App, nur lesen)
         self.teile = []        # cad_teile
+        self.projektdateien = []   # project_files (App)
+        self.speicher = {}     # Storage-Bucket measurements: Pfad → Bytes
         self.measurements = [] # measurements (App, nur lesen)
         self.projects = []     # projects (App, nur lesen)
         self.versionen = []
@@ -229,6 +231,36 @@ def server(z):
                 else:
                     treffer = [r for r in z.projects if r["company_id"] == me["firma"]]
                 return self._antwort(200, [{k: v for k, v in r.items() if k != "company_id"} for r in treffer] if m == "GET" else [])
+            if pfad == "/rest/v1/project_files":
+                eigene_pid = {p["id"] for p in z.projects if p["company_id"] == me["firma"]}
+                if m == "GET":
+                    return self._antwort(200, [r for r in z.projektdateien if r["project_id"] in eigene_pid and
+                                               str(r["project_id"]) == f.get("project_id", "eq.")[3:] and r["name"] == urllib.parse.unquote(f.get("name", "eq.")[3:])])
+                if m == "POST":
+                    for d in json.loads(body):
+                        if d["project_id"] not in eigene_pid:
+                            return self._antwort(403, {"message": "row-level security"})
+                        z.projektdateien.append(dict(d, id=len(z.projektdateien) + 1))
+                    return self._antwort(201)
+                if m == "PATCH":
+                    for r in z.projektdateien:
+                        if str(r["id"]) == f["id"][3:] and r["project_id"] in eigene_pid:
+                            r.update(json.loads(body))
+                    return self._antwort(204)
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad.startswith("/storage/v1/object/measurements/"):
+                name = urllib.parse.unquote(pfad[len("/storage/v1/object/measurements/"):])
+                teile_ = name.split("/")
+                eigene_pid = {str(p["id"]) for p in z.projects if p["company_id"] == me["firma"]}
+                if m == "POST":
+                    if len(teile_) != 3 or teile_[0] != "project-files" or teile_[1] not in eigene_pid:
+                        return self._antwort(403, {"message": "new row violates row-level security policy"})
+                    z.speicher[name] = body
+                    return self._antwort(200, {"Key": name})
+                if m == "DELETE":
+                    z.speicher.pop(name, None)
+                    return self._antwort(200, {"message": "ok"})
+                return self._antwort(404, {"message": "Object not found"})
             if pfad.startswith("/storage/v1/object/cad/"):
                 name = urllib.parse.unquote(pfad[len("/storage/v1/object/cad/"):])
                 if name.split("/")[0] != me["firma"]:

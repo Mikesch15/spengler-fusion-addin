@@ -202,6 +202,8 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Nochmals abgleichen | Beide Einträge sind jetzt «in beiden» |
 | ☐ | **Neuer Auftrag** mit Haken «Auch als Projekt in der App anlegen», Nummer 99997 | Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon» |
 | ☐ | Testprojekte in der App wieder löschen/archivieren | – |
+| ☐ | **Stückliste & Zuschnitt** mit «Dateien am Projekt in der App ablegen»; in der App Projekt → Cockpit → Dateien | «CAD – Stückliste …», «CAD – Auftragsmappe …» usw. sind da und lassen sich öffnen; Meldung «App-Dateien am Projekt: n neu» |
+| ☐ | Dasselbe nochmals ausführen | Meldung «… ersetzt», keine doppelten Dateien in der Liste |
 
 ## 10. Sicherung, Wiederherstellung, Update (5 Min.)
 
