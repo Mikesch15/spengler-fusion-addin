@@ -110,6 +110,58 @@ class Backend(object):
         return {"pfad": pfad}
 
     # ------------------------------------------------------------------ Reststücke (lokal je PC, Felder wie `reststuecke` der App)
+    def a_auftragsuebersicht(self, d):
+        """Alle Aufträge mit Ordner (Fusion), Projekt (App), Fertigungsstatus und Teilen. Fusion-Ordner nur innerhalb von Fusion lesbar; ohne Konto fehlen App-Spalten."""
+        from ..core import auftrag, uebersicht
+        from ..storage.settings_service import Einstellungen
+        e = Einstellungen(self.wurzel).laden()
+        a = auftrag.pruefe_einstellung(e.get("auftrag"))
+        ordner, hinweise = [], []
+        try:
+            from ..geometry import fusion_adapter as fa
+            ordner = fa.auftraege_lesen(a["wurzelOrdner"])
+        except Exception:
+            hinweise.append("Auftragsordner in Fusion nicht lesbar.")
+        projekte, status, teile = [], {}, []
+        c = self._cloud()
+        if c.angemeldet:
+            for name, f, ziel in (("Projekte", c.projekte_lesen, "p"), ("Status", c.status_alle, "s"), ("Teile", c.teile_uebersicht, "t")):
+                try:
+                    r = f()
+                    if ziel == "p":
+                        projekte = r
+                    elif ziel == "s":
+                        status = r
+                    else:
+                        teile = r
+                except Exception as ex:
+                    hinweise.append("%s der App nicht lesbar: %s" % (name, ex))
+        else:
+            hinweise.append("Nicht angemeldet – nur Ordner in Fusion (Register Konto).")
+        rows = uebersicht.zeilen(projekte, ordner, status, teile, (e.get("order") or {}).get("auftrag", ""))
+        return {"zeilen": rows, "summe": uebersicht.zusammenfassung(rows), "hinweise": hinweise, "status": auftrag.STATUS}
+
+    def a_auftrag_status(self, d):
+        from ..core import auftrag
+        if d.get("status") not in dict(auftrag.STATUS):
+            raise ValueError("Unbekannter Status.")
+        c = self._cloud()
+        if not c.angemeldet:
+            raise ValueError("Zum Setzen des Status zuerst anmelden.")
+        c.status_setzen(str(d["nummer"]), d["status"])
+        return True
+
+    def a_auftrag_aktiv(self, d):
+        from ..storage.settings_service import Einstellungen
+        s = Einstellungen(self.wurzel)
+        e = s.laden()
+        alt = e.get("order") or {}
+        e["order"] = {"auftrag": str(d["nummer"]), "objekt": d.get("objekt") or "", "jahr": d.get("jahr")}
+        if alt.get("auftrag") == str(d["nummer"]) and alt.get("materialId"):
+            e["order"]["materialId"] = alt["materialId"]
+        s.speichern(e)
+        return True
+
     def a_reste(self, d):
         from ..storage import reste
         return reste.liste(self.wurzel)

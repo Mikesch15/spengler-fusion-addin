@@ -39,37 +39,8 @@ def _neues_dokument(app):
 
 
 def _blech_bauen(design, root):
-    """Basisflansch aus einem geschlossenen Rechteck (FlangeFeatures.createBaseFlangeInput). Mehrere Aufrufformen werden versucht, alle
-    Antworten stehen im Fehlertext."""
-    ff = getattr(root.features, "flangeFeatures", None)
-    if ff is None or not hasattr(ff, "createBaseFlangeInput"):
-        raise RuntimeError("FlangeFeatures.createBaseFlangeInput fehlt in dieser Fusion-Version – kein Test-Blech möglich.")
-    sk = root.sketches.add(root.xYConstructionPlane)
-    sk.sketchCurves.sketchLines.addTwoPointRectangle(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(LAENGE / 10.0, BREITE / 10.0, 0))
-    prof = sk.profiles.item(0)
-    antworten = []
-    for name, profile in (("Liste", [prof]), ("ObjectCollection", None)):
-        if profile is None:
-            profile = adsk.core.ObjectCollection.create()
-            profile.add(prof)
-        for dist in (fa._vi_mm(1.0), None):
-            try:
-                inp = ff.createBaseFlangeInput(profile, dist) if dist is not None else ff.createBaseFlangeInput(profile)
-            except Exception as e:
-                antworten.append("%s%s: %s" % (name, "" if dist is not None else " ohne Distanz", _letzte_zeile(e)))
-                continue
-            if inp is None:
-                antworten.append("%s: Fusion lieferte keine Eingabe" % name)
-                continue
-            fa._eigenschaften_einmal("BaseFlangeInput", inp)
-            try:
-                feat = ff.add(inp)
-            except Exception as e:
-                antworten.append("%s add: %s" % (name, _letzte_zeile(e)))
-                continue
-            if feat is not None and root.bRepBodies.count:
-                return root.bRepBodies.item(0)
-    raise RuntimeError("Basisflansch nicht möglich. Fusion meldet: " + " | ".join(antworten))
+    """Test-Blech mit derselben Funktion wie der Befehl «Blech aus Massaufnahme» (fa.grundblech_bauen)."""
+    return fa.grundblech_bauen(root, LAENGE, BREITE, 1.0)
 
 
 def _oberflaeche(body, seite="oben"):

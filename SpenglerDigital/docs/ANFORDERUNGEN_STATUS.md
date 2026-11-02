@@ -50,6 +50,8 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 |---|---|---|
 | Live-Test in Fusion (Test-Blech, Flansch, Umschlag, Gehrung, Versatz, Abwicklung, DXF; Bericht 97.002) | NEIN | Befehl Verwaltung → Live-Test, nicht live geprüft; Test-Blech über createBaseFlangeInput (Annahme) |
 | Bedienung 0.4.35 (Ampel, Kurzinfo, Zeitleisten-Gruppe, Material pro Auftrag, Beheben-Knopf, Fehlerhilfe, Tagessicherung, Dunkelmodus) | NEIN | Logik AUTO getestet; Fusion-Teile (Timeline-Gruppe, Textfelder, Beheben-Knopf) nicht live |
+| Blech aus App-Massaufnahme (Grundblech + Kantenfolge) | NEIN | Logik AUTO; Grundblech über createBaseFlangeInput (Annahme), Kantenfolge wie «Kanten bearbeiten» |
+| Auftragsübersicht (Palette) | TEIL | Logik + Browsertest AUTO; Ordner-Lesen/Abfragen der App nicht live |
 | Eigene Gruppe in Fusion | LIVE | Befehle in Fusion erreichbar (Hilfe → Fähigkeiten/Selbsttest benutzt); Anordnung der 3 Gruppen nicht ausdrücklich bestätigt |
 | A Kanten bearbeiten: Einzel-/Mehrfachauswahl, Vorlage, Parameter, Vorschau, ungeeignete Kanten, Ergebnisprüfung | TEIL | Bauplan/Eignung AUTO (test_operation_plan), Ablauf/Rückbau als Logik-Test; in Fusion nicht live |
 | B 3D-Details anwenden | TEIL | siehe Kap. 4 |

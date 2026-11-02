@@ -262,6 +262,10 @@ class Cloud(object):
     def teile_lesen(self, auftrag):
         return self._json("GET", "/rest/v1/cad_teile?select=teil_label,name,status,measurement_id,dokument,teil_nr,geaendert_am&auftrag=eq.%s&order=teil_nr" % urllib.parse.quote(str(auftrag))) or []
 
+    def teile_uebersicht(self):
+        """Alle Teile der Firma in Kurzform (Auftrag, Status, Änderungszeit) für die Auftragsübersicht."""
+        return self._json("GET", "/rest/v1/cad_teile?select=auftrag,status,geaendert_am&limit=10000") or []
+
     def massaufnahmen_zum_auftrag(self, nummer):
         """Massaufnahmen (Freies Profil / Dachrandblech) der App zum Auftrag (nur lesen) → [{id,title,type,staerke_mm,data,workflow_status}]."""
         p = self.projekt_zu_auftrag(nummer)

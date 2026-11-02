@@ -1107,6 +1107,67 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                             rueckbau_ok=zurueck)
 
 
+def neue_komponente(name):
+    """Leere neue Komponente im aktiven Design. Nicht live geprüft."""
+    occ = design().rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    occ.component.name = name
+    return occ.component
+
+
+def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
+    """Ebenes Blech (Basisflansch aus einem Rechteck auf der XY-Ebene, Ecke im Ursprung: X = Länge, Y = Breite) in `comp`. → Blechkörper.
+    Aufrufformen von FlangeFeatures.createBaseFlangeInput werden nacheinander versucht, alle Antworten stehen im Fehlertext.
+    NICHT live geprüft (der Live-Test prüft genau diese Funktion)."""
+    ff = getattr(comp.features, "flangeFeatures", None)
+    if ff is None or not hasattr(ff, "createBaseFlangeInput"):
+        raise AdapterFehler("FlangeFeatures.createBaseFlangeInput fehlt in dieser Fusion-Version – kein Grundblech möglich.")
+    vorher = comp.bRepBodies.count
+    sk = comp.sketches.add(comp.xYConstructionPlane)
+    sk.sketchCurves.sketchLines.addTwoPointRectangle(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(laenge_mm / 10.0, breite_mm / 10.0, 0))
+    prof = sk.profiles.item(0)
+    antworten = []
+    for name in ("Liste", "ObjectCollection"):
+        profile = [prof]
+        if name == "ObjectCollection":
+            profile = adsk.core.ObjectCollection.create()
+            profile.add(prof)
+        for dist in (_vi_mm(dicke_mm), None):
+            try:
+                inp = ff.createBaseFlangeInput(profile, dist) if dist is not None else ff.createBaseFlangeInput(profile)
+            except Exception as e:
+                antworten.append("%s%s: %s" % (name, "" if dist is not None else " ohne Distanz", (str(e).strip().splitlines() or [type(e).__name__])[-1]))
+                continue
+            if inp is None:
+                antworten.append("%s: Fusion lieferte keine Eingabe" % name)
+                continue
+            _eigenschaften_einmal("BaseFlangeInput", inp)
+            try:
+                feat = ff.add(inp)
+            except Exception as e:
+                antworten.append("%s add: %s" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1]))
+                continue
+            if feat is not None and comp.bRepBodies.count > vorher:
+                return comp.bRepBodies.item(comp.bRepBodies.count - 1)
+    raise AdapterFehler("Das Grundblech liess sich nicht erzeugen. Fusion meldet: " + " | ".join(antworten))
+
+
+def grundblech_kante(body, seite_y="max"):
+    """Lange Randkante (parallel zur X-Achse) der Oberseite eines Grundblechs: an der Seite Y = max (Standard) bzw. min. Nicht live geprüft."""
+    bester = None
+    for f in body.faces:
+        try:
+            if isinstance(f.geometry, adsk.core.Plane) and flaechennormale(f)[2] > 0.99 and (bester is None or f.area > bester.area):
+                bester = f
+        except Exception:
+            continue
+    if bester is None:
+        raise AdapterFehler("Die Oberseite des Grundblechs wurde nicht gefunden.")
+    kanten = [e for e in bester.edges if _kurventyp(e) == "linie" and abs(e.boundingBox.maxPoint.y - e.boundingBox.minPoint.y) < 1e-6]
+    if not kanten:
+        raise AdapterFehler("Keine lange Randkante am Grundblech gefunden.")
+    return (max if seite_y == "max" else min)(kanten, key=lambda e: e.boundingBox.minPoint.y)
+
+
 def zeitleiste_stand():
     """Anzahl der Zeitleisten-Einträge (für zeitleiste_gruppieren). Nicht live geprüft."""
     try:

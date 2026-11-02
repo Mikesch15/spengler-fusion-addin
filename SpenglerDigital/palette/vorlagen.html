@@ -67,6 +67,7 @@ td,th,.tpunkt{border-color:#2b343e}
   <label style="min-width:0"><input type="checkbox" id="experte"> Expertenmodus</label></header>
 <nav>
   <button data-tab="vorlagen" class="aktiv">Kantenvorlagen</button>
+  <button data-tab="auftraege">Aufträge</button>
   <button data-tab="details">3D-Details</button>
   <button data-tab="materialien">Materialien</button>
   <button data-tab="einstellungen">Einstellungen</button>
@@ -206,6 +207,15 @@ td,th,.tpunkt{border-color:#2b343e}
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="auftraege">
+  <div class="zeile"><button class="haupt" id="aLaden">Aktualisieren</button>
+    <input id="aSuche" placeholder="Nummer oder Objekt suchen" size="26">
+    <select id="aFilter"><option value="">Alle Aufträge</option><option value="offen">Offen</option><option value="in_arbeit">In Arbeit</option><option value="gefertigt">Gefertigt</option>
+      <option value="geliefert">Geliefert</option><option value="hinweis">Mit Hinweis</option></select>
+    <span class="klein" id="aSumme"></span></div>
+  <div class="klein" id="aInfo">Alle Aufträge aus den Ordnern in Fusion und den Projekten der App, mit Fertigungsstatus und Teilen. Der Status wird in der App gespeichert (Konto nötig).</div>
+  <table><thead><tr><th></th><th>Nr.</th><th>Objekt</th><th>Fusion</th><th>App</th><th>Fertigung</th><th>Teile</th><th>Letzte Änderung</th><th>Hinweis</th></tr></thead><tbody id="aListe"></tbody></table>
 </section>
 <section id="reste">
   <div class="klein">Reststücke von Tafeln/Coils (vorerst nur auf diesem PC; die Felder entsprechen den Reststücken der Spengler-Digital-App für eine spätere Verbindung). «Stückliste &amp; Zuschnitt» schlägt passende Reste für die Teile vor.</div>

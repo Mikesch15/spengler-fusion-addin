@@ -117,6 +117,10 @@ const { chromium } = require("playwright");
   pruefe((await page.textContent("#tFortschritt")).includes("2 von"), "Fortschritt zählt: " + await page.textContent("#tFortschritt"));
   await page.click('.tpunkt[data-tid="0.1"] [data-tstatus=ok]');   // nochmal klicken = zurücknehmen
   await page.waitForFunction(() => document.querySelector('.tpunkt[data-tid="0.1"]').classList.contains("s-offen"));
+  await page.click("nav button[data-tab=auftraege]");
+  await page.waitForFunction(() => document.getElementById("aSumme").textContent.includes("Aufträge"));
+  pruefe((await page.textContent("#aListe")).includes("Keine Aufträge"), "Auftragsübersicht ohne Aufträge");
+  pruefe((await page.textContent("#aInfo")).length > 10, "Hinweis in der Auftragsübersicht");
   pruefe(fehler.length === 0, "JS-Fehler: " + fehler.join("; "));
   await browser.close();
   console.log("BROWSERTEST OK");

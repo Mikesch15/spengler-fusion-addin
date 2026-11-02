@@ -458,6 +458,40 @@ $("eProfil").onclick = async () => {
   if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
 };
 
+// ------------------------------------------------------------------ Aufträge (Übersicht)
+async function auftraegeLaden() {
+  const r = await tun(() => senden("auftragsuebersicht"));
+  if (!r) return;
+  window._auftraege = r;
+  auftraegeZeigen();
+}
+function auftraegeZeigen() {
+  const r = window._auftraege; if (!r) return;
+  const q = $("aSuche").value.trim().toLowerCase(), f = $("aFilter").value;
+  const zeilen = r.zeilen.filter((x) => (!q || (x.nummer + " " + x.objekt).toLowerCase().includes(q)) && (!f || (f === "hinweis" ? x.hinweise.length : x.fertigung === f)));
+  const s = r.summe;
+  $("aSumme").textContent = `${s.alle} Aufträge · offen ${s.offen} · in Arbeit ${s.in_arbeit} · gefertigt ${s.gefertigt} · geliefert ${s.geliefert} · ohne Status ${s.ohne_status} · mit Hinweis ${s.mit_hinweis}`;
+  $("aInfo").textContent = r.hinweise.length ? r.hinweise.join(" ") : "Status ändern: Liste in der Spalte «Fertigung». «Aktiv» macht den Auftrag zum aktiven Auftrag in Fusion.";
+  $("aListe").innerHTML = zeilen.map((x) => `<tr${x.aktiv ? ' class="gewaehlt"' : ""}>
+    <td>${x.aktiv ? "●" : `<button data-aaktiv="${esc(x.nummer)}" data-aobjekt="${esc(x.objekt)}" data-ajahr="${esc(x.jahr || "")}" title="zum aktiven Auftrag machen">Aktiv</button>`}</td>
+    <td>${esc(x.nummer)}</td><td>${esc(x.objekt)}</td><td>${x.fusion ? "✓" : "–"}</td><td>${x.app ? "✓" : "–"}</td>
+    <td><select data-astatus="${esc(x.nummer)}"><option value="">–</option>${r.status.map((s2) => `<option value="${s2[0]}"${s2[0] === x.fertigung ? " selected" : ""}>${esc(s2[1])}</option>`).join("")}</select></td>
+    <td>${x.teile ? `${x.gefertigt}/${x.teile}` : "–"}</td><td class="klein">${esc((x.geaendert || "").slice(0, 16).replace("T", " "))}</td>
+    <td class="klein">${esc(x.hinweise.join("; "))}</td></tr>`).join("") || "<tr><td colspan='9'>Keine Aufträge gefunden.</td></tr>";
+}
+$("aLaden").onclick = auftraegeLaden;
+$("aSuche").oninput = auftraegeZeigen;
+$("aFilter").onchange = auftraegeZeigen;
+$("aListe").addEventListener("change", async (ev) => {
+  const t = ev.target;
+  if (t.dataset.astatus && t.value && await tun(() => senden("auftrag_status", { nummer: t.dataset.astatus, status: t.value }), "Status gespeichert.")) auftraegeLaden();
+});
+$("aListe").addEventListener("click", async (ev) => {
+  const t = ev.target;
+  if (t.dataset.aaktiv && await tun(() => senden("auftrag_aktiv", { nummer: t.dataset.aaktiv, objekt: t.dataset.aobjekt, jahr: t.dataset.ajahr ? Number(t.dataset.ajahr) : null }), "Aktiver Auftrag gesetzt.")) auftraegeLaden();
+});
+document.querySelector('nav button[data-tab="auftraege"]').addEventListener("click", auftraegeLaden);
+
 // ------------------------------------------------------------------ Reste
 async function resteLaden() {
   const r = await tun(() => senden("reste"));

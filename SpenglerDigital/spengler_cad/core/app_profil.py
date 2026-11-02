@@ -60,6 +60,33 @@ def operationen_aus_app(schenkel):
     return ops, hinweise
 
 
+def grundblech_aus_app(daten):
+    """Massaufnahme der App (data) → {'breite', 'laenge', 'ops', 'hinweise'} für das Blech im CAD.
+    breite = erster Schenkel (bestehendes Blech), laenge = längstes Segment (Streifenlänge) oder None, wenn die App keine nennt."""
+    daten = daten or {}
+    schenkel = daten.get("schenkel") or []
+    ops, hinweise = operationen_aus_app(schenkel)
+    breite = None
+    if schenkel:
+        try:
+            breite = float(schenkel[0].get("laenge"))
+        except (TypeError, ValueError):
+            breite = None
+    if not breite or breite < 5:
+        hinweise.append("Der erste Schenkel fehlt oder ist sehr kurz – Breite des Grundblechs 100 mm angenommen, bitte prüfen.")
+        breite = 100.0
+    laengen = []
+    for sg in daten.get("segmente") or []:
+        try:
+            laengen.append(float(sg.get("laenge")))
+        except (TypeError, ValueError, AttributeError):
+            pass
+    laenge = max(laengen) if laengen and max(laengen) > 0 else None
+    if laenge is None:
+        hinweise.append("Die Massaufnahme nennt keine Länge – bitte im Dialog eintragen.")
+    return {"breite": breite, "laenge": laenge, "ops": ops, "hinweise": hinweise}
+
+
 def teile_zeilen(teile, auftrag, dokument, projekt_id=None, version=""):
     """Teile des CAD (wie in «Stückliste & Zuschnitt») → Zeilen für die Tabelle cad_teile der App.
     teile: [{'nr_zahl','nr' (Anzeige), 'name','stueck','breite','laenge','flaeche','material' (Profil),'operationen','vorlage','vorlageVersion'}]"""

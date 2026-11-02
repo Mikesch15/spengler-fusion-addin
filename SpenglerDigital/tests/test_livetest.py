@@ -110,3 +110,59 @@ class Verbesserungen(unittest.TestCase):
         self.assertIsNone(b.taeglich(w, "0.0"))                         # zweiter Aufruf am selben Tag: nichts
         os.utime(p, (time.time() - 30 * 3600,) * 2)
         self.assertTrue(b.taeglich(w, "0.0"))
+
+
+class Uebersicht(unittest.TestCase):
+    def test_zeilen(self):
+        from spengler_cad.core import uebersicht as u
+        projekte = [{"order_no": "17642", "object": "Nägeligasse 1a", "status": "aktiv"}, {"order_no": "17700", "object": "Bahnhof", "archived": True},
+                    {"order_no": "17800", "object": "Schulhaus"}]
+        ordner = [{"nummer": "17642", "objekt": "Nägeligasse 1a", "jahr": 2026}, {"nummer": "17555", "objekt": "Altbau", "jahr": 2025}]
+        status = {"17642": {"status": "in_arbeit"}}
+        teile = [{"auftrag": "17642", "status": "gefertigt", "geaendert_am": "2026-11-01T10:00"}, {"auftrag": "17642", "status": "offen", "geaendert_am": "2026-11-02T08:00"}]
+        rows = u.zeilen(projekte, ordner, status, teile, aktiv="17642")
+        self.assertEqual([r["nummer"] for r in rows], ["17800", "17642", "17555"])       # 17700 archiviert → fehlt
+        r = {x["nummer"]: x for x in rows}
+        self.assertTrue(r["17642"]["aktiv"] and r["17642"]["fusion"] and r["17642"]["app"])
+        self.assertEqual((r["17642"]["teile"], r["17642"]["gefertigt"], r["17642"]["geaendert"]), (2, 1, "2026-11-02T08:00"))
+        self.assertIn("Kein Ordner in Fusion", r["17800"]["hinweise"])
+        self.assertIn("Projekt fehlt in der App", r["17555"]["hinweise"])
+        s = u.zusammenfassung(rows)
+        self.assertEqual((s["alle"], s["in_arbeit"], s["ohne_status"], s["mit_hinweis"]), (3, 1, 2, 2))
+
+    def test_alle_gefertigt_hinweis(self):
+        from spengler_cad.core import uebersicht as u
+        rows = u.zeilen([{"order_no": "1000", "object": "A"}], [{"nummer": "1000", "objekt": "A", "jahr": 2026}], {"1000": {"status": "in_arbeit"}},
+                        [{"auftrag": "1000", "status": "gefertigt"}])
+        self.assertTrue(any("Status auf «Gefertigt»" in h for h in rows[0]["hinweise"]))
+
+    def test_backend_ohne_fusion(self):
+        import json
+        import tempfile
+        from spengler_cad.ui.palette_backend import Backend
+        b = Backend(tempfile.mkdtemp())
+        r = json.loads(b.behandle("auftragsuebersicht", "{}"))
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["daten"]["zeilen"], [])
+        self.assertTrue(r["daten"]["hinweise"])
+        r = json.loads(b.behandle("auftrag_aktiv", json.dumps({"nummer": "17642", "objekt": "X", "jahr": 2026})))
+        self.assertTrue(r["ok"])
+        self.assertFalse(json.loads(b.behandle("auftrag_status", json.dumps({"nummer": "1", "status": "kaputt"})))["ok"])
+
+
+class BlechAusApp(unittest.TestCase):
+    def test_masse_aus_massaufnahme(self):
+        from spengler_cad.core import app_profil as a
+        d = {"schenkel": [{"laenge": 80, "winkel": 0}, {"laenge": 25, "winkel": 90}, {"laenge": 10, "winkel": 180}],
+             "segmente": [{"laenge": 1500, "massen": []}, {"laenge": 2400, "massen": []}]}
+        g = a.grundblech_aus_app(d)
+        self.assertEqual((g["breite"], g["laenge"], len(g["ops"])), (80.0, 2400.0, 2))
+        self.assertEqual([o["typ"] for o in g["ops"]], ["flansch", "umschlag"])
+
+    def test_fehlende_angaben_werden_gemeldet(self):
+        from spengler_cad.core import app_profil as a
+        g = a.grundblech_aus_app({"schenkel": [{"laenge": 0, "winkel": 0}, {"laenge": 20, "winkel": 90}]})
+        self.assertEqual((g["breite"], g["laenge"]), (100.0, None))
+        self.assertTrue(any("Länge" in h for h in g["hinweise"]))
+        self.assertTrue(any("Breite" in h for h in g["hinweise"]))
+        self.assertEqual(a.grundblech_aus_app(None)["ops"], [])

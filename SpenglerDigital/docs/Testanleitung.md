@@ -199,6 +199,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Zuschnitt und Werkstattansicht der App für diese Massaufnahme ansehen | Masse und Zuschnitt erscheinen wie bei einer selbst erfassten Massaufnahme |
 | ☐ | Im CAD dasselbe Teil nochmals senden | Kein doppeltes Teil in der App (wird überschrieben) |
 | ☐ | In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD **Vorlage aus App-Massaufnahme** | Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt) |
+| ☐ | Im Testauftrag **Blech aus Massaufnahme** (Konstruieren), Massaufnahme «Freies Profil» wählen, Länge prüfen, OK | Neue Komponente mit Grundblech (Breite = erster Schenkel) und den Kanten der App; Zeitleisten-Gruppe «Spengler: …»; Hinweis bei abweichender Blechregel – **Bildschirmfoto** |
 
 ## 9f. Aufträge App ↔ Fusion abgleichen (5 Min.)
 
@@ -209,6 +210,8 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Einen Testordner `99998 Abgleich Test, Bern` in Fusion anlegen, abgleichen, nur diesen anhaken | Projekt «99998» erscheint in der App (Titel = Objekt) |
 | ☐ | Nochmals abgleichen | Beide Einträge sind jetzt «in beiden» |
 | ☐ | **Neuer Auftrag** mit Haken «Auch als Projekt in der App anlegen», Nummer 99997 | Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon» |
+| ☐ | Palette → Register **Aufträge** | Alle Aufträge mit Ordner ✓/–, App ✓/–, Fertigung, Teile «gefertigt/gesamt», Hinweise; Suche und Filter funktionieren |
+| ☐ | In der Liste einen Fertigungsstatus ändern, dann «Aktiv» bei einem Auftrag | Status steht in der App/Auftrag wählen; Zeile wird als aktiv markiert (●) |
 | ☐ | Testprojekte in der App wieder löschen/archivieren | – |
 | ☐ | **Stückliste & Zuschnitt** mit «Dateien am Projekt in der App ablegen»; in der App Projekt → Cockpit → Dateien | «CAD – Stückliste …», «CAD – Auftragsmappe …» usw. sind da und lassen sich öffnen; Meldung «App-Dateien am Projekt: n neu» |
 | ☐ | Dasselbe nochmals ausführen | Meldung «… ersetzt», keine doppelten Dateien in der Liste |
