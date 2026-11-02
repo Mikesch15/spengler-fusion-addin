@@ -358,6 +358,15 @@ def _bauen(inp, ergebnis):
             except fa.AdapterFehler as e:
                 ergebnis.fehler.append("Kante %d: %s" % (nr, e))
                 ergebnis.zurueckgesetzt = ergebnis.zurueckgesetzt or getattr(e, "rueckbau_ok", True)
+    # Gehrung nicht gebaut (Rückfall je Kante): Bericht mit Protokoll und Bildschirmfoto automatisch an die eigene Firma – so sieht der Entwickler Fusions
+    # Antwort, ohne dass jemand «Protokoll senden» drücken muss. Ein Fehler hier ändert nichts am Ergebnis.
+    gehrung = [w for w in ergebnis.warnungen if "Gehrung" in w and ("nicht möglich" in w or "nicht gemeinsam" in w)]
+    if gehrung:
+        try:
+            if base.fehlerbericht_senden("Kanten bearbeiten (Gehrung nicht gebaut)", "\n".join(gehrung)):
+                ergebnis.warnungen.append("Bericht mit Protokoll und Bildschirmfoto wurde an Spengler Digital gesendet.")
+        except Exception:
+            logger.ausnahme("Bericht zur Gehrung")
     return plan
 
 
