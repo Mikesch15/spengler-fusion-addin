@@ -91,6 +91,8 @@ Gespeichert werden die Komponente als Fusion-Archiv (.f3d), das lokale Koordinat
 
 ## 7. Vorlagen auf Kanten und Falzenden anwenden [nicht in Fusion geprüft]
 
+**Zuerst der Blechkörper:** Im Befehl «Kanten bearbeiten» wählst du zuerst den **Blechkörper**, dann seine Kanten. Das Kantenfeld ist erst nach der Körperwahl aktiv; Kanten eines anderen Körpers werden aus der Auswahl genommen bzw. abgelehnt. So gelten die Kanten eindeutig für ein Blech, auch wenn mehrere Bleche nebeneinander liegen. Nicht in Fusion geprüft.
+
 **Kanten bearbeiten:** Eine oder mehrere Aussenkanten eines Blechkörpers wählen (gerade Kanten; Kreis/Bogen werden versucht – Fusion entscheidet und seine Antwort wird gemeldet), Vorlage und Material wählen, Werte eingeben. Der **Bauplan** im Dialog zeigt die Folge, die geeigneten Kanten und alle Warnungen. Ungeeignete Kanten (Ellipse/Spline, kein Blechkörper, Biegezone, falsche Dicke, zu kurz) werden mit Grund genannt; dann ist OK gesperrt. Mit **Vorschau** zeigt Fusion das Ergebnis vor der Bestätigung.
 
 Ablauf beim OK: Kante neu auflösen → Flansch/Umschlag Schritt für Schritt → nach jedem Schritt die neue Aussenkante bestimmen (gerade, parallel, gleich lang, in plausibler Entfernung; bei Mehrdeutigkeit Abbruch statt Raten) → Körper prüfen. Schlägt ein Schritt fehl, werden die bereits erzeugten Schritte dieser Kante wieder entfernt. Der ganze Befehl ist ein Rückgängig-Schritt (Strg+Z). Jedes erzeugte Feature trägt die Vorlagen-ID und -Version als Attribut; spätere Vorlagenänderungen verändern bestehende Bauteile nicht.

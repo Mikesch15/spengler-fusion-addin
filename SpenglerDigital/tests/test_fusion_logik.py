@@ -1104,6 +1104,45 @@ class ZuschnittKoerperTest(unittest.TestCase):
         self.assertIn(("linie", "addByTwoPoints"), log)
 
 
+class KanteKoerperTest(unittest.TestCase):
+    """Kanten gelten für den zuerst gewählten Körper (mehrere Bleche nebeneinander)."""
+    def test_zuordnung(self):
+        def body(tok, nativ=None):
+            return type("B", (), {"entityToken": tok, "nativeObject": nativ})()
+        a, b = body("A"), body("B")
+        e_a = type("E", (), {"body": a})()
+        e_proxy = type("E", (), {"body": body("A-proxy", nativ=a)})()
+        e_b = type("E", (), {"body": b})()
+        self.assertTrue(fa.kante_gehoert_zu(e_a, a))
+        self.assertTrue(fa.kante_gehoert_zu(e_proxy, a), "Proxy-Körper wird über das native Objekt verglichen")
+        self.assertFalse(fa.kante_gehoert_zu(e_b, a))
+        self.assertIsNone(fa.kante_gehoert_zu(type("E", (), {})(), a), "unbekannt → nicht beanstanden")
+        self.assertIsNone(fa.kante_gehoert_zu(e_a, None))
+
+    def test_fremde_kanten_nummern(self):
+        import sys
+        sys.path.insert(0, "tests/fusion_stub")
+        from spengler_cad.commands import edge_apply_command as ec
+
+        class Sel:
+            def __init__(self, ent):
+                self.selectionCount = 1 if ent is not None else 0
+                self._ent = ent
+
+            def selection(self, i):
+                return type("S", (), {"entity": self._ent})()
+        a = type("B", (), {"entityToken": "A", "nativeObject": None})()
+        b = type("B", (), {"entityToken": "B", "nativeObject": None})()
+        eingabe = type("In", (), {"itemById": lambda s_, i: Sel(a)})()
+        alt = ec._koerper
+        ec._koerper = lambda inp: a
+        self.addCleanup(setattr, ec, "_koerper", alt)
+        kanten = [type("E", (), {"body": a})(), type("E", (), {"body": b})(), type("E", (), {"body": a})(), type("E", (), {"body": b})()]
+        self.assertEqual(ec._fremde(eingabe, kanten), [2, 4])
+        ec._koerper = lambda inp: None
+        self.assertEqual(ec._fremde(eingabe, kanten), [1, 2, 3, 4], "ohne Körper sind alle Kanten fremd")
+
+
 class ProfilLesenTest(unittest.TestCase):
     """Flansch-/Saum-Features der Zeitleiste lesen (nur Werte) – mit nachgebauten Features, NICHT die echte Schnittstelle."""
     def setUp(self):

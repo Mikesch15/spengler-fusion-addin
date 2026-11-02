@@ -33,9 +33,14 @@ def erstellt(args):
     e = Einstellungen().laden()
     Z.clear()
     Z.update({"vorlagen": _vorlagen(), "materialien": MaterialBibliothek().liste(), "einst": e, "param_ids": []})
+    # Erst der Blechkörper, dann dessen Kanten – bei mehreren Blechen nebeneinander ist so klar, wofür die Kanten gelten.
+    kb = inp.addSelectionInput("koerper", "Blechkörper", help_content.TOOLTIPS["koerper"])
+    kb.addSelectionFilter("SolidBodies")
+    kb.setSelectionLimits(1, 1)
     sel = inp.addSelectionInput("kanten", "Kanten", help_content.TOOLTIPS["kanten"])
     sel.addSelectionFilter("Edges")
     sel.setSelectionLimits(1, 0)
+    sel.isEnabled = False
     if not Z["vorlagen"]:
         inp.addTextBoxCommandInput("leer", "", "<b>Die Vorlagenbibliothek ist leer.</b><br>Bitte zuerst unter «Vorlagen & Einstellungen» "
                                    "eine eigene Kantenvorlage anlegen. Im Expertenmodus kann unten eine Folge direkt eingegeben werden.", 3, True)
@@ -136,6 +141,19 @@ def _vorlage_effektiv(inp):
     return v, False
 
 
+def _koerper(inp):
+    sel = inp.itemById("koerper")
+    if sel is None or sel.selectionCount == 0:
+        return None
+    return adsk.fusion.BRepBody.cast(sel.selection(0).entity)
+
+
+def _fremde(inp, kanten):
+    """Nummern (ab 1) der Kanten, die NICHT auf dem gewählten Körper liegen."""
+    k = _koerper(inp)
+    return [i for i, e in enumerate(kanten, 1) if k is None or fa.kante_gehoert_zu(e, k) is False]
+
+
 def _kanten(inp):
     sel = inp.itemById("kanten")
     return [adsk.fusion.BRepEdge.cast(sel.selection(i).entity) for i in range(sel.selectionCount)]
@@ -148,7 +166,13 @@ def _plan(inp):
         return None, "Kurzschrift: %s" % e
     if v is None:
         return None, "Keine Vorlage gewählt."
-    kanten = [fa.kante_beschreiben(k, i) for i, k in enumerate(_kanten(inp), 1)]
+    if _koerper(inp) is None:
+        return None, "Zuerst den Blechkörper wählen, dann seine Kanten."
+    roh = _kanten(inp)
+    fremd = _fremde(inp, roh)
+    if fremd:
+        return None, "Kante %s liegt nicht auf dem gewählten Körper – bitte nur Kanten dieses Körpers wählen." % ", ".join(map(str, fremd))
+    kanten = [fa.kante_beschreiben(k, i) for i, k in enumerate(roh, 1)]
     plan = operation_plan.erstelle(v, _werte(inp), _material(inp), kanten)
     if angepasst:
         plan["validation"]["warnings"].append("Folge im Expertenmodus angepasst – gilt nur für diese Ausführung%s." % (
@@ -162,7 +186,8 @@ def _plan(inp):
 def _schluessel(inp, mit_kanten=True):
     """Alles, was den Bauplan bestimmt, ohne an Geometrie zu rühren (während der Vorschau sind Kantenverweise evtl. ungültig)."""
     sel = inp.itemById("kanten")
-    teile = [sel.selectionCount, inp.itemById("experte").value, inp.itemById("folge").value, inp.itemById("speichern").value]
+    kb = inp.itemById("koerper")
+    teile = [kb.selectionCount, kb.selection(0).entity.entityToken if kb.selectionCount else "", sel.selectionCount, inp.itemById("experte").value, inp.itemById("folge").value, inp.itemById("speichern").value]
     if mit_kanten:
         teile += [sel.selection(i).entity.entityToken for i in range(sel.selectionCount)]   # welche Kanten – wirft bei ungültigen Verweisen → kein Treffer
     for i in ("vorlage", "material"):
@@ -226,11 +251,44 @@ def geaendert(args):
         _parameter_aufbauen(inp)
     if i.id == "experte":
         _sichtbarkeit(inp)
+    if i.id == "koerper":
+        kanten = inp.itemById("kanten")
+        kanten.isEnabled = inp.itemById("koerper").selectionCount > 0
+        if kanten.isEnabled:
+            kanten.hasFocus = True
+        elif kanten.selectionCount:
+            kanten.clearSelection()
+    if i.id == "kanten" and not Z.get("bereinigt"):
+        _fremde_entfernen(inp)
     if i.id == "hilfe":
         base.melden("Hilfe", help_content.text("kanten") + "\n\n" + help_content.text("kurzschrift"))
         return
     plan, fehler = _plan_gemerkt(inp)
     inp.itemById("plan").text = (fehler or operation_plan.beschreibung(plan)).replace("\n", "<br>")
+
+
+def _fremde_entfernen(inp):
+    """Kanten, die nicht zum gewählten Körper gehören, wieder aus der Auswahl nehmen (bei mehreren Blechen nebeneinander). Fehler hier sind harmlos:
+    die Prüfung des Bauplans meldet fremde Kanten ohnehin."""
+    try:
+        sel = inp.itemById("kanten")
+        k = _koerper(inp)
+        if k is None or sel.selectionCount == 0:
+            return
+        alle = [sel.selection(i).entity for i in range(sel.selectionCount)]
+        gut = [e for e in alle if fa.kante_gehoert_zu(adsk.fusion.BRepEdge.cast(e), k) is not False]
+        if len(gut) == len(alle):
+            return
+        Z["bereinigt"] = True
+        try:
+            sel.clearSelection()
+            for e in gut:
+                sel.addSelection(e)
+        finally:
+            Z["bereinigt"] = False
+        logger.info("Kanten anderer Körper aus der Auswahl genommen", entfernt=len(alle) - len(gut))
+    except Exception:
+        logger.ausnahme("Fremde Kanten entfernen")
 
 
 def pruefen(args):

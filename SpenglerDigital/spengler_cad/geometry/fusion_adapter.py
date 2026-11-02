@@ -1497,6 +1497,22 @@ def profil_features_lesen():
     return out, hinweise
 
 
+def _koerper_token(body):
+    try:
+        return (getattr(body, "nativeObject", None) or body).entityToken
+    except Exception:
+        return None
+
+
+def kante_gehoert_zu(edge, body):
+    """Liegt die Kante auf dem gewählten Körper? True/False; None, wenn es sich nicht feststellen lässt (z. B. veraltete Verweise während der
+    Vorschau) – dann wird die Kante nicht beanstandet. Vergleich über den entityToken des nativen Körpers."""
+    a, b = _koerper_token(getattr(edge, "body", None)), _koerper_token(body)
+    if a is None or b is None:
+        return None
+    return a == b
+
+
 def dokument_name():
     try:
         return adsk.core.Application.get().activeDocument.name

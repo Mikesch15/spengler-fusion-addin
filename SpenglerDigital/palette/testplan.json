@@ -280,6 +280,11 @@
      "id": "5.16",
      "text": "Versatz an runder Kante",
      "erwartet": "Meldung «nur an geraden Kanten», nichts gebaut"
+    },
+    {
+     "id": "5.17",
+     "text": "Zwei Bleche nebeneinander. Kanten bearbeiten: zuerst Blech A wählen, dann eine Kante von Blech B anklicken",
+     "erwartet": "Kante von B wird nicht übernommen bzw. Plan meldet «liegt nicht auf dem gewählten Körper»; Kantenfeld ist vor der Körperwahl gesperrt"
     }
    ]
   },
