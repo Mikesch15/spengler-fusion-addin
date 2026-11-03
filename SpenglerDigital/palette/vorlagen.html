@@ -67,6 +67,7 @@ td,th,.tpunkt{border-color:#2b343e}
   <label style="min-width:0"><input type="checkbox" id="experte"> Expertenmodus</label></header>
 <nav>
   <button data-tab="vorlagen" class="aktiv">Kantenvorlagen</button>
+  <button data-tab="skizze">Skizze</button>
   <button data-tab="bauteile">Bauteile</button>
   <button data-tab="auftraege">Aufträge</button>
   <button data-tab="details">3D-Details</button>
@@ -208,6 +209,23 @@ td,th,.tpunkt{border-color:#2b343e}
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="skizze">
+  <div class="klein">Profil von Hand skizzieren (Stift, Finger oder Maus): der <b>erste Strich</b> ist das bestehende Blech, jeder weitere Strich wird ein <b>Flansch</b> (Drehung nach links = +, nach rechts = −); eine Drehung von etwa 180° wird ein <b>Umschlag</b>. Auf dem Zeichenfeld ziehen bzw. klicken: Länge und Winkel rasten ein. Masse lassen sich in der Tabelle genau eintippen.</div>
+  <div class="zeile"><label style="min-width:0">Kästchen =</label><select id="skM"><option value="5">5 mm</option><option value="10" selected>10 mm</option><option value="20">20 mm</option><option value="50">50 mm</option><option value="100">100 mm</option></select>
+    <label style="min-width:0">Länge rastet auf</label><select id="skL"><option value="0">frei</option><option value="1" selected>1 mm</option><option value="5">5 mm</option><option value="10">10 mm</option></select>
+    <label style="min-width:0">Winkel rastet auf</label><select id="skW"><option value="1">1°</option><option value="5" selected>5°</option><option value="15">15°</option><option value="45">45°</option><option value="90">90°</option></select>
+    <label style="min-width:0">Material</label><select id="skMat"></select>
+    <button id="skRueck">Letzten Strich zurück</button><button class="gefahr" id="skLeer">Neu beginnen</button></div>
+  <div class="zeile" style="align-items:flex-start"><canvas id="skCanvas" width="640" height="400" style="touch-action:none;border:1px solid var(--rand);border-radius:8px;max-width:100%;background:#fff;cursor:crosshair"></canvas>
+    <div><table id="skTab"><thead><tr><th>#</th><th>Länge mm</th><th>Winkel °</th><th></th></tr></thead><tbody></tbody></table>
+      <button id="skPlus">+ Strich</button></div></div>
+  <div id="skInfo" class="klein"></div>
+  <fieldset><legend>Übernehmen</legend>
+    <div class="zeile"><label>Name</label><input id="skName" size="28" placeholder="z. B. Winkelfalz 35"> <label style="min-width:0">Kategorie</label><input id="skKat" size="14" value="Skizze">
+      <button class="haupt" id="skVorlage">Als Kantenvorlage übernehmen</button></div>
+    <div class="klein">Die Vorlage öffnet sich im Register «Kantenvorlagen» zum Prüfen und Speichern. Die Kurzschrift kannst du auch in ein Bauteil (Register «Bauteile») einfügen.</div>
+  </fieldset>
 </section>
 <section id="bauteile">
   <div class="zeile"><button class="haupt" id="bNeu">Neues Bauteil erstellen</button><button id="bKopie">Duplizieren</button><button class="gefahr" id="bLoeschen">Löschen</button></div>

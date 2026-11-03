@@ -7,7 +7,7 @@ import json
 import os
 
 from .. import VERSION
-from ..core import bauteil, grundriss, models, operation_plan, short_syntax, template_engine
+from ..core import bauteil, grundriss, lernen, models, operation_plan, short_syntax, skizze, template_engine
 from ..core.bend_geometry import ProfilFehler, zugabe_abwicklung
 from ..manufacturing import drawing
 from ..storage import backup_service, paths
@@ -85,6 +85,39 @@ class Backend(object):
 
     def a_neue_vorlage(self, d):
         return models.neue_kantenvorlage(d.get("name") or "Neue Vorlage")
+
+    def a_skizze_auswerten(self, d):
+        """Handskizze → Schenkel/Winkel (eingerastet), Operationen, Kurzschrift, Zuschnitt. Entweder gezeichnete Punkte (mm) oder die Tabelle (schenkel + start)."""
+        e = Einstellungen(self.wurzel).laden()
+        m = self._standardmaterial(e, d.get("materialId"))
+        if d.get("punkte"):
+            schenkel, start = skizze.aus_punkten(d["punkte"], float(d.get("laengenraster") or 0), float(d.get("winkelraster") or 0))
+        else:
+            schenkel, start = [], float(d.get("start") or 0)
+            for i, s in enumerate(d.get("schenkel") or []):
+                try:
+                    L, w = float(s["laenge"]), float(s.get("winkel") or 0)
+                except (KeyError, TypeError, ValueError):
+                    raise ValueError("Strich %d: Länge und Winkel müssen Zahlen sein." % (i + 1))
+                if L <= 0:
+                    raise ValueError("Strich %d: Die Länge muss grösser als 0 sein." % (i + 1))
+                if abs(w) > 180:
+                    raise ValueError("Strich %d: Der Winkel muss zwischen −180° und 180° liegen." % (i + 1))
+                schenkel.append({"laenge": L, "winkel": 0.0 if i == 0 else w})
+            if not schenkel:
+                raise ValueError("Es ist noch kein Strich gezeichnet.")
+        return skizze.auswerten(schenkel, start, m and m["thickness"], m and m.get("innerRadius"), m and m.get("kFactor"))
+
+    def a_skizze_vorlage(self, d):
+        """Handskizze → neue (noch nicht gespeicherte) Kantenvorlage zum Weiterbearbeiten im Editor."""
+        ops, hinweise = skizze.operationen(d["schenkel"])
+        if not ops:
+            raise ValueError("Die Skizze braucht mindestens zwei Striche (der erste ist das bestehende Blech).")
+        v, fehler, warn = lernen.vorlage_aus_schritten(d.get("name") or "", ops, d.get("kategorie") or "Skizze",
+                                                       "Von Hand skizziert (Kurzschrift %s). Mass und Richtung bitte prüfen." % lernen.kurzschrift(ops))
+        if v is None:
+            raise ValueError("\n".join(fehler))
+        return _ohne_intern(v)
 
     def a_neues_bauteil(self, d):
         v = models.neue_bauteilvorlage(d.get("name") or "Neues Bauteil")

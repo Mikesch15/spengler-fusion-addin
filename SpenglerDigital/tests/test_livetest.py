@@ -289,3 +289,57 @@ class Bauteilvorlage(unittest.TestCase):
         from spengler_cad.storage.template_repository import VorlagenSpeicherFehler
         with self.assertRaises(VorlagenSpeicherFehler):
             r.speichern(ungueltig)
+
+
+class Skizze(unittest.TestCase):
+    def test_einrasten(self):
+        from spengler_cad.core import skizze as s
+        sch, st = s.aus_punkten([(0, 0), (80.3, 0.4), (80.1, 24.8), (70.2, 25.3)], 1, 5)
+        self.assertEqual([x["laenge"] for x in sch], [80, 24, 10])
+        self.assertEqual([x["winkel"] for x in sch][:2], [0, 90])
+        self.assertEqual(st, 0)
+        sch, _ = s.aus_punkten([(0, 0), (100, 0), (100.2, 30), (40, 30.1)], 5, 90)         # Winkelraster 90°
+        self.assertEqual([x["winkel"] for x in sch], [0, 90, 90])
+
+    def test_gerade_fortsetzung_wird_verbunden(self):
+        from spengler_cad.core import skizze as s
+        sch, _ = s.aus_punkten([(0, 0), (50, 0), (100, 0.5), (100, 40)], 1, 5)
+        self.assertEqual([(x["laenge"], x["winkel"]) for x in sch], [(100, 0), (40, 90)])
+
+    def test_umschlag_und_richtung(self):
+        from spengler_cad.core import skizze as s
+        sch = [{"laenge": 60, "winkel": 0}, {"laenge": 20, "winkel": -90}, {"laenge": 8, "winkel": -175}]
+        ops, hinweise = s.operationen(sch)
+        self.assertEqual([(o["typ"], o["winkel"]) for o in ops], [("flansch", -90), ("umschlag", -180)])
+        self.assertTrue(hinweise)
+        pts = s.zu_punkten(sch)
+        self.assertAlmostEqual(pts[1][0], 60)
+        self.assertAlmostEqual(pts[2][1], -20)                  # Rechtsdrehung → nach unten
+
+    def test_leer_und_zuschnitt(self):
+        from spengler_cad.core import skizze as s
+        with self.assertRaises(s.SkizzenFehler):
+            s.aus_punkten([(0, 0), (0.2, 0.1)])
+        sch = [{"laenge": 80, "winkel": 0}, {"laenge": 25, "winkel": 90}]
+        r = s.auswerten(sch, 0, 1.0, 1.0, 0.4)
+        self.assertEqual(r["kurz"], "90 25")
+        self.assertTrue(100 < r["zuschnitt"] < 110)             # 80 + 25 − Biegeabzug … plus Bogen
+        self.assertEqual(r["summe"], 105)
+        self.assertIsNone(s.auswerten(sch, 0)["zuschnitt"])
+
+    def test_backend(self):
+        import json
+        import tempfile
+        from spengler_cad.ui.palette_backend import Backend
+        b = Backend(tempfile.mkdtemp())
+        r = json.loads(b.behandle("skizze_auswerten", json.dumps({"punkte": [[0, 0], [80, 0], [80, 25]], "laengenraster": 1, "winkelraster": 5})))
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["daten"]["kurz"], "90 25")
+        t = json.loads(b.behandle("skizze_auswerten", json.dumps({"schenkel": [{"laenge": 80, "winkel": 0}, {"laenge": 30, "winkel": 45}], "start": 0})))
+        self.assertEqual(t["daten"]["kurz"], "45 30")
+        self.assertFalse(json.loads(b.behandle("skizze_auswerten", json.dumps({"schenkel": [{"laenge": 0, "winkel": 0}]})))["ok"])
+        self.assertFalse(json.loads(b.behandle("skizze_auswerten", json.dumps({"schenkel": [{"laenge": 5, "winkel": 0}, {"laenge": 5, "winkel": 200}]})))["ok"])
+        v = json.loads(b.behandle("skizze_vorlage", json.dumps({"schenkel": r["daten"]["schenkel"], "name": "Skizze Test"})))
+        self.assertTrue(v["ok"], v)
+        self.assertEqual(v["daten"]["operations"][0]["laenge"], 25)
+        self.assertFalse(json.loads(b.behandle("skizze_vorlage", json.dumps({"schenkel": [{"laenge": 80, "winkel": 0}], "name": "x"})))["ok"])

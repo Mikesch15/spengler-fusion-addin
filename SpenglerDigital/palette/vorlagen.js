@@ -458,6 +458,112 @@ $("eProfil").onclick = async () => {
   if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
 };
 
+// ------------------------------------------------------------------ Skizze (Profil von Hand zeichnen)
+const SK = { rohe: [], ursprung: [0, 0], schenkel: [], start: 0, hover: null, lauf: 0 };
+const SK_PX = 20;                                           // Pixel je Kästchen
+const skMm = () => Number($("skM").value) / SK_PX;           // mm je Pixel
+function skPos(ev) {
+  const c = $("skCanvas"), r = c.getBoundingClientRect();
+  const px = (ev.clientX - r.left) * c.width / r.width, py = (ev.clientY - r.top) * c.height / r.height;
+  return { px, py, mm: [px * skMm(), (c.height - py) * skMm()] };
+}
+const skPx = (m) => [m[0] / skMm(), $("skCanvas").height - m[1] / skMm()];
+function skInit() {
+  $("skMat").innerHTML = '<option value="">– ohne (nur Skizze) –</option>' + Z.materialien.map((m) => `<option value="${esc(m.id)}">${esc(m.name)} (${m.thickness} mm)</option>`).join("");
+  if (!$("skMat").value) $("skMat").value = Z.einstellungen.defaultMaterialId || "";
+  skZeichnen();
+}
+function skZeichnen() {
+  const c = $("skCanvas"), g = c.getContext("2d");
+  g.clearRect(0, 0, c.width, c.height);
+  g.strokeStyle = "#e3e8ee"; g.lineWidth = 1;
+  for (let x = 0; x <= c.width; x += SK_PX) { g.beginPath(); g.moveTo(x, 0); g.lineTo(x, c.height); g.stroke(); }
+  for (let y = 0; y <= c.height; y += SK_PX) { g.beginPath(); g.moveTo(0, y); g.lineTo(c.width, y); g.stroke(); }
+  const pts = SK.rohe.map(skPx);
+  g.lineCap = "round"; g.lineJoin = "round"; g.font = "12px Segoe UI, Arial";
+  for (let i = 1; i < pts.length; i++) {
+    g.strokeStyle = i === 1 ? "#8a949e" : "#1f78c1"; g.lineWidth = 4;
+    g.beginPath(); g.moveTo(pts[i - 1][0], pts[i - 1][1]); g.lineTo(pts[i][0], pts[i][1]); g.stroke();
+    const s = SK.schenkel[i - 1];
+    if (s) {
+      g.fillStyle = "#17496f"; g.fillText(String(s.laenge), (pts[i - 1][0] + pts[i][0]) / 2 + 6, (pts[i - 1][1] + pts[i][1]) / 2 - 6);
+      if (i > 1) { g.fillStyle = "#b26a00"; g.fillText(s.winkel + "°", pts[i - 1][0] + 8, pts[i - 1][1] + 14); }
+    }
+  }
+  g.fillStyle = "#17496f";
+  pts.forEach((p, i) => { g.beginPath(); g.arc(p[0], p[1], i === 0 ? 6 : 4, 0, 7); g.fill(); });
+  if (SK.hover && pts.length) {
+    const l = pts[pts.length - 1];
+    g.setLineDash([6, 5]); g.strokeStyle = "#f28c28"; g.lineWidth = 2; g.beginPath(); g.moveTo(l[0], l[1]); g.lineTo(SK.hover.px, SK.hover.py); g.stroke(); g.setLineDash([]);
+    const m = SK.rohe[SK.rohe.length - 1];
+    g.fillStyle = "#b26a00"; g.fillText(Math.round(Math.hypot(SK.hover.mm[0] - m[0], SK.hover.mm[1] - m[1])) + " mm", SK.hover.px + 8, SK.hover.py - 8);
+  }
+}
+function skTabelle() {
+  $("skTab").querySelector("tbody").innerHTML = SK.schenkel.map((s, i) => `<tr><td>${i + 1}${i === 0 ? " <span class='klein'>Blech</span>" : ""}</td>
+    <td><input type="number" step="any" data-sk="${i}" data-f="laenge" value="${s.laenge}" style="width:72px"></td>
+    <td>${i === 0 ? "–" : `<input type="number" step="any" data-sk="${i}" data-f="winkel" value="${s.winkel}" style="width:64px">`}</td>
+    <td>${i === 0 ? "" : `<button data-skdel="${i}">✕</button>`}</td></tr>`).join("") || "<tr><td colspan='4' class='klein'>Noch nichts gezeichnet.</td></tr>";
+}
+function skInfo(r) {
+  $("skInfo").innerHTML = r ? `<div>Summe der Striche ${esc(r.summe)} mm${r.zuschnitt ? ` · <b>Zuschnittbreite ca. ${esc(r.zuschnitt)} mm</b> (theoretisch, mit Material)` : ""}${r.zuschnitt_grund ? ` · ${esc(r.zuschnitt_grund)}` : ""}</div>
+    <div>Kurzschrift ab Strich 2: <code>${esc(r.kurz || "–")}</code></div>${(r.hinweise || []).map((h) => `<div>${esc(h)}</div>`).join("")}` : "";
+}
+async function skAuswerten(daten) {   // gezeichnete Punkte oder Tabelle → eingerastetes Ergebnis, Zeichnung und Tabelle neu
+  const lauf = ++SK.lauf;
+  const r = await tun(() => senden("skizze_auswerten", Object.assign({ laengenraster: Number($("skL").value), winkelraster: Number($("skW").value), materialId: $("skMat").value || null }, daten)));
+  if (!r || lauf !== SK.lauf) return r;
+  SK.schenkel = r.schenkel; SK.start = r.start;
+  SK.rohe = r.punkte.map((p) => [p[0] + SK.ursprung[0], p[1] + SK.ursprung[1]]);
+  skZeichnen(); skInfo(r); return r;
+}
+function skNeu() { SK.rohe = []; SK.schenkel = []; SK.hover = null; SK.start = 0; skTabelle(); skZeichnen(); skInfo(null); }
+$("skCanvas").addEventListener("pointerdown", (ev) => {
+  ev.preventDefault(); $("skCanvas").setPointerCapture(ev.pointerId);
+  const p = skPos(ev);
+  if (!SK.rohe.length) { SK.ursprung = p.mm; SK.rohe = [p.mm]; SK.schenkel = []; skZeichnen(); }
+  SK.hover = p; skZeichnen();
+});
+$("skCanvas").addEventListener("pointermove", (ev) => { if (SK.rohe.length) { SK.hover = skPos(ev); skZeichnen(); } });
+$("skCanvas").addEventListener("pointerup", async (ev) => {
+  const p = skPos(ev); SK.hover = null;
+  if (SK.rohe.length === 1 && !SK.schenkel.length && Math.hypot(p.mm[0] - SK.rohe[0][0], p.mm[1] - SK.rohe[0][1]) / skMm() < 6) { skZeichnen(); return; }   // nur der Startpunkt
+  const l = SK.rohe[SK.rohe.length - 1];
+  if (Math.hypot(p.mm[0] - l[0], p.mm[1] - l[1]) / skMm() < 6) { skZeichnen(); return; }
+  SK.rohe.push(p.mm);                                       // sofort merken: schnelle Striche gehen nicht verloren, die Antwort rastet sie dann ein
+  skZeichnen();
+  if (await skAuswerten({ punkte: SK.rohe })) skTabelle();
+});
+$("skCanvas").addEventListener("pointerleave", () => { SK.hover = null; skZeichnen(); });
+$("skTab").addEventListener("input", (ev) => {
+  const t = ev.target; if (t.dataset.sk === undefined) return;
+  SK.schenkel[+t.dataset.sk][t.dataset.f] = t.value === "" ? "" : Number(t.value);
+  clearTimeout(SK.uhr); SK.uhr = setTimeout(() => skAuswerten({ schenkel: SK.schenkel, start: SK.start }), 400);
+});
+$("skTab").addEventListener("click", async (ev) => {
+  const i = ev.target.dataset.skdel; if (i === undefined) return;
+  SK.schenkel.splice(+i, 1);
+  if (await skAuswerten({ schenkel: SK.schenkel, start: SK.start })) skTabelle();
+});
+$("skPlus").onclick = async () => {
+  if (!SK.schenkel.length) { SK.ursprung = [60, 60]; SK.schenkel = [{ laenge: 80, winkel: 0 }]; } else SK.schenkel.push({ laenge: 20, winkel: 90 });
+  if (await skAuswerten({ schenkel: SK.schenkel, start: SK.start })) skTabelle();
+};
+$("skRueck").onclick = async () => {
+  if (SK.schenkel.length <= 1) return skNeu();
+  SK.schenkel.pop();
+  if (await skAuswerten({ schenkel: SK.schenkel, start: SK.start })) skTabelle();
+};
+$("skLeer").onclick = skNeu;
+for (const id of ["skL", "skW"]) $(id).onchange = () => { if (SK.rohe.length > 1) skAuswerten({ punkte: SK.rohe }); };
+$("skM").onchange = skZeichnen;
+$("skMat").onchange = () => { if (SK.schenkel.length) skAuswerten({ schenkel: SK.schenkel, start: SK.start }); };
+$("skVorlage").onclick = async () => {
+  const v = await tun(() => senden("skizze_vorlage", { schenkel: SK.schenkel, name: $("skName").value.trim(), kategorie: $("skKat").value.trim() }));
+  if (v) { document.querySelector('nav button[data-tab="vorlagen"]').click(); oeffneEditor(v); meldung("Skizze als Kantenvorlage geöffnet – bitte prüfen und speichern.", "ok"); }
+};
+document.querySelector('nav button[data-tab="skizze"]').addEventListener("click", skInit);
+
 // ------------------------------------------------------------------ Bauteile (Blech mit Breite, Verlauf und Kantenfolgen)
 let B = null;
 const B_SEITEN = ["verlauf", "gegen", "start", "ende"];
