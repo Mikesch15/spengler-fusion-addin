@@ -319,3 +319,59 @@ class NeuerAuftragAppProjektTest(unittest.TestCase):
             def projekt_zu_auftrag(self, n):
                 raise RuntimeError("Netz weg")
         self.assertIn("NICHT angelegt", auftrag_command._projekt_in_app("1", "x", Kaputt()))
+
+
+class ProfilAuftraegeTest(unittest.TestCase):
+    """«An CAD senden» in der App → offene Aufträge im Add-in → «gebaut»."""
+
+    def _cloud(self):
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "Sonneggweg", "object": "Sonneggweg 9, Bern", "status": "in_arbeit"}]
+        z.profil_auftraege = [
+            {"company_id": "firma-a", "id": 1, "project_id": 7, "titel": "Ortgang Nord", "laenge_mm": 3200, "stueck": 4, "staerke_mm": 0.7, "status": "offen",
+             "daten": {"schenkel": [{"laenge": 168, "winkel": 0}, {"laenge": 25, "winkel": 90}]}, "created_at": "2026-11-03T10:00:00Z"},
+            {"company_id": "firma-a", "id": 2, "project_id": 7, "titel": "Schon gebaut", "laenge_mm": 100, "stueck": 1, "status": "gebaut", "daten": {}, "created_at": "2026-11-02T10:00:00Z"},
+            {"company_id": "firma-b", "id": 3, "project_id": 7, "titel": "Fremde Firma", "laenge_mm": 1, "stueck": 1, "status": "offen", "daten": {}, "created_at": "2026-11-03T11:00:00Z"}]
+        c = Cloud(tmp, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        return c, z
+
+    def test_nur_offene_der_eigenen_firma(self):
+        c, z = self._cloud()
+        liste = c.profil_auftraege("18162")
+        self.assertEqual([a["id"] for a in liste], [1])
+        self.assertEqual(c.profil_auftraege("99999"), [])
+
+    def test_als_gebaut_markieren(self):
+        c, z = self._cloud()
+        from spengler_cad.commands import grundblech_command
+        self.assertIn("vermerkt", grundblech_command.markieren_gebaut(1, c))
+        self.assertEqual(z.profil_auftraege[0]["status"], "gebaut")
+        self.assertTrue(z.profil_auftraege[0]["gebaut_am"])
+        self.assertEqual(c.profil_auftraege("18162"), [], "danach nicht mehr offen")
+
+    def test_markieren_scheitert_ohne_ausnahme(self):
+        from spengler_cad.commands import grundblech_command
+
+        class Kaputt(object):
+            def profil_auftrag_gebaut(self, i):
+                raise RuntimeError("Netz weg")
+        self.assertIn("nicht als «gebaut»", grundblech_command.markieren_gebaut(1, Kaputt()))
+
+    def test_auswahlliste(self):
+        from spengler_cad.commands import grundblech_command as g
+        e = g.eintraege([{"id": 1, "titel": "Ortgang Nord", "laenge_mm": 3200, "stueck": 4, "daten": {"schenkel": []}}],
+                        [{"id": 41, "title": "Kehle", "type": "freies_profil", "data": {"schenkel": []}}])
+        self.assertEqual([x["art"] for x in e], ["gesendet", "massaufnahme"])
+        self.assertEqual((e[0]["laenge"], e[0]["stueck"]), (3200.0, 4))
+        self.assertIn("3200 mm × 4 Stück", e[0]["text"])
+        self.assertIsNone(e[1]["laenge"])
+        self.assertEqual(g.eintraege(None, None), [])

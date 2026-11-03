@@ -26,6 +26,7 @@ class Zustand(object):
         self.projektdateien = []   # project_files (App)
         self.speicher = {}     # Storage-Bucket measurements: Pfad → Bytes
         self.measurements = [] # measurements (App, nur lesen)
+        self.profil_auftraege = []   # cad_profil_auftraege (App schreibt, Add-in liest und setzt «gebaut»)
         self.projects = []     # projects (App, nur lesen)
         self.versionen = []
         self.dateien = {}      # pfad → bytes
@@ -212,6 +213,17 @@ def server(z):
                         else:
                             z.teile.append(dict(d, status="neu", measurement_id=None))
                     return self._antwort(201)
+                return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/cad_profil_auftraege":
+                eigene = [r for r in z.profil_auftraege if r["company_id"] == me["firma"]]
+                if m == "GET":
+                    pid, st = f.get("project_id", "eq.")[3:], f.get("status", "eq.")[3:]
+                    return self._antwort(200, [r for r in eigene if str(r["project_id"]) == pid and (not st or r["status"] == st)])
+                if m == "PATCH":
+                    treffer = [r for r in eigene if str(r["id"]) == f.get("id", "eq.")[3:]]
+                    for r in treffer:
+                        r.update(json.loads(body))
+                    return self._antwort(204 if treffer else 404)
                 return self._antwort(405, {"message": "nicht erlaubt"})
             if pfad == "/rest/v1/measurements":
                 pid = f.get("project_id", "eq.")[3:]

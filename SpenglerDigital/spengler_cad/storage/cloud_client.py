@@ -273,6 +273,24 @@ class Cloud(object):
             return []
         return self._json("GET", "/rest/v1/measurements?select=id,title,type,staerke_mm,workflow_status,data&project_id=eq.%s&type=in.(freies_profil,dachrandblech)&archived=eq.false&order=id.desc&limit=100" % p["id"]) or []
 
+    def profil_auftraege(self, nummer):
+        """Offene Profile, die in der App an das CAD gesendet wurden (Knopf «An CAD senden»), zum Auftrag → [{id, titel, laenge_mm, stueck, staerke_mm, daten, notiz}].
+        Gibt es die Tabelle noch nicht (App-Version ohne diese Funktion), ist die Liste leer."""
+        p = self.projekt_zu_auftrag(nummer)
+        if not p or not p.get("id"):
+            return []
+        try:
+            return self._json("GET", "/rest/v1/cad_profil_auftraege?select=id,titel,laenge_mm,stueck,staerke_mm,daten,notiz,created_at&project_id=eq.%s&status=eq.offen&order=created_at.desc&limit=100" % p["id"]) or []
+        except CloudFehler as ex:
+            if ex.status in (404, 400) and "cad_profil_auftraege" in str(ex):
+                return []
+            raise
+
+    def profil_auftrag_gebaut(self, auftrag_id):
+        """Gesendeten Auftrag als «gebaut» markieren (die App zeigt dann «im CAD gebaut»)."""
+        self._anfrage("PATCH", "/rest/v1/cad_profil_auftraege?id=eq.%s" % int(auftrag_id),
+                      {"status": "gebaut", "gebaut_am": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, kopf={"Prefer": "return=minimal"})
+
     def projekte_lesen(self):
         """Projekte der App (nur lesen) → [{id,name,order_no,object,customer,status,archived,created_at}]."""
         return self._json("GET", "/rest/v1/projects?select=id,name,order_no,object,customer,status,archived,created_at&order=order_no.desc&limit=1000") or []

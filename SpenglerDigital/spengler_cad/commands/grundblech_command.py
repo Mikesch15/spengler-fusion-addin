@@ -1,5 +1,7 @@
 """Befehl «Blech aus Massaufnahme»: erzeugt aus einer Massaufnahme der App (Freies Profil/Dachrandblech des aktiven Auftrags, nur lesen) direkt ein Blech
-mit den Massen: Grundblech (Breite = erster Schenkel, Länge aus der App) und auf Wunsch die Kantenfolge (Flansche/Umschläge). NICHT live in Fusion geprüft."""
+mit den Massen: Grundblech (Breite = erster Schenkel, Länge aus der App) und auf Wunsch die Kantenfolge (Flansche/Umschläge).
+Zuerst stehen die Profile, die in der App mit «An CAD senden» (Länge, Stück) geschickt wurden; nach dem Bauen werden sie als «gebaut» markiert.
+NICHT live in Fusion geprüft."""
 import adsk.core
 
 from .. import VERSION
@@ -27,16 +29,16 @@ def _erstellt(self, args):
     if not c.angemeldet:
         raise fa.AdapterFehler("Für die App-Daten zuerst unter «Konto» anmelden.")
     Z.clear()
-    Z["liste"] = c.massaufnahmen_zum_auftrag(angaben["auftrag"])
+    Z["liste"] = eintraege(c.profil_auftraege(angaben["auftrag"]), c.massaufnahmen_zum_auftrag(angaben["auftrag"]))
     Z["mat"] = MaterialBibliothek().liste()
     Z["auftrag"] = angaben["auftrag"]
     if not Z["liste"]:
-        raise fa.AdapterFehler("In der App gibt es zum Auftrag %s keine Massaufnahme «Freies Profil» oder «Dachrandblech»." % angaben["auftrag"])
+        raise fa.AdapterFehler("In der App gibt es zum Auftrag %s weder ein gesendetes Profil («An CAD senden») noch eine Massaufnahme «Freies Profil» oder «Dachrandblech»." % angaben["auftrag"])
     if not Z["mat"]:
         raise fa.AdapterFehler("Es gibt noch kein Materialprofil (Vorlagen & Einstellungen → Materialien).")
     dd = inp.addDropDownCommandInput("aufnahme", "Massaufnahme in der App", adsk.core.DropDownStyles.TextListDropDownStyle)
     for i, m in enumerate(Z["liste"]):
-        dd.listItems.add("%s (%s)" % (m.get("title") or "ohne Titel", m["type"]), i == 0)
+        dd.listItems.add(m["text"], i == 0)
     md = inp.addDropDownCommandInput("material", "Material", adsk.core.DropDownStyles.TextListDropDownStyle)
     vorgabe = auftrag_logik.material_vorgabe(e, Z["mat"])
     for m in Z["mat"]:
@@ -56,6 +58,18 @@ def erstellt(args):
     _erstellt(None, args)
 
 
+def eintraege(auftraege, massaufnahmen):
+    """Auswahlliste: zuerst die in der App gesendeten Profile (mit Länge und Stück), dann die Massaufnahmen. Reine Logik. → [{'text', 'art', 'data', 'title', 'id', 'laenge', 'stueck'}]"""
+    out = []
+    for a in auftraege or []:
+        out.append({"art": "gesendet", "id": a["id"], "title": a.get("titel") or "Profil", "data": a.get("daten") or {}, "laenge": float(a["laenge_mm"]),
+                    "stueck": int(a.get("stueck") or 1), "text": "📤 aus der App: %s – %g mm × %d Stück" % (a.get("titel") or "Profil", float(a["laenge_mm"]), int(a.get("stueck") or 1))})
+    for m in massaufnahmen or []:
+        out.append({"art": "massaufnahme", "id": m["id"], "title": m.get("title") or "", "data": m.get("data") or {}, "laenge": None, "stueck": 1,
+                    "text": "%s (%s)" % (m.get("title") or "ohne Titel", m["type"])})
+    return out
+
+
 def _aufnahme(inp):
     sel = inp.itemById("aufnahme").selectedItem
     return Z["liste"][sel.index] if sel is not None else None
@@ -67,8 +81,11 @@ def _vorbelegen(inp):
         return
     g = app_profil.grundblech_aus_app(m.get("data"))
     inp.itemById("name").value = (m.get("title") or "Blech aus App")[:60]
-    if g["laenge"]:
-        inp.itemById("laenge").expression = "%g mm" % g["laenge"]
+    laenge = m.get("laenge") or g["laenge"]
+    if laenge:
+        inp.itemById("laenge").expression = "%g mm" % laenge
+    if m["art"] == "gesendet":
+        g["hinweise"] = list(g["hinweise"]) + ["Aus der App gesendet: %g mm, %d Stück (gebaut wird ein Bauteil)." % (m["laenge"], m["stueck"])]
     inp.itemById("info").text = ("Grundblech %.0f mm breit, %d Biegung(en) aus der App.<br>%s" % (g["breite"], len(g["ops"]), "<br>".join(g["hinweise"]))).replace("\n", "<br>")
 
 
@@ -110,8 +127,22 @@ def _ausfuehren_innen(self, args):
             Einstellungen().speichern(e)
     except Exception:
         logger.ausnahme("Material des Auftrags nicht gemerkt")
-    logger.info("Blech aus Massaufnahme", massaufnahme=m["id"], laenge=laenge, breite=g["breite"], schritte=len(g["ops"]))
+    logger.info("Blech aus Massaufnahme", massaufnahme=m["id"], art=m["art"], laenge=laenge, breite=g["breite"], schritte=len(g["ops"]))
+    if m["art"] == "gesendet":
+        bericht.append(markieren_gebaut(m["id"]))
+        if m["stueck"] > 1:
+            bericht.append("Der Auftrag verlangt %d Stück – in Fusion das Bauteil kopieren." % m["stueck"])
     base.melden("Blech aus Massaufnahme", "\n".join(bericht + hinweise + ["", "Bitte Richtung und Masse mit der Massaufnahme vergleichen (nicht live geprüft)."]))
+
+
+def markieren_gebaut(auftrag_id, cloud=None):
+    """Gesendeten Auftrag in der App als «gebaut» vermerken. → Meldungstext, nie eine Ausnahme (das Blech ist dann schon gebaut)."""
+    try:
+        (cloud or Cloud(timeout=10)).profil_auftrag_gebaut(auftrag_id)
+        return "In der App als «gebaut» vermerkt."
+    except Exception as ex:
+        logger.warnung("Gesendeten Auftrag nicht als gebaut markiert", fehler=ex)
+        return "Hinweis: In der App konnte der Auftrag nicht als «gebaut» vermerkt werden (%s)." % (str(ex) or type(ex).__name__)
 
 
 def _ausfuehren(args):

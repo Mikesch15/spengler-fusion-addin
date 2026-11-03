@@ -54,6 +54,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Auftragsübersicht (Palette) | TEIL | Logik + Browsertest AUTO; Ordner-Lesen/Abfragen der App nicht live |
 | Bauteilvorlagen mit Grundrissverlauf/Ring (Editor in der Palette, Befehl «Bauteil erstellen») | NEIN | Geometrie, Parameter, Speicher, Sync, Editor AUTO getestet; Fusion: Grundblech aus Grundriss (createBaseFlangeInput), Kantenzuordnung, gemeinsamer Bau mit Gehrung nicht live – der Live-Test prüft L-Form und Ring |
 | Profil von Hand skizzieren (Palette, Zeichenfeld mit Einrasten, Tabelle, Übernahme als Kantenvorlage) | TEIL | Logik + Browsertest (Maus) AUTO; Stift/Finger in der Fusion-Palette nicht live |
+| Profil aus der App an das CAD senden (App v3.425, Tabelle cad_profil_auftraege; Add-in: Liste in «Blech aus Massaufnahme», «gebaut») | NEIN | Add-in-Seite getestet gegen Test-Datenbank; App-Prüfstand AUTO; nicht live |
 | Eigene Gruppe in Fusion | LIVE | Befehle in Fusion erreichbar (Hilfe → Fähigkeiten/Selbsttest benutzt); Anordnung der 3 Gruppen nicht ausdrücklich bestätigt |
 | A Kanten bearbeiten: Einzel-/Mehrfachauswahl, Vorlage, Parameter, Vorschau, ungeeignete Kanten, Ergebnisprüfung | TEIL | Bauplan/Eignung AUTO (test_operation_plan), Ablauf/Rückbau als Logik-Test; in Fusion nicht live |
 | B 3D-Details anwenden | TEIL | siehe Kap. 4 |
