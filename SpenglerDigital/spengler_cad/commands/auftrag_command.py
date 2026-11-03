@@ -78,9 +78,30 @@ def _ausfuehren_innen(self, args):
         gespeichert += "\n\n" + _projekt_in_app(nummer, objekt)
     if inp.itemById("speichern").value:
         a = auftrag.pruefe_einstellung(e.get("auftrag"))
-        gespeichert = "\n\n" + fa.dokument_im_auftrag_speichern(p["wurzel"], p["name"], a["rollen"]["modelle"])
+        gespeichert += "\n\n" + fa.dokument_im_auftrag_speichern(p["wurzel"], p["name"], a["rollen"]["modelle"])
     base.melden("Neuer Auftrag", "Ordner angelegt:\n%s\nUnterordner: %s%s%s" % (
         pfad, ", ".join(p["unterordner"]) or "keine", ("\n\n" + "\n".join(hinweise)) if hinweise else "", gespeichert))
+
+
+def _projekt_in_app(nummer, objekt, cloud=None):
+    """Projekt zur Auftragsnummer in der App anlegen, falls es dort noch fehlt. → Meldungstext (nie eine Ausnahme: die Ordner in Fusion sind dann schon angelegt,
+    ein Problem bei der App wird nur gemeldet)."""
+    from ..storage.cloud_client import Cloud, CloudFehler
+    try:
+        c = cloud or Cloud(timeout=10)
+        if not c.angemeldet:
+            return "App: nicht angemeldet – Projekt nicht angelegt (Register Konto, danach «Aufträge abgleichen»)."
+        vorhanden = c.projekt_zu_auftrag(nummer)
+        if vorhanden:
+            return "App: Projekt %s gibt es schon («%s»)." % (nummer, vorhanden.get("name") or vorhanden.get("object") or "")
+        neu = c.projekt_anlegen(nummer, objekt)
+        return "App: Projekt %s «%s» angelegt." % (nummer, neu.get("name") or objekt)
+    except CloudFehler as ex:
+        logger.warnung("Projekt in der App nicht angelegt", fehler=ex)
+        return "App: Projekt NICHT angelegt – %s" % ex
+    except Exception as ex:
+        logger.ausnahme("Projekt in der App nicht angelegt")
+        return "App: Projekt NICHT angelegt – %s" % (str(ex) or type(ex).__name__)
 
 
 def _merken(e, nummer, objekt, jahr):

@@ -285,3 +285,37 @@ class SelbsttestTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class NeuerAuftragAppProjektTest(unittest.TestCase):
+    """Regression (Live 3.11., Bericht 98.487): _projekt_in_app war nicht definiert – «Neuer Auftrag» brach nach dem Anlegen der Ordner ab."""
+
+    def test_projekt_in_app_anlegen_und_melden(self):
+        import fake_supabase
+        from spengler_cad.commands import auftrag_command
+        from spengler_cad.storage.cloud_client import Cloud
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        c = Cloud(tmp, url=url, timeout=5)
+        self.assertIn("nicht angemeldet", auftrag_command._projekt_in_app("17999", "Testweg 1, Bern", c))
+        c.anmelden("max", "pw")
+        self.assertIn("17999", auftrag_command._projekt_in_app("17999", "Testweg 1, Bern", c))
+        self.assertIn("angelegt", auftrag_command._projekt_in_app("18000", "Zweiter Weg", c))
+        self.assertEqual(len(z.projects), 2)
+        self.assertIn("gibt es schon", auftrag_command._projekt_in_app("17999", "Nochmal", c))
+        self.assertEqual(len(z.projects), 2, "keine Doppelten")
+
+    def test_fehler_wird_gemeldet_nicht_geworfen(self):
+        from spengler_cad.commands import auftrag_command
+
+        class Kaputt(object):
+            angemeldet = True
+
+            def projekt_zu_auftrag(self, n):
+                raise RuntimeError("Netz weg")
+        self.assertIn("NICHT angelegt", auftrag_command._projekt_in_app("1", "x", Kaputt()))
