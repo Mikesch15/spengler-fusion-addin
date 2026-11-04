@@ -1576,3 +1576,12 @@ class OhneGehrungNurNachFrageTest(unittest.TestCase):
         r = fa.kanten_folge_bauen(["a", "b"], self.OPS, 1.0, {}, hinweise, lambda text: True)
         self.assertEqual((r, self.einzeln), (["F", "F"], ["kante-a", "kante-b"]))
         self.assertIn("OHNE Gehrung", hinweise[0])
+
+
+class NegativerRadiusTest(unittest.TestCase):
+    def test_negativer_biegeradius_wird_abgelehnt(self):
+        ff = Sammlung(Eingabe("angle", "bendRadiusOverride"))
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(kante_mit(ff), 90, 20, radius_mm=-1)
+        self.assertIn("negativ", str(cm.exception))
+        self.assertEqual(ff.hinzu, [])

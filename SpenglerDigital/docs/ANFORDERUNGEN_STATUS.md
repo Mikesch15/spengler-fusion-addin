@@ -1,5 +1,7 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
+**Aktueller Stand: Abschnitt «Nachtauftrag Geometrie und gekrümmte Flächen» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte sind Verlauf.
+
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
 
@@ -243,3 +245,44 @@ Kennzeichnung: **LIVE** = in Fusion bestätigt · **TEIL** = Logik mit Attrappen
 | `Occurrence.activate`, `Design.activateRootComponent`, `Design.activeOccurrence` | Zielkomponente aktivieren | nein | alt | Abbruch, wenn Aktivierung `False` meldet |
 | `Component.createFlatPattern(face)`, `ExportManager.createDXFFlatPatternExportOptions` | Abwicklung/DXF | nein (nicht als Preview bekannt) | alt | Abbruch mit Meldung |
 Alle Preview-Aufrufe liegen nur in `geometry/fusion_adapter.py` und werden vor dem Aufruf mit `hasattr` geprüft; «Fähigkeiten prüfen» und der Live-Test listen sie (`fusion_capabilities.py`). Ein unkontrollierter geometrischer Ersatz (z. B. 179°-Flansch statt Saum) wird nicht mehr verwendet.
+
+## Nachtauftrag Geometrie und gekrümmte Flächen (5. 11. 2026) – AKTUELLER STAND
+Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Release, Version unverändert 0.4.49.** Seit 0.4.42 lief kein Fusion-Live-Test.
+
+**Statuswerte (je Funktion):** implementiert, nicht live getestet · live getestet auf ebener Geometrie · live getestet auf gekrümmter Geometrie · eingeschränkt unterstützt · nicht unterstützt.
+
+| Funktion | Status |
+|---|---|
+| Grundblech (Regel mit Soll-Dicke, Zielkomponente, Rückbau; Bögen im Profil) | Basisflansch an sich live getestet auf ebener Geometrie (0.4.42); Dicke/Komponente/Bögen: implementiert, nicht live getestet |
+| Flansch, ebene gerade Kante | Flansch an sich live getestet auf ebener Geometrie (0.4.42, Protokoll); Kontrollen: implementiert, nicht live getestet |
+| Mehrkantflansch mit Gehrung | eingeschränkt unterstützt (Kette gerader Kanten); Eckspalt-Messung implementiert, nicht live getestet |
+| Umschlag (eine Kante je Saum, Mindestlänge, Kontrolle) | implementiert, nicht live getestet |
+| Doppelfalz (Aufkantung + 2 Umschläge) | eingeschränkt unterstützt, nur als Live-Test-Fall; nicht live getestet |
+| Versatz (Biegelinie, nur ebene Blechfläche) | implementiert, nicht live getestet; Fusion lehnte die versetzte Kante früher live ab (offen) |
+| Abwicklung/DXF eben | implementiert, nicht live getestet (DXF-Gegenprobe inkl. Konturzahl) |
+| Abwicklung gerolltes Blech (Biegezone Zylinder) | eingeschränkt unterstützt; nicht live getestet |
+| Abwicklung doppelt gekrümmt | nicht unterstützt (wird erkannt und abgelehnt, keine Näherung) |
+| 3D-Detail eben (atomarer Import, Interferenz, Abstand) | Import/Ausrichtung live getestet auf ebener Geometrie (Selbsttest 0.4.42); Rückbau/Interferenz/Abstand: implementiert, nicht live getestet |
+| 3D-Detail auf Zylinder/Kegel (starr tangential, Abstand) | eingeschränkt unterstützt; nicht live getestet |
+| 3D-Detail an Krümmung anpassen | nicht unterstützt (kein ungefragtes Verformen) |
+| Flansch/Umschlag an gekrümmter Kante, auf Zylinder/Kegel | nicht unterstützt; Live-Test fragt Fusion ausdrücklich an |
+
+**Unterstützungsmatrix (aus `core/unterstuetzung.py` erzeugt – implementiert ≠ live getestet):**
+
+| Bearbeitung | eben, gerade Kante | gekrümmte Kante | Zylinder | Kegel | Freiform |
+|---|---|---|---|---|---|
+| Grundblech | implementiert | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Abwicklung / DXF | implementiert | implementiert | eingeschränkt | eingeschränkt | nicht unterstützt |
+| 3D-Detail starr | implementiert | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail an Fläche angepasst | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+
+**Fusion-API-Risiken:** Blech-Features (BaseFlange, EdgeFlange, Hem) sind Preview-API und werden vor dem Aufruf mit `hasattr` geprüft; neu genutzt und
+nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/parametricRange`, `CurveEvaluator.getTangent`, `MeasureManager.measureMinimumDistance`,
+`Design.createInterferenceInput/analyzeInterference`, `sketchArcs.addByThreePoints`, `RevolveFeatures` mit Teilwinkel. Fehlt eine dieser Funktionen,
+wird verständlich abgebrochen (Interferenz: ausdrücklich gekennzeichnete Grobprüfung).
+**BaseFeature-/Kombinieren-Integration** eines 3D-Details friert die Detailgeometrie ein: die parametrische Feature-Historie des Details bleibt NICHT erhalten.

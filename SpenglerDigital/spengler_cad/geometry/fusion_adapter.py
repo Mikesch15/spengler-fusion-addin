@@ -435,6 +435,8 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
     if lage:
         if not setze(inp, ["bendPositionType"], _lage_enum(lage)):
             raise AdapterFehler("Die Lage «%s» lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % lage)
+    if radius_mm is not None and radius_mm < 0:
+        raise AdapterFehler("Der Biegeradius %g mm ist ungültig (negativ) – abgebrochen." % radius_mm)
     if radius_mm is not None:
         ov = getattr(inp, "bendRadiusOverride", None)
         try:

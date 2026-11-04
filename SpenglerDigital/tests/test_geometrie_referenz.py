@@ -95,3 +95,11 @@ class Matrix(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DokuSynchron(unittest.TestCase):
+    def test_statusdokument_enthaelt_die_aktuelle_matrix(self):
+        import os
+        pfad = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "ANFORDERUNGEN_STATUS.md")
+        with open(pfad, encoding="utf-8") as f:
+            self.assertIn(u.als_markdown(), f.read(), "Matrix geändert → Statusdokument neu erzeugen")
