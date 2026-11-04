@@ -22,9 +22,14 @@ def kante_eignung(kante, vorlage, material):
     # Eignung nach Operationstyp. Flansch (EdgeFlangeInput) und Saum (HemFeatureInput) sind laut Autodesk-Doku nur für GERADE Kanten
     # beschrieben; Kreis/Bogen werden deshalb VOR dem Modellieren abgelehnt (früher: versucht und gewarnt). Ellipse/Spline ohnehin.
     if kurve != "linie":
-        was = " und ".join(x for x, n in (("Flansch", "flansch"), ("Umschlag", "umschlag")) if n in arten) or "Diese Operation"
-        gruende.append("ist %s – %s kann das Add-in in Fusion nur an geraden Kanten bauen (runde Kanten unterstützt die Fusion-Schnittstelle "
-                       "nicht belegt; runde Ränder mit «Rundblech»)" % ({"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "vom Kurventyp «%s»" % kurve), was))
+        # Zentral über die Unterstützungsmatrix (core/unterstuetzung) – dieselbe Aussage wie in Doku und Live-Test.
+        from . import unterstuetzung
+        flaeche = kante.get("flaeche", "eben")
+        klasse_ = "gekruemmte_kante" if flaeche == "eben" else (flaeche if flaeche in ("zylinder", "kegel") else "freiform")
+        for art in sorted(arten):
+            grund = unterstuetzung.pruefen(art, klasse_)
+            if grund:
+                gruende.append("ist %s – %s Kurz: nur an geraden Kanten" % ({"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "vom Kurventyp «%s»" % kurve), grund))
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     ops_ = (vorlage or {}).get("operations") or []

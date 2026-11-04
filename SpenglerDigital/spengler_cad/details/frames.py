@@ -18,13 +18,27 @@ def kreuz(a, b):
 
 
 def rahmen_aus_kante(start, ende, flaechennormale):
-    """Rahmen: Ursprung = Kantenanfang, x = Kantenrichtung, z = Flächennormale (senkrecht zu x gemacht), y = z × x."""
+    """Rahmen: Ursprung = Kantenanfang, x = Kantenrichtung (exakt), z = Flächennormale (senkrecht zu x gemacht), y = z × x.
+    (Bisheriges Verhalten bleibt; für Flächen-Ankerpunkte gilt rahmen_aus_normale mit exakter Normale.)"""
     x = norm([e - s for s, e in zip(start, ende)])
     n = list(flaechennormale)
     d = sum(a * b for a, b in zip(n, x))
     z = norm([a - d * b for a, b in zip(n, x)])
     y = kreuz(z, x)
     return {"origin": list(start), "x": x, "y": y, "z": z}
+
+
+def rahmen_aus_normale(punkt, normale, tangente):
+    """Allgemeiner lokaler Rahmen für jede Flächenart: Ursprung = Punkt, x = Tangente (senkrecht zur Normale gemacht), z = LOKALE Normale, y = z × x.
+    Für Zylinder/Kegel/Freiform liefert die Geometrie-Referenz Normale und Tangente am Punkt – nie wird global Z angenommen."""
+    start = list(punkt)
+    n = norm(list(normale))
+    t = list(tangente)
+    d = sum(a * b for a, b in zip(n, t))
+    x = norm([a - d * b for a, b in zip(t, n)])
+    z = n
+    y = kreuz(z, x)
+    return {"origin": start, "x": x, "y": y, "z": z}
 
 
 def matrix(frame):

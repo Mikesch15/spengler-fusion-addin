@@ -134,6 +134,10 @@ def kante_beschreiben(edge, nr=1):
         d["ende"] = _punkt_mm(edge.endVertex.geometry)
     except Exception:
         pass
+    try:      # Flächentyp der Bezugsfläche (grösste angrenzende) für die Unterstützungsmatrix: eben / zylinder / kegel / …
+        d["flaeche"] = flaechentyp(max(list(edge.faces), key=lambda f: f.area))
+    except Exception:
+        d["flaeche"] = "eben"
     return d
 
 
@@ -146,15 +150,99 @@ def flaechennormale(face, punkt=None):
 
 
 def kantenrahmen(edge, face=None):
-    """Lokales Koordinatensystem an einer Kante (mm): Ursprung Kantenanfang, x entlang Kante, z = Normale der Bezugsfläche."""
-    from ..details.frames import rahmen_aus_kante
+    """Lokales Koordinatensystem an einer Kante (mm): Ursprung Kantenanfang, x entlang Kante, z = Normale der Bezugsfläche AM KANTENANFANG
+    (früher an einem beliebigen Flächenpunkt – auf Zylinder/Kegel falsch). Gekrümmte Kante: x = Tangente am Kantenanfang (Detail starr tangential).
+    Nicht live geprüft für gekrümmte Kanten/Flächen."""
+    from ..details.frames import rahmen_aus_kante, rahmen_aus_normale
     edge = adsk.fusion.BRepEdge.cast(edge)
-    if _kurventyp(edge) != "linie":
-        raise AdapterFehler("Die Anschlusskante muss gerade sein.")
     if face is None:
         # Bezugsfläche: die grössere angrenzende Fläche (Blechfläche, nicht Stirnfläche)
         face = max(list(edge.faces), key=lambda f: f.area)
-    return rahmen_aus_kante(_punkt_mm(edge.startVertex.geometry), _punkt_mm(edge.endVertex.geometry), flaechennormale(face))
+    start = edge.startVertex.geometry
+    n = flaechennormale(face, start)
+    if _kurventyp(edge) == "linie":
+        return rahmen_aus_kante(_punkt_mm(start), _punkt_mm(edge.endVertex.geometry), n)
+    return rahmen_aus_normale(_punkt_mm(start), n, _kantentangente(edge, start))
+
+
+FLAECHENTYP_FUSION = {"PlaneSurfaceType": "eben", "CylinderSurfaceType": "zylinder", "ConeSurfaceType": "kegel", "SphereSurfaceType": "kugel",
+                      "TorusSurfaceType": "torus", "NurbsSurfaceType": "freiform", "EllipticalCylinderSurfaceType": "freiform",
+                      "EllipticalConeSurfaceType": "freiform"}
+
+
+def flaechentyp(face):
+    """Fusion-Flächentyp → Typ der Geometrie-Referenz (eben, zylinder, kegel, kugel, torus, freiform, unbekannt). Elliptische Zylinder/Kegel sind
+    zwar abwickelbar, werden aber vorsichtig als Freiform geführt (keine eigene Rechnung dafür)."""
+    try:
+        t = face.geometry.surfaceType
+        for name, typ in FLAECHENTYP_FUSION.items():
+            if t == getattr(adsk.core.SurfaceTypes, name):
+                return typ
+    except Exception:
+        pass
+    return "unbekannt"
+
+
+def _kantentangente(edge, punkt):
+    ev = edge.evaluator
+    ok, par = ev.getParameterAtPoint(punkt)
+    if not ok:
+        raise AdapterFehler("Kantentangente nicht bestimmbar.")
+    ok, t = ev.getTangent(par)
+    if not ok:
+        raise AdapterFehler("Kantentangente nicht bestimmbar.")
+    return [t.x, t.y, t.z]
+
+
+def _kruemmung(face, punkt):
+    """Hauptkrümmungen (1/mm) am Punkt über SurfaceEvaluator.getCurvature → {'k1','k2'} oder None. Nicht live geprüft."""
+    try:
+        ev = face.evaluator
+        ok, par = ev.getParameterAtPoint(punkt)
+        if not ok:
+            return None
+        ok, _richtung, k_max, k_min = ev.getCurvature(par)
+        if not ok:
+            return None
+        return {"k1": k_max / 10.0, "k2": k_min / 10.0}       # 1/cm → 1/mm
+    except Exception:
+        return None
+
+
+def referenz_aus_fusion(face=None, edge=None, punkt=None, seite=1):
+    """Zentrale Geometrie-Referenz (core/geometrie_referenz) aus einer Fusion-Auswahl: Fläche und/oder Kante, Ankerpunkt (Point3D in cm; Standard
+    Kantenanfang bzw. Flächenpunkt). Normale und Tangente werden AM ANKERPUNKT gelesen, Krümmung über den Flächen-Evaluator.
+    → dict. Nicht live geprüft (BRepFace.evaluator, getCurvature, getFirstDerivative)."""
+    from ..core import geometrie_referenz as gr
+    if face is None and edge is None:
+        raise AdapterFehler("Für die Referenz bitte eine Fläche oder Kante wählen.")
+    if face is None:
+        face = max(list(edge.faces), key=lambda f: f.area)
+    if punkt is None:
+        punkt = edge.startVertex.geometry if edge is not None else face.pointOnFace
+    n = flaechennormale(face, punkt)
+    if edge is not None:
+        tangente = _kantentangente(edge, punkt)
+    else:
+        try:
+            ev = face.evaluator
+            ok, par = ev.getParameterAtPoint(punkt)
+            ok2, du, _dv = ev.getFirstDerivative(par)
+            tangente = [du.x, du.y, du.z] if ok and ok2 else None
+        except Exception:
+            tangente = None
+    body = face.body
+    kennung = {"flaeche": getattr(face, "entityToken", None), "flaeche_mm2": face.area * 100.0}
+    if edge is not None:
+        kennung.update(kante=getattr(edge, "entityToken", None), kante_mm=edge.length * 10.0)
+    regel = None
+    try:
+        r = body.parentComponent.activeSheetMetalRule
+        regel = r.name if r else None
+    except Exception:
+        pass
+    return gr.referenz(flaechentyp(face), _punkt_mm(punkt), n, tangente, _kurventyp(edge) if edge is not None else None, _kruemmung(face, punkt),
+                       seite, blechdicke_mm(body) if ist_blech(body) else None, regel, kennung)
 
 
 # ------------------------------------------------------------------ Neue Aussenkante bestimmen
