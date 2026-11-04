@@ -343,3 +343,12 @@ class Skizze(unittest.TestCase):
         self.assertTrue(v["ok"], v)
         self.assertEqual(v["daten"]["operations"][0]["laenge"], 25)
         self.assertFalse(json.loads(b.behandle("skizze_vorlage", json.dumps({"schenkel": [{"laenge": 80, "winkel": 0}], "name": "x"})))["ok"])
+
+
+class LiveTestQuelltext(unittest.TestCase):
+    def test_kantenlaenge_nie_als_zahl_verwendet(self):
+        """Regression (Live 4.11.): fa._kantenlaenge_mm liefert Text; im Live-Test muss die Länge eine Zahl sein."""
+        import os
+        q = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "spengler_cad", "diagnostics", "live_test.py"), encoding="utf-8").read()
+        code = [z for z in q.splitlines() if not z.strip().startswith(("#", '"""'))]
+        self.assertFalse([z for z in code if "fa._kantenlaenge_mm(" in z and "def " not in z and "Live 4.11" not in z], "Textfunktion als Zahl benutzt")

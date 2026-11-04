@@ -62,6 +62,11 @@ def _oberflaeche(body, seite="oben"):
     return bester
 
 
+def _laenge_mm(edge):
+    """Kantenlänge als ZAHL in mm (fa._kantenlaenge_mm liefert nur Text für Meldungen – Live 4.11.: round() auf Text brach 11 Schritte ab)."""
+    return edge.length * 10.0
+
+
 def _rand_kanten(ctx, seite=None):
     """Gerade Randkanten der Ober-/Unterseite, lange (X) zuerst; → Liste."""
     f = _oberflaeche(ctx.root.bRepBodies.item(0), seite or ctx.seite)
@@ -69,7 +74,7 @@ def _rand_kanten(ctx, seite=None):
     for e in f.edges:
         if fa._kurventyp(e) == "linie":
             kanten.append(e)
-    kanten.sort(key=lambda e: (-round(fa._kantenlaenge_mm(e)), e.boundingBox.minPoint.y, e.boundingBox.minPoint.x))
+    kanten.sort(key=lambda e: (-round(_laenge_mm(e)), e.boundingBox.minPoint.y, e.boundingBox.minPoint.x))
     return kanten
 
 
@@ -84,7 +89,7 @@ def _eckkanten(ctx):
     k = _rand_kanten(ctx)
     for a in k:
         for b in k:
-            if a is not b and _teilen_ecke(a, b) and abs(fa._kantenlaenge_mm(a) - fa._kantenlaenge_mm(b)) > 1:
+            if a is not b and _teilen_ecke(a, b) and abs(_laenge_mm(a) - _laenge_mm(b)) > 1:
                 return [a, b]
     raise RuntimeError("Keine zwei benachbarten Kanten gefunden.")
 
@@ -125,7 +130,7 @@ def t_flansch(ctx):
     v0 = _volumen(ctx)
     feat, kante, seite = _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH)
     zu = _volumen(ctx) - v0
-    erwartet = fa._kantenlaenge_mm(kante) * FLANSCH * (ctx.dicke or 1.0)
+    erwartet = _laenge_mm(kante) * FLANSCH * (ctx.dicke or 1.0)
     txt = "Kante der %sseite, Volumen +%.0f mm³ (erwartet ca. %.0f)" % (seite, zu, erwartet)
     if not _plausibel(zu, erwartet):
         raise _Warnung(txt + " – Volumen weicht stark ab")
@@ -219,7 +224,7 @@ def t_versatz(ctx):
         v0 = _volumen(ctx)
         erz = fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=v)], ctx.dicke, {"livetest": 1}, hin)
         zu = _volumen(ctx) - v0
-        erwartet = fa._kantenlaenge_mm(_rand_kanten(ctx)[0]) * FLANSCH * (ctx.dicke or 1.0)
+        erwartet = _laenge_mm(_rand_kanten(ctx)[0]) * FLANSCH * (ctx.dicke or 1.0)
         erg.append("%+g mm: ok, Volumen %+.0f mm³ (Blechdicke %.2f)%s" % (v, zu, ctx.dicke or 0, ("; " + " / ".join(hin)) if hin else ""))
         if zu > 3 * erwartet:
             erg[-1] += " – Volumen viel zu gross (Dicke verdoppelt?)"
@@ -257,11 +262,11 @@ def t_ordnerpfad(ctx):
     return "Dokument «%s», Ordnerpfad %s" % (n, "/".join(pfad) if pfad else "(ungespeichert, leer)")
 
 
-def _bauteil(ctx, verlauf, ring, seiten, name):
+def _bauteil(ctx, verlauf, ring, seiten, name, breite="100"):
     """Bauteil im Grundriss wie der Befehl «Bauteil erstellen»: Band aus dem Verlauf, Grundblech, Kantenfolgen an den Ketten."""
     from ..core import bauteil, models
     v = models.neue_bauteilvorlage("Livetest")
-    v["breite"] = "100"
+    v["breite"] = breite
     v["verlauf"] = {"art": "grundriss", "beispiel": verlauf, "seite": "links"}
     v["seiten"] = bauteil.seiten_aus_texten(seiten)
     p = bauteil.plan(v, {}, {"thickness": 1.0, "innerRadius": 1.0, "kFactor": 0.4}, verlauf, None, True, ring)
@@ -283,7 +288,7 @@ def t_bauteil_l(ctx):
 
 
 def t_bauteil_ring(ctx):
-    return _bauteil(ctx, "300 L90 200 L90 300 L90 200 L90", True, {"verlauf": "90 20", "gegen": "90 15"}, "Ring mit Flansch an beiden Kanten")
+    return _bauteil(ctx, "300 L90 200 L90 300 L90 200 L90", True, {"verlauf": "90 20", "gegen": "90 15"}, "Ring mit Flansch an beiden Kanten", breite="60")
 
 
 class _Warnung(Exception):
