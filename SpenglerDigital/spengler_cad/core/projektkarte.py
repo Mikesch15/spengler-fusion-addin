@@ -18,14 +18,32 @@ def _datum(s):
     return s[:10]
 
 
-def _zeit(s):
-    """ISO-Zeit → «3.11.2026 16:00» (ohne Umrechnung der Zeitzone, nur zur Anzeige)."""
-    s = str(s or "")
+def utc(s):
+    """ISO-Zeitstempel → datetime mit Zeitzone. REGEL: Zeitstempel MIT Zeitzone (z. B. «+00:00», «Z», «+01:00») behalten ihre Zone; Zeitstempel OHNE Zeitzone gelten als UTC
+    (alle Quellen – Supabase timestamptz – liefern UTC). Nicht lesbar → None."""
+    s = str(s or "").strip()
+    if not s:
+        return None
     try:
-        d = datetime.datetime.fromisoformat(s.replace("Z", "+00:00"))
-        return "%d.%d.%d %02d:%02d" % (d.day, d.month, d.year, d.hour, d.minute)
+        d = datetime.datetime.fromisoformat(s.replace("Z", "+00:00").replace(" ", "T", 1) if "T" not in s and " " in s else s.replace("Z", "+00:00"))
     except ValueError:
-        return s[:16]
+        return None
+    return d if d.tzinfo is not None else d.replace(tzinfo=datetime.timezone.utc)
+
+
+def _zeit(s):
+    """ISO-Zeit → «3.11.2026 16:00» in der LOKALEN Zeit des PCs (Sommer-/Winterzeit eingerechnet, Regel für Zeitstempel ohne Zone siehe utc())."""
+    d = utc(s)
+    if d is None:
+        return str(s or "")[:16]
+    d = d.astimezone()
+    return "%d.%d.%d %02d:%02d" % (d.day, d.month, d.year, d.hour, d.minute)
+
+
+def _neuer_als(wert, gesehen_dt):
+    """Ist der Zeitstempel `wert` später als `gesehen_dt` (datetime mit Zone)? Nicht lesbar → False."""
+    d = utc(wert)
+    return d is not None and d > gesehen_dt
 
 
 def _tag(s):
@@ -165,13 +183,15 @@ def neu_seit(daten, gesehen):
     """Was ist seit `gesehen` (ISO-Zeit; leer = noch nie angesehen) in der App neu oder geändert? → {'offene_auftraege', 'massaufnahmen', 'werkstatt', 'rapporte', 'dateien', 'termine', 'text'}.
     Beim ersten Mal (gesehen leer) wird nur gezählt, was wartet (offene Aufträge) – nicht alles andere als «neu» gemeldet."""
     g = str(gesehen or "")
+    gd = utc(g) if g else None
+    g = g if gd is not None else ""             # unlesbarer Zeitpunkt wie «noch nie gesehen» behandeln
     n = {"offene_auftraege": sum(1 for a in daten.get("auftraege", []) if a.get("status") == "offen"), "massaufnahmen": 0, "werkstatt": 0, "rapporte": 0, "dateien": 0, "termine": 0}
     if g:
-        n["massaufnahmen"] = sum(1 for m in daten.get("massaufnahmen", []) if str(m.get("created_at") or "") > g)
-        n["werkstatt"] = sum(1 for m in daten.get("massaufnahmen", []) for f in ("freigegeben_am", "geruestet_am", "montiert_am") if str(m.get(f) or "") > g)
-        n["rapporte"] = sum(1 for r in daten.get("rapporte", []) if str(r.get("created_at") or "") > g)
-        n["dateien"] = sum(1 for f in daten.get("dateien", []) if str(f.get("created_at") or "") > g and f.get("created_by") is not None)
-        n["termine"] = sum(1 for t in daten.get("termine", []) if str(t.get("created_at") or "") > g)
+        n["massaufnahmen"] = sum(1 for m in daten.get("massaufnahmen", []) if _neuer_als(m.get("created_at"), gd))
+        n["werkstatt"] = sum(1 for m in daten.get("massaufnahmen", []) for f in ("freigegeben_am", "geruestet_am", "montiert_am") if _neuer_als(m.get(f), gd))
+        n["rapporte"] = sum(1 for r in daten.get("rapporte", []) if _neuer_als(r.get("created_at"), gd))
+        n["dateien"] = sum(1 for f in daten.get("dateien", []) if _neuer_als(f.get("created_at"), gd) and f.get("created_by") is not None)
+        n["termine"] = sum(1 for t in daten.get("termine", []) if _neuer_als(t.get("created_at"), gd))
     teile = []
     if n["offene_auftraege"]:
         teile.append("%d Auftrag%s aus der App wartet%s" % (n["offene_auftraege"], "" if n["offene_auftraege"] == 1 else "e", "" if n["offene_auftraege"] == 1 else "n"))

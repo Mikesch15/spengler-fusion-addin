@@ -446,3 +446,52 @@ class ProjektAenderungBackend(unittest.TestCase):
         f = json.loads(b.behandle("termin_speichern", json.dumps({"project_id": 7, "termin": {"titel": "", "start_datum": "x"}})))
         self.assertFalse(f["ok"])
         self.assertIn("Titel", f["fehler"])
+
+
+class Zeitzone(unittest.TestCase):
+    """Regel: Zeitstempel mit Zone werden in die lokale Zeit umgerechnet; Zeitstempel ohne Zone gelten als UTC."""
+
+    def _tz(self, name):
+        import os
+        import time
+        alt = os.environ.get("TZ")
+
+        def zurueck():
+            if alt is None:
+                os.environ.pop("TZ", None)
+            else:
+                os.environ["TZ"] = alt
+            time.tzset()
+        self.addCleanup(zurueck)
+        os.environ["TZ"] = name
+        time.tzset()
+
+    def test_utc_wird_lokal(self):
+        from spengler_cad.core import projektkarte as p
+        self._tz("Europe/Zurich")
+        self.assertEqual(p._zeit("2026-01-15T10:00:00+00:00"), "15.1.2026 11:00", "Winterzeit: UTC+1")
+        self.assertEqual(p._zeit("2026-07-01T10:00:00+00:00"), "1.7.2026 12:00", "Sommerzeit: UTC+2")
+        self.assertEqual(p._zeit("2026-07-01T10:00:00Z"), "1.7.2026 12:00")
+        self.assertEqual(p._zeit("2026-07-01T12:00:00+02:00"), "1.7.2026 12:00", "andere Zone wird ebenfalls umgerechnet")
+        self.assertEqual(p._zeit("2026-11-03 16:00:00+00:00"), "3.11.2026 17:00", "Leerzeichen statt T")
+
+    def test_ohne_zone_gilt_als_utc(self):
+        from spengler_cad.core import projektkarte as p
+        self._tz("Europe/Zurich")
+        self.assertEqual(p._zeit("2026-07-01T10:00:00"), "1.7.2026 12:00")
+        self.assertEqual(p.utc("2026-07-01T10:00:00").tzinfo is not None, True)
+
+    def test_unlesbar_und_leer(self):
+        from spengler_cad.core import projektkarte as p
+        self.assertEqual(p._zeit(""), "")
+        self.assertEqual(p._zeit(None), "")
+        self.assertEqual(p._zeit("kein Datum"), "kein Datum")
+        self.assertIsNone(p.utc("quatsch"))
+
+    def test_neu_seit_vergleicht_zeitpunkte_nicht_zeichen(self):
+        from spengler_cad.core import projektkarte as p
+        daten = {"auftraege": [], "massaufnahmen": [{"created_at": "2026-11-03T16:00:00.500000+00:00"}, {"created_at": "2026-11-03T17:00:00+01:00"}, {"created_at": "kaputt"}],
+                 "rapporte": [], "dateien": [], "termine": []}
+        # gesehen 16:00:00 UTC: Eintrag 1 (16:00:00.5 UTC) ist neuer; Eintrag 2 (17:00+01:00 = 16:00 UTC) ist gleich alt; Eintrag 3 nicht lesbar
+        self.assertEqual(p.neu_seit(daten, "2026-11-03T16:00:00+00:00")["massaufnahmen"], 1)
+        self.assertEqual(p.neu_seit(daten, "unsinn")["massaufnahmen"], 0, "unlesbarer Zeitpunkt = noch nie gesehen")
