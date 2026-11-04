@@ -204,6 +204,9 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Bei aktiver Ablage **Kanten bearbeiten** und **Stückliste & Zuschnitt** (ohne Auftrag) | Befehle öffnen ohne Sperre; Export im Ordner `…/Test-Ablage/…`; «App: keine Auftragsnummer – nichts gesendet» |
 | ☐ | «Auftrag wählen» für einen Testauftrag | Die Ablage ist nicht mehr aktiv (Start zeigt den Auftrag) |
 | ☐ | Palette → Register **Projekt**, Testprojekt wählen | Kopf (Kunde, Status, Hinweis, nächster Termin), Massaufnahmen mit Werkstattstand, «CAD und Werkstatt», Termine, Rapporte, Dateien, Offerten – **Bildschirmfoto** |
+| ☐ | In der Projektkarte den **Projektstatus** ändern, «In der App ändern», Rückfrage mit Ja; in der App nachsehen | Status in der App geändert; in der Karte neu geladen. Danach in der App den Status anders setzen und im CAD (mit alter Karte) nochmals ändern → Meldung «inzwischen anderswo geändert», nichts überschrieben |
+| ☐ | **Hinweis** ändern, dann eine Zeile **ergänzen** | Hinweis steht in der App im Projekt (Cockpit); die ergänzte Zeile trägt Datum, Namen und «(CAD)» |
+| ☐ | **+ Termin hinzufügen** (Titel, Beginn 10.11.2026, 07:30, Ort), dann bei diesem Termin **Ändern** | Termin steht in der App unter Termine am Projekt; Änderung wird übernommen; ein Outlook-Termin hat keinen «Ändern»-Knopf |
 | ☐ | In der Projektkarte bei einer Massaufnahme mit Foto «📷 Fotos/Skizzen», Bild antippen, **In Fusion einfügen** | Bild erscheint, antippen vergrössert; im Fusion-Dokument gibt es ein Referenzbild (Canvas) – Lage/Grösse einstellbar |
 | ☐ | In der App eine Massaufnahme weiterschalten (rüsten/montieren) oder eine neue anlegen, dann im CAD **Start** | Zeile «🔔 Neu aus der App: …» und «Projekt: Kunde · Status …»; in der Projektkarte «Neu seit dem letzten Mal» |
 | ☐ | Dateien: «Öffnen» bei einem Plan in der Projektkarte | Datei liegt unter Exportordner/App-Dateien/<Auftrag> und öffnet sich |

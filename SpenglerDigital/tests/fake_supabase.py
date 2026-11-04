@@ -202,6 +202,21 @@ def server(z):
                         z.aenderungen.append(dict(d))
                     return self._antwort(201)
                 return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad == "/rest/v1/termine" and m in ("POST", "PATCH"):
+                if not admin:
+                    return self._antwort(403, {"message": "new row violates row-level security policy"})
+                lst = z.tab.setdefault("termine", [])
+                if m == "POST":
+                    neu = []
+                    for d in json.loads(body):
+                        d = dict(d, company_id=me["firma"], id=500 + len(lst), quelle="app")
+                        lst.append(d)
+                        neu.append(d)
+                    return self._antwort(201, neu)
+                treffer = [r for r in lst if str(r.get("id")) == f["id"][3:] and r.get("company_id") == me["firma"]]
+                for r in treffer:
+                    r.update(json.loads(body))
+                return self._antwort(200, treffer)
             if pfad.startswith("/rest/v1/") and pfad[9:] in ("reports", "termine", "offerten", "leistungen") and m == "GET":
                 zeilen = [r for r in z.tab.get(pfad[9:], []) if r.get("company_id") in (None, me["firma"])]
                 if "project_id" in f:
@@ -253,6 +268,13 @@ def server(z):
                         neu = dict(d, company_id=me["firma"], id=100 + len(z.projects), status="offen", archived=False, created_at="2026-11-01T10:00:00+00:00")
                         z.projects.append(neu)
                         return self._antwort(201, [{k: v for k, v in neu.items() if k != "company_id"}])
+                if m == "PATCH":
+                    treffer = [r for r in z.projects if r["company_id"] == me["firma"] and str(r["id"]) == f["id"][3:] and ("status" not in f or r.get("status") == f["status"][3:])
+                               and ("updated_at" not in f or r.get("updated_at") == f["updated_at"][3:]) and admin]
+                    for r in treffer:
+                        r.update(json.loads(body))
+                        r["updated_at"] = "2099-01-01T00:00:00+00:00"
+                    return self._antwort(200, [{k: v for k, v in r.items() if k != "company_id"} for r in treffer])
                 if "order_no" in f:
                     treffer = [r for r in z.projects if r["company_id"] == me["firma"] and r["order_no"] == f["order_no"][3:]]
                 else:

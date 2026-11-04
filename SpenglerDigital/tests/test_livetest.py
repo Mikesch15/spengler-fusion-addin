@@ -406,3 +406,43 @@ class ProjektkarteBackend(unittest.TestCase):
         b._referenzbild = lambda pfad, titel: gemacht.append((os.path.basename(pfad), titel))
         json.loads(b.behandle("projekt_foto_fusion", json.dumps({"nummer": "18162", "pfad": "measurements/7/41/photo/a.jpg", "titel": "Stirn"})))
         self.assertEqual(gemacht, [("a.jpg", "Stirn")])
+
+
+class ProjektAenderungBackend(unittest.TestCase):
+    def test_status_hinweis_termin(self):
+        import json
+        import os
+        import shutil
+        import tempfile
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud
+        from spengler_cad.ui.palette_backend import Backend
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        wurzel = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, wurzel, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        os.environ["SPENGLER_CAD_CLOUD_URL"] = url
+        self.addCleanup(os.environ.pop, "SPENGLER_CAD_CLOUD_URL", None)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "admin", "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "S", "object": "O", "status": "offen", "archived": False, "hinweis": "Schlüssel", "updated_at": "T1"}]
+        Cloud(wurzel, url=url, timeout=5).anmelden("max", "pw")
+        b = Backend(wurzel)
+        r = json.loads(b.behandle("projekt_status", json.dumps({"id": 7, "neu": "in_arbeit", "alt": "offen"})))
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["daten"]["status"], "In Arbeit")
+        self.assertFalse(json.loads(b.behandle("projekt_status", json.dumps({"id": 7, "neu": "kaputt", "alt": "offen"})))["ok"])
+        self.assertFalse(json.loads(b.behandle("projekt_status", json.dumps({"id": 7, "neu": "in_arbeit", "alt": "in_arbeit"})))["ok"], "gleicher Status: nichts zu ändern")
+        r = json.loads(b.behandle("projekt_hinweis", json.dumps({"id": 7, "text": "Gerüst bestellt", "modus": "ergaenzen", "alt": "Schlüssel", "updated_at": "2099-01-01T00:00:00+00:00"})))
+        self.assertTrue(r["ok"], r)
+        self.assertTrue(r["daten"]["hinweis"].startswith("Schlüssel\n") and r["daten"]["hinweis"].endswith("(CAD): Gerüst bestellt") is False or "Gerüst bestellt" in r["daten"]["hinweis"])
+        r = json.loads(b.behandle("projekt_hinweis", json.dumps({"id": 7, "text": "", "modus": "ersetzen"})))
+        self.assertEqual(r["daten"]["hinweis"], "")
+        t = json.loads(b.behandle("termin_speichern", json.dumps({"project_id": 7, "termin": {"titel": "Montage", "start_datum": "10.11.2026", "start_zeit": "7:30"}})))
+        self.assertTrue(t["ok"], t)
+        g = json.loads(b.behandle("termin_speichern", json.dumps({"id": t["daten"]["id"], "project_id": 7, "termin": {"titel": "Montage Dach", "start_datum": "11.11.2026"}})))
+        self.assertEqual(g["daten"]["titel"], "Montage Dach")
+        f = json.loads(b.behandle("termin_speichern", json.dumps({"project_id": 7, "termin": {"titel": "", "start_datum": "x"}})))
+        self.assertFalse(f["ok"])
+        self.assertIn("Titel", f["fehler"])

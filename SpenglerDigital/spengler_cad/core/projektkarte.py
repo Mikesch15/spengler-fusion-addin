@@ -52,7 +52,7 @@ def namen(profile):
 def kopf(projekt, personen=None):
     p = projekt or {}
     zug = [(personen or {}).get(i) or "?" for i in _liste(p.get("zugeteilt_an"))]
-    return {"nummer": p.get("order_no") or "", "kunde": p.get("customer") or "", "objekt": p.get("object") or p.get("name") or "",
+    return {"id": p.get("id"), "updated_at": p.get("updated_at") or "", "hinweis_roh": p.get("hinweis") or "", "nummer": p.get("order_no") or "", "kunde": p.get("customer") or "", "objekt": p.get("object") or p.get("name") or "",
             "status": PROJEKT_STATUS.get(p.get("status"), PROJEKT_STATUS["offen"]), "status_key": p.get("status") or "offen", "hinweis": p.get("hinweis") or "",
             "zugeteilt": zug, "angelegt": _tag(p.get("created_at")), "archiviert": bool(p.get("archived"))}
 
@@ -104,7 +104,9 @@ def termine(zeilen):
     for t in zeilen or []:
         von, bis = _tag(t.get("start_datum")), _tag(t.get("ende_datum"))
         zeit = " ".join(x for x in (str(t.get("start_zeit") or "")[:5], ("– " + str(t.get("ende_zeit"))[:5]) if t.get("ende_zeit") else "") if x)
-        out.append({"titel": t.get("titel") or "", "wann": (von if not bis or bis == von else "%s – %s" % (von, bis)) + ((" " + zeit) if zeit else ""),
+        out.append({"id": t.get("id"), "aenderbar": (t.get("quelle") or "app") == "app" and not t.get("abo_id") and t.get("id") is not None, "quelle": t.get("quelle") or "app",
+                    "start": str(t.get("start_datum") or "")[:10], "ende": str(t.get("ende_datum") or "")[:10], "start_zeit": str(t.get("start_zeit") or "")[:5],
+                    "ende_zeit": str(t.get("ende_zeit") or "")[:5], "titel": t.get("titel") or "", "wann": (von if not bis or bis == von else "%s – %s" % (von, bis)) + ((" " + zeit) if zeit else ""),
                     "sortierung": str(t.get("start_datum") or ""), "ort": t.get("ort") or "", "notiz": t.get("notiz") or "", "mitarbeiter": _liste(t.get("mitarbeiter"))})
     out.sort(key=lambda x: x["sortierung"])
     return out

@@ -432,3 +432,56 @@ class ProjektkarteCloudTest(unittest.TestCase):
         self.assertEqual(k["massaufnahmen"][0]["fotos"], 1)
         self.assertEqual(k["cad"]["teile"][0]["werkstatt"], "Gerüstet")
         self.assertEqual(k["naechster_termin"]["titel"], "Montage")
+
+
+class AppAenderungenTest(unittest.TestCase):
+    def _cloud(self, rolle="admin"):
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", rolle, "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "S", "object": "O", "status": "offen", "archived": False, "hinweis": None, "updated_at": "2026-11-01T10:00:00+00:00"}]
+        c = Cloud(tmp, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        return c, z
+
+    def test_status_nur_wenn_unveraendert(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z = self._cloud()
+        self.assertEqual(c.projekt_status_setzen(7, "in_arbeit", "offen")["status"], "in_arbeit")
+        with self.assertRaises(CloudFehler) as cm:                       # inzwischen geändert (alt stimmt nicht mehr)
+            c.projekt_status_setzen(7, "abgeschlossen", "offen")
+        self.assertIn("inzwischen anderswo geändert", str(cm.exception))
+        self.assertEqual(z.projects[0]["status"], "in_arbeit")
+
+    def test_ohne_recht_wird_gemeldet_nicht_still_ignoriert(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z = self._cloud("employee")
+        with self.assertRaises(CloudFehler) as cm:
+            c.projekt_status_setzen(7, "in_arbeit", "offen")
+        self.assertIn("Recht", str(cm.exception))
+        self.assertEqual(z.projects[0]["status"], "offen")
+        with self.assertRaises(CloudFehler):
+            c.termin_anlegen({"titel": "x", "project_id": 7, "start_datum": "2026-11-10", "ende_datum": "2026-11-10"})
+
+    def test_hinweis_mit_und_ohne_veraltete_karte(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z = self._cloud()
+        r = c.projekt_hinweis_setzen(7, "Schlüssel beim Hauswart", "2026-11-01T10:00:00+00:00")
+        self.assertEqual(r["hinweis"], "Schlüssel beim Hauswart")
+        with self.assertRaises(CloudFehler):                              # Karte war veraltet (updated_at hat sich geändert)
+            c.projekt_hinweis_setzen(7, "anders", "2026-11-01T10:00:00+00:00")
+        self.assertEqual(c.projekt_hinweis_setzen(7, None)["hinweis"], None)      # löschen = null
+
+    def test_termin_anlegen_und_aendern(self):
+        from spengler_cad.core import projektaenderung as pa
+        c, z = self._cloud()
+        t = c.termin_anlegen(pa.termin_pruefen({"titel": "Montage", "start_datum": "10.11.2026", "start_zeit": "7:30"}, 7))
+        self.assertEqual((t["titel"], t["start_datum"], t["start_zeit"], t["quelle"]), ("Montage", "2026-11-10", "07:30", "app"))
+        g = c.termin_aendern(t["id"], pa.termin_pruefen({"titel": "Montage Dach", "start_datum": "11.11.2026"}, 7))
+        self.assertEqual((g["titel"], g["start_datum"], g["projekt_pruefen"]), ("Montage Dach", "2026-11-11", False))

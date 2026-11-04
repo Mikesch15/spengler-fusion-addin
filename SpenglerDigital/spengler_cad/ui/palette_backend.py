@@ -7,7 +7,7 @@ import json
 import os
 
 from .. import VERSION
-from ..core import bauteil, grundriss, lernen, models, operation_plan, projektkarte, short_syntax, skizze, template_engine
+from ..core import bauteil, grundriss, lernen, models, operation_plan, projektaenderung, projektkarte, short_syntax, skizze, template_engine
 from ..core.bend_geometry import ProfilFehler, zugabe_abwicklung
 from ..manufacturing import drawing
 from ..storage import backup_service, paths
@@ -251,11 +251,43 @@ class Backend(object):
         karte = projektkarte.karte(roh, projektkarte.namen(roh.get("personen")))
         karte["neu"] = projektkarte.neu_seit(roh, gesehen.get(nummer, ""))
         karte["hinweise"] = hinweise
+        try:
+            karte["kopf"]["fertigung"] = (c.status_alle().get(nummer) or {}).get("status", "")
+        except Exception:
+            karte["kopf"]["fertigung"] = ""
         if d.get("als_gesehen", True):
             import datetime
             gesehen[nummer] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
             json_store.schreiben(self._gesehen_datei(), gesehen)
         return karte
+
+    # ------------------------------------------------------------------ Änderungen in der App (Rückfrage macht die Palette vor dem Aufruf)
+    def a_projekt_status(self, d):
+        """Projektstatus der App ändern (nur wenn er noch dem angezeigten Stand entspricht)."""
+        projektaenderung.pruefe_status(d.get("neu"), d.get("alt"))
+        r = self._cloud().projekt_status_setzen(d["id"], d["neu"], d["alt"])
+        return {"status": projektaenderung.STATUS_TEXT.get(r.get("status"), r.get("status"))}
+
+    def a_projekt_hinweis(self, d):
+        """Hinweis des Projekts ersetzen («ersetzen», leer = löschen) oder um eine Zeile ergänzen («ergaenzen»)."""
+        c = self._cloud()
+        if d.get("modus") == "ergaenzen":
+            wer = ((c.konto or {}).get("name") or (c.konto or {}).get("benutzer") or "").split("@")[0]
+            text = projektaenderung.hinweis_ergaenzt(d.get("alt"), d.get("text"), None, wer)
+        else:
+            text = projektaenderung.hinweis_text(d.get("text"))
+        r = c.projekt_hinweis_setzen(d["id"], text, d.get("updated_at"))
+        return {"hinweis": r.get("hinweis") or ""}
+
+    def a_termin_speichern(self, d):
+        """Termin am Projekt anlegen (ohne id) oder ändern (mit id) – Eingaben nach den Regeln der App geprüft."""
+        zeile = projektaenderung.termin_pruefen(d.get("termin") or {}, d["project_id"])
+        c = self._cloud()
+        if d.get("id"):
+            r = c.termin_aendern(d["id"], {k: v for k, v in zeile.items() if k != "project_id"})
+        else:
+            r = c.termin_anlegen(zeile)
+        return {"id": r.get("id"), "titel": r.get("titel")}
 
     def a_projekt_fotos(self, d):
         """Fotos/Skizzen einer Massaufnahme als Bilddaten (data-URL) für die Anzeige; höchstens 8, grosse Dateien werden übersprungen."""

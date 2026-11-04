@@ -295,7 +295,7 @@ class Cloud(object):
     _KARTE = {
         "massaufnahmen": "/rest/v1/measurements?select=id,type,title,date,workflow_status,photo_path,photo_paths,sketch_path,sketch_paths,archived,created_at,updated_at,freigegeben_am,geruestet_am,montiert_am,montage_am&project_id=eq.{pid}&order=id.desc&limit=300",
         "rapporte": "/rest/v1/reports?select=id,date,work_entries,material_entries,photo_paths,created_at&project_id=eq.{pid}&order=date.desc&limit=100",
-        "termine": "/rest/v1/termine?select=titel,start_datum,ende_datum,start_zeit,ende_zeit,ort,notiz,mitarbeiter,created_at&project_id=eq.{pid}&order=start_datum.asc&limit=100",
+        "termine": "/rest/v1/termine?select=id,quelle,abo_id,titel,start_datum,ende_datum,start_zeit,ende_zeit,ort,notiz,mitarbeiter,created_at&project_id=eq.{pid}&order=start_datum.asc&limit=100",
         "dateien": "/rest/v1/project_files?select=id,name,file_path,size_bytes,mime_type,created_at,created_by&project_id=eq.{pid}&order=created_at.desc&limit=200",
         "offerten": "/rest/v1/offerten?select=id,offert_nr,title,date,gueltig_bis,kunde_name,positionen&project_id=eq.{pid}&order=date.desc&limit=50",
         "leistungen": "/rest/v1/leistungen?select=bezeichnung,status,menge,einheit,ausgefuehrte_menge&project_id=eq.{pid}&limit=200",
@@ -308,7 +308,7 @@ class Cloud(object):
         (None, []), wenn es das Projekt nicht gibt. Die Abfragen laufen gleichzeitig; eine, die scheitert (fehlendes Recht, Tabelle fehlt), ergibt eine leere Liste und einen Hinweis.
         Offline: CloudFehler."""
         from concurrent.futures import ThreadPoolExecutor
-        z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status,hinweis,zugeteilt_an,created_at,archived&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
+        z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status,hinweis,zugeteilt_an,created_at,updated_at,archived&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
         if not z:
             return None, []
         pid = z[0]["id"]
@@ -330,6 +330,44 @@ class Cloud(object):
             roh = dict(pool.map(holen, auftraege.items()))
         roh["projekt"] = z[0]
         return roh, hinweise
+
+    # ------------------------------------------------------------------ Änderungen in der App (nur nach ausdrücklicher Bestätigung im Aufrufer)
+    def _geaendert(self, methode, pfad, daten, fehler_text):
+        """PATCH/POST mit Rückgabe der betroffenen Zeilen. Wie in der App: ein von RLS blockierter oder durch einen Filter nicht getroffener PATCH meldet keinen Fehler, sondern betrifft 0 Zeilen –
+        deshalb wird das Ergebnis geprüft statt Erfolg anzunehmen. → Liste der Zeilen."""
+        try:
+            _, inhalt = self._anfrage(methode, pfad, daten, kopf={"Prefer": "return=representation"})
+        except CloudFehler as ex:
+            if ex.status in (401, 403):
+                raise CloudFehler("%s – das Recht «Projekte bearbeiten» (bzw. das Modul) fehlt." % fehler_text, ex.status)
+            raise
+        zeilen = json.loads(inhalt.decode("utf-8")) if inhalt else []
+        if not zeilen:
+            raise CloudFehler("%s – entweder wurde es inzwischen anderswo geändert (bitte die Karte neu laden) oder das Recht «Projekte bearbeiten» fehlt." % fehler_text)
+        return zeilen
+
+    def projekt_status_setzen(self, projekt_id, neu, alt):
+        """Projektstatus ändern (nur wenn er noch `alt` ist – so überschreibt das CAD keine Änderung aus der App)."""
+        return self._geaendert("PATCH", "/rest/v1/projects?id=eq.%d&status=eq.%s" % (int(projekt_id), urllib.parse.quote(str(alt))), {"status": neu},
+                               "Der Projektstatus konnte nicht geändert werden")[0]
+
+    def projekt_hinweis_setzen(self, projekt_id, text, updated_at=None):
+        """Hinweis des Projekts setzen (None = löschen). Mit updated_at nur, wenn das Projekt seither nicht geändert wurde."""
+        pfad = "/rest/v1/projects?id=eq.%d" % int(projekt_id) + (("&updated_at=eq.%s" % urllib.parse.quote(str(updated_at))) if updated_at else "")
+        return self._geaendert("PATCH", pfad, {"hinweis": text}, "Der Hinweis konnte nicht gespeichert werden")[0]
+
+    def termin_anlegen(self, zeile):
+        """Neuer Termin am Projekt (Zeile wie die App sie schreibt; quelle, Firma und Ersteller setzt die Datenbank)."""
+        try:
+            _, inhalt = self._anfrage("POST", "/rest/v1/termine", [zeile], kopf={"Prefer": "return=representation"})
+        except CloudFehler as ex:
+            if ex.status in (401, 403):
+                raise CloudFehler("Der Termin konnte nicht angelegt werden – das Recht «Projekte bearbeiten» fehlt oder das Modul «Termine» ist für die Firma nicht eingeschaltet.", ex.status)
+            raise
+        return (json.loads(inhalt.decode("utf-8")) if inhalt else [{}])[0]
+
+    def termin_aendern(self, termin_id, zeile):
+        return self._geaendert("PATCH", "/rest/v1/termine?id=eq.%d" % int(termin_id), dict(zeile, projekt_pruefen=False), "Der Termin konnte nicht geändert werden")[0]
 
     def foto_laden(self, pfad):
         """Foto/Skizze/Datei einer Massaufnahme bzw. eines Projekts aus dem Speicher der App (nur lesen) → Bytes. pfad wie in der Datenbank (measurements/<Projekt>/<Aufnahme>/photo/<Datei>)."""

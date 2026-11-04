@@ -686,106 +686,121 @@
     },
     {
      "id": "9.44",
+     "text": "In der Projektkarte den Projektstatus ändern, «In der App ändern», Rückfrage mit Ja; in der App nachsehen",
+     "erwartet": "Status in der App geändert; in der Karte neu geladen. Danach in der App den Status anders setzen und im CAD (mit alter Karte) nochmals ändern → Meldung «inzwischen anderswo geändert», nichts überschrieben"
+    },
+    {
+     "id": "9.45",
+     "text": "Hinweis ändern, dann eine Zeile ergänzen",
+     "erwartet": "Hinweis steht in der App im Projekt (Cockpit); die ergänzte Zeile trägt Datum, Namen und «(CAD)»"
+    },
+    {
+     "id": "9.46",
+     "text": "+ Termin hinzufügen (Titel, Beginn 10.11.2026, 07:30, Ort), dann bei diesem Termin Ändern",
+     "erwartet": "Termin steht in der App unter Termine am Projekt; Änderung wird übernommen; ein Outlook-Termin hat keinen «Ändern»-Knopf"
+    },
+    {
+     "id": "9.47",
      "text": "In der Projektkarte bei einer Massaufnahme mit Foto «📷 Fotos/Skizzen», Bild antippen, In Fusion einfügen",
      "erwartet": "Bild erscheint, antippen vergrössert; im Fusion-Dokument gibt es ein Referenzbild (Canvas) – Lage/Grösse einstellbar"
     },
     {
-     "id": "9.45",
+     "id": "9.48",
      "text": "In der App eine Massaufnahme weiterschalten (rüsten/montieren) oder eine neue anlegen, dann im CAD Start",
      "erwartet": "Zeile «🔔 Neu aus der App: …» und «Projekt: Kunde · Status …»; in der Projektkarte «Neu seit dem letzten Mal»"
     },
     {
-     "id": "9.46",
+     "id": "9.49",
      "text": "Dateien: «Öffnen» bei einem Plan in der Projektkarte",
      "erwartet": "Datei liegt unter Exportordner/App-Dateien/<Auftrag> und öffnet sich"
     },
     {
-     "id": "9.47",
+     "id": "9.50",
      "text": "Im CAD Blech aus Massaufnahme",
      "erwartet": "Ganz oben «📤 aus der App: … – 1500 mm × 2 Stück», Länge 1500 vorbelegt; nach OK Blech gebaut, Meldung «In der App als gebaut vermerkt», in der App «✔ im CAD gebaut»"
     },
     {
-     "id": "9.48",
+     "id": "9.51",
      "text": "Im CAD Blech aus Massaufnahme (Testauftrag mit Massaufnahme) (Konstruieren), Massaufnahme «Freies Profil» wählen, Länge prüfen, OK",
      "erwartet": "Neue Komponente mit Grundblech (Breite = erster Schenkel) und den Kanten der App; Zeitleisten-Gruppe «Spengler: …»; Hinweis bei abweichender Blechregel – Bildschirmfoto"
     },
     {
-     "id": "9.49",
+     "id": "9.52",
      "text": "Palette → Register Skizze: mit Stift/Finger/Maus ein Winkelprofil zeichnen (Blech, 90° hoch, 90° zurück), dann in der Tabelle einen Wert ändern",
      "erwartet": "Längen/Winkel rasten ein, Tabelle und Kurzschrift stimmen, Zuschnittbreite erscheint mit Material; Stift/Finger funktionieren (Tablet) – Bildschirmfoto"
     },
     {
-     "id": "9.50",
+     "id": "9.53",
      "text": "Skizze benennen, «Als Kantenvorlage übernehmen», speichern",
      "erwartet": "Vorlage erscheint unter Kantenvorlagen; auf eine Kante angewendet entsteht das gezeichnete Profil"
     },
     {
-     "id": "9.51",
+     "id": "9.54",
      "text": "Palette → Register Bauteile → «Neues Bauteil erstellen»: Name, Verlauf *Grundrissverlauf*, Beispiel 3000 L90 2000 L90 3000 L90 2000 L90, Haken «Ring», Breite Mauer+2*Ue, Kante am Verlauf 90 Tropf U+ 8, «Parameter erkennen», Standardwerte 300 / 35 / 40, Speichern",
      "erwartet": "Vorschau zeigt Ring (blaue Kante am Verlauf, orange Gegenkante) und den Querschnitt; Bauteil steht in der Liste"
     },
     {
-     "id": "9.52",
+     "id": "9.55",
      "text": "Bauteil erstellen (Konstruieren), dieses Bauteil, Haken «Geschlossener Ring»",
      "erwartet": "Ampel grün «Bereit: Breite 380 mm, 4 Strecken (Ring) …»; nach OK Blech als Rahmen mit Flansch und Umschlag an der Verlaufskante, Ecken auf Gehrung – Bildschirmfoto der Ecken"
     },
     {
-     "id": "9.53",
+     "id": "9.56",
      "text": "Dasselbe mit offenem Verlauf 3000 L90 2000 (Haken «Ring» aus) und Seite «rechts»",
      "erwartet": "Winkelförmiges Blech; Kantenfolge an beiden Strecken der Verlaufskante gemeinsam, Gehrung an der Ecke"
     },
     {
-     "id": "9.54",
+     "id": "9.57",
      "text": "Bauteil mit Verlauf *gerade* und Länge 2000",
      "erwartet": "Ebenes Streifenblech mit den Kantenfolgen"
     },
     {
-     "id": "9.55",
+     "id": "9.58",
      "text": "Aufträge abgleichen",
      "erwartet": "Dialog: Projekte der App ohne Ordner und Ordner ohne Projekt, Zahl «in beiden», Abweichungen"
     },
     {
-     "id": "9.56",
+     "id": "9.59",
      "text": "Nur einen Eintrag aus «App → Ordner» angehakt lassen, OK",
      "erwartet": "Ordner Stamm/Jahr/Nummer Objekt mit Unterordnern entsteht in Fusion"
     },
     {
-     "id": "9.57",
+     "id": "9.60",
      "text": "Einen Testordner 99998 Abgleich Test, Bern in Fusion anlegen, abgleichen, nur diesen anhaken",
      "erwartet": "Projekt «99998» erscheint in der App (Titel = Objekt)"
     },
     {
-     "id": "9.58",
+     "id": "9.61",
      "text": "Nochmals abgleichen",
      "erwartet": "Beide Einträge sind jetzt «in beiden»"
     },
     {
-     "id": "9.59",
+     "id": "9.62",
      "text": "Neuer Auftrag mit Haken «Auch als Projekt in der App anlegen», Nummer 99997",
      "erwartet": "Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon»"
     },
     {
-     "id": "9.60",
+     "id": "9.63",
      "text": "Palette → Register Aufträge",
      "erwartet": "Alle Aufträge mit Ordner ✓/–, App ✓/–, Fertigung, Teile «gefertigt/gesamt», Hinweise; Suche und Filter funktionieren"
     },
     {
-     "id": "9.61",
+     "id": "9.64",
      "text": "In der Liste einen Fertigungsstatus ändern, dann «Aktiv» bei einem Auftrag",
      "erwartet": "Status steht in der App/Auftrag wählen; Zeile wird als aktiv markiert (●)"
     },
     {
-     "id": "9.62",
+     "id": "9.65",
      "text": "Testprojekte in der App wieder löschen/archivieren",
      "erwartet": ""
     },
     {
-     "id": "9.63",
+     "id": "9.66",
      "text": "Stückliste & Zuschnitt mit «Dateien am Projekt in der App ablegen»; in der App Projekt → Cockpit → Dateien",
      "erwartet": "«CAD – Stückliste …», «CAD – Auftragsmappe …» usw. sind da und lassen sich öffnen; Meldung «App-Dateien am Projekt: n neu»"
     },
     {
-     "id": "9.64",
+     "id": "9.67",
      "text": "Dasselbe nochmals ausführen",
      "erwartet": "Meldung «… ersetzt», keine doppelten Dateien in der Liste"
     }

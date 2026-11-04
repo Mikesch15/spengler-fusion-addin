@@ -476,9 +476,13 @@ function pkZeigen(k) {
   const h = k.kopf;
   $("pkNeu").innerHTML = k.neu && k.neu.text ? `<div class="meldung info">🔔 Neu seit dem letzten Mal: ${esc(k.neu.text)}</div>` : "";
   const kopf = `<fieldset><legend>${esc(h.nummer)} ${esc(h.objekt)}</legend>
-    <div>${pkZeile("Kunde: <b>" + esc(h.kunde || "–") + "</b>", "Status: <b>" + esc(h.status) + "</b>", h.archiviert ? "archiviert" : "")}</div>
+    <div>${pkZeile("Kunde: <b>" + esc(h.kunde || "–") + "</b>", h.archiviert ? "archiviert" : "")}</div>
+    <div class="zeile"><label style="min-width:0">Projektstatus</label><select id="pkStatus" data-alt="${esc(h.status_key)}">${[["offen", "Offen"], ["in_arbeit", "In Arbeit"], ["abgeschlossen", "Abgeschlossen"], ["storniert", "Storniert"]].map(([w, t]) => `<option value="${w}"${w === h.status_key ? " selected" : ""}>${t}</option>`).join("")}</select>
+      <button id="pkStatusSpeichern">In der App ändern</button>
+      <label style="min-width:0">Fertigung (CAD)</label><select id="pkFertigung"><option value="">–</option>${[["offen", "Offen"], ["in_arbeit", "In Arbeit"], ["gefertigt", "Gefertigt"], ["geliefert", "Geliefert"]].map(([w, t]) => `<option value="${w}"${w === h.fertigung ? " selected" : ""}>${t}</option>`).join("")}</select><button id="pkFertigungSpeichern">Setzen</button></div>
     ${h.zugeteilt.length ? `<div class="klein">Zugeteilt: ${esc(h.zugeteilt.join(", "))}</div>` : ""}
-    ${h.hinweis ? `<div class="meldung info">${esc(h.hinweis)}</div>` : ""}
+    <div class="zeile" style="align-items:flex-start"><label style="min-width:0">Hinweis</label><textarea id="pkHinweis" rows="3" cols="46" data-updated="${esc(h.updated_at)}">${esc(h.hinweis_roh)}</textarea>
+      <div><button id="pkHinweisSpeichern">Hinweis speichern</button><br><input id="pkHinweisNeu" size="26" placeholder="Zeile ergänzen …"><button id="pkHinweisErgaenzen">Ergänzen</button></div></div>
     ${k.naechster_termin ? `<div>Nächster Termin: <b>${esc(k.naechster_termin.titel)}</b>, ${esc(k.naechster_termin.wann)}${k.naechster_termin.ort ? ", " + esc(k.naechster_termin.ort) : ""}</div>` : ""}
     <div class="klein">${k.zaehler.massaufnahmen} Massaufnahmen, davon ${k.zaehler.aktiv} aktiv</div></fieldset>`;
   const ma = k.massaufnahmen.map((m) => `<div class="zeile" style="border-bottom:1px solid var(--rand);padding:4px 0"><div style="flex:1;min-width:200px">
@@ -487,7 +491,7 @@ function pkZeigen(k) {
   const cad = k.cad.teile.map((t) => `<div class="zeile"><b>${esc(t.label)}</b> ${esc(t.name)} <span class="klein">${esc(pkZeile(t.stueck + " Stück", t.material, t.app, t.werkstatt ? "Werkstatt: " + t.werkstatt : ""))}</span></div>`).join("")
     + k.cad.auftraege.map((a) => `<div class="zeile">📤 <b>${esc(a.titel)}</b> <span class="klein">${esc(pkZeile(a.laenge + " mm", a.stueck + " Stück", a.status, a.gebaut, a.werkstatt ? "Werkstatt: " + a.werkstatt : ""))}</span></div>`).join("");
   const rap = k.rapporte.map((r) => `<div class="zeile"><b>${esc(r.datum)}</b> <span class="klein">${esc(pkZeile(r.stunden + " h", r.personen.join(", "), r.material ? r.material + " Material" : "", r.arbeiten.join("; ")))}</span></div>`).join("");
-  const ter = k.termine.map((t) => `<div class="zeile"><b>${esc(t.titel)}</b> <span class="klein">${esc(pkZeile(t.wann, t.ort, t.mitarbeiter.join(", ")))}</span></div>`).join("");
+  const ter = `<div class="zeile"><button id="pkTerminNeu">+ Termin hinzufügen</button></div><div id="pkTerminForm"></div>` + k.termine.map((t) => `<div class="zeile"><span style="flex:1"><b>${esc(t.titel)}</b> <span class="klein">${esc(pkZeile(t.wann, t.ort, t.mitarbeiter.join(", "), t.quelle !== "app" ? "aus " + t.quelle + " (nur in der App/Kalender änderbar)" : ""))}</span></span>${t.aenderbar ? `<button data-pktermin="${esc(t.id)}">Ändern</button>` : ""}</div>`).join("");
   const dat = k.dateien.map((f) => `<div class="zeile"><span style="flex:1">${esc(f.name)} <span class="klein">${esc(pkZeile(f.groesse, f.datum))}</span></span><button data-pkdatei="${esc(f.pfad)}" data-pkname="${esc(f.name)}">Öffnen</button></div>`).join("");
   const off = k.offerten.map((o) => `<div class="zeile"><b>${esc(o.nr)}</b> ${esc(o.titel)} <span class="klein">${esc(pkZeile(o.datum, o.gueltig_bis ? "gültig bis " + o.gueltig_bis : "", o.positionen + " Positionen", o.pdf))}</span></div>`).join("");
   const lei = k.leistungen.map((l) => `<div class="zeile">${esc(l.bezeichnung)} <span class="klein">${esc(pkZeile(l.status, l.menge != null ? l.menge + " " + l.einheit : "", l.ausgefuehrt != null ? "ausgeführt " + l.ausgefuehrt : ""))}</span></div>`).join("");
@@ -514,6 +518,43 @@ async function pkFotos(mid) {
     <button data-pkfusion="${esc(b.pfad)}" data-pktitel="${esc(m.art + " " + m.titel)}" title="als Referenzbild in das aktive Fusion-Dokument legen">In Fusion einfügen</button>
     <button data-pkdatei="${esc(b.pfad)}" data-pkname="">Speichern</button></div></div>`).join("") + "</div>" + (r.fehler.length ? `<div class="klein">${esc(r.fehler.join(" · "))}</div>` : "");
 }
+// ---- Änderungen in der App: immer mit Rückfrage, danach wird die Karte neu geladen
+async function pkAenderung(frageText, aktion, daten, erfolg) {
+  if (!(await frage(frageText))) return false;
+  const r = await tun(() => senden(aktion, daten), erfolg);
+  if (r !== undefined) { await pkLaden(); meldung(erfolg, "ok"); return true; }
+  return false;
+}
+function pkTerminForm(t) {
+  const f = t || { id: "", titel: "", start: "", ende: "", start_zeit: "", ende_zeit: "", ort: "", notiz: "" };
+  const tag = (iso) => (iso && /^\d{4}-\d\d-\d\d$/.test(iso) ? `${+iso.slice(8)}.${+iso.slice(5, 7)}.${iso.slice(0, 4)}` : iso || "");
+  $("pkTerminForm").innerHTML = `<fieldset><legend>${f.id ? "Termin ändern" : "Neuer Termin"}</legend>
+    <div class="zeile"><label>Titel</label><input id="ptTitel" size="34" value="${esc(f.titel)}"></div>
+    <div class="zeile"><label>Beginn</label><input id="ptStart" size="11" placeholder="4.11.2026" value="${esc(tag(f.start))}"> <input id="ptStartZ" size="6" placeholder="07:30" value="${esc(f.start_zeit)}">
+      <label style="min-width:0">Ende</label><input id="ptEnde" size="11" placeholder="wie Beginn" value="${esc(f.ende && f.ende !== f.start ? tag(f.ende) : "")}"> <input id="ptEndeZ" size="6" placeholder="16:00" value="${esc(f.ende_zeit)}"></div>
+    <div class="zeile"><label>Ort</label><input id="ptOrt" size="34" value="${esc(f.ort || "")}"></div>
+    <div class="zeile"><label>Notiz</label><input id="ptNotiz" size="50" value="${esc(f.notiz || "")}"></div>
+    <div class="zeile"><button class="haupt" id="ptSpeichern" data-id="${esc(f.id)}">In der App speichern</button><button id="ptAbbrechen">Abbrechen</button></div></fieldset>`;
+}
+$("pkKarte").addEventListener("click", async (ev) => {
+  const t = ev.target, k = PK; if (!k) return;
+  const h = k.kopf;
+  if (t.id === "pkStatusSpeichern") { const neu = $("pkStatus").value, alt = $("pkStatus").dataset.alt; if (neu === alt) return meldung("Der Status ist schon so gesetzt.", "info");
+    return pkAenderung(`Projektstatus in der App von «${alt}» auf «${neu}» ändern?`, "projekt_status", { id: h.id, neu, alt }, "Projektstatus geändert."); }
+  if (t.id === "pkFertigungSpeichern") { const s = $("pkFertigung").value; if (!s) return;
+    return pkAenderung(`Fertigungsstatus von Auftrag ${h.nummer} auf «${s}» setzen?`, "auftrag_status", { nummer: h.nummer, status: s }, "Fertigungsstatus gesetzt."); }
+  if (t.id === "pkHinweisSpeichern") { const x = $("pkHinweis").value;
+    return pkAenderung(x.trim() ? "Den Hinweis im Projekt der App ersetzen?" : "Den Hinweis im Projekt der App LÖSCHEN?", "projekt_hinweis", { id: h.id, text: x, modus: "ersetzen", updated_at: $("pkHinweis").dataset.updated }, "Hinweis gespeichert."); }
+  if (t.id === "pkHinweisErgaenzen") { const x = $("pkHinweisNeu").value.trim(); if (!x) return meldung("Bitte erst den Text zum Ergänzen eingeben.", "fehler");
+    return pkAenderung("Diese Zeile zum Hinweis im Projekt der App ergänzen?\n\n" + x, "projekt_hinweis", { id: h.id, text: x, modus: "ergaenzen", alt: h.hinweis_roh, updated_at: $("pkHinweis").dataset.updated }, "Hinweis ergänzt."); }
+  if (t.id === "pkTerminNeu") return pkTerminForm(null);
+  if (t.dataset.pktermin) return pkTerminForm(k.termine.find((x) => String(x.id) === t.dataset.pktermin));
+  if (t.id === "ptAbbrechen") { $("pkTerminForm").innerHTML = ""; return; }
+  if (t.id === "ptSpeichern") {
+    const termin = { titel: $("ptTitel").value, start_datum: $("ptStart").value, start_zeit: $("ptStartZ").value, ende_datum: $("ptEnde").value, ende_zeit: $("ptEndeZ").value, ort: $("ptOrt").value, notiz: $("ptNotiz").value };
+    return pkAenderung(`Termin «${termin.titel}» (${termin.start_datum}) ${t.dataset.id ? "in der App ändern" : "in der App anlegen"}?`, "termin_speichern", { id: t.dataset.id || null, project_id: h.id, termin }, t.dataset.id ? "Termin geändert." : "Termin angelegt.");
+  }
+});
 $("pkLaden").onclick = pkLaden;
 $("pkWahl").onchange = pkLaden;
 $("pkKarte").addEventListener("click", async (ev) => {

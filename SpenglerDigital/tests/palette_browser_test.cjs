@@ -153,10 +153,10 @@ const { chromium } = require("playwright");
   pruefe((await page.inputValue("#eName")) === "TEST Skizze", "Skizze als Vorlage im Editor");
   await page.click("nav button[data-tab=projekt]");
   await page.waitForTimeout(600);
-  await page.evaluate(() => pkZeigen({kopf:{nummer:"18191",objekt:"Alpeneggstrasse 22, Bern",kunde:"Weyermann AG",status:"In Arbeit",hinweis:"Schlüssel beim Hauswart",zugeteilt:["Mike L"],archiviert:false},
+  await page.evaluate(() => pkZeigen({kopf:{id:7,updated_at:"T1",nummer:"18191",objekt:"Alpeneggstrasse 22, Bern",kunde:"Weyermann AG",status:"In Arbeit",status_key:"in_arbeit",fertigung:"in_arbeit",hinweis:"Schlüssel beim Hauswart",hinweis_roh:"Schlüssel beim Hauswart",zugeteilt:["Mike L"],archiviert:false},
     massaufnahmen:[{id:135,art:"Freies Profil",titel:"Stirn",zeichen:"✓",status:"Freigegeben",datum:"3.11.2026",stufen:["freigegeben 3.11.2026"],montage:"",pfade:["a.jpg"],cad_teile:1,cad_auftraege:1,archiviert:false}],
     cad:{teile:[{label:"18191-01",name:"Ortgang",stueck:2,material:"Alu",app:"in der App übernommen",werkstatt:"Gerüstet"}],auftraege:[{titel:"Stirn",laenge:3200,stueck:2,status:"wartet auf das CAD",gebaut:"",werkstatt:""}]},
-    rapporte:[{datum:"19.10.2026",stunden:2.5,personen:["Mike"],material:1,arbeiten:["Messen"]}],termine:[{titel:"Montage",wann:"10.11.2026",ort:"Bern",mitarbeiter:[]}],naechster_termin:{titel:"Montage",wann:"10.11.2026",ort:"Bern"},
+    rapporte:[{datum:"19.10.2026",stunden:2.5,personen:["Mike"],material:1,arbeiten:["Messen"]}],termine:[{id:5,aenderbar:true,quelle:"app",start:"2026-11-10",ende:"2026-11-10",start_zeit:"07:30",ende_zeit:"",titel:"Montage",wann:"10.11.2026",ort:"Bern",mitarbeiter:[]},{id:6,aenderbar:false,quelle:"outlook",start:"2026-11-11",ende:"2026-11-11",start_zeit:"",ende_zeit:"",titel:"Extern",wann:"11.11.2026",ort:"",mitarbeiter:[]}],naechster_termin:{titel:"Montage",wann:"10.11.2026",ort:"Bern"},
     dateien:[{name:"Plan.pdf",groesse:"2 KB",datum:"3.11.2026",pfad:"project-files/7/x.pdf"}],offerten:[{nr:"O-1",titel:"Dach",datum:"1.10.2026",gueltig_bis:"",positionen:4,pdf:""}],leistungen:[],
     zaehler:{massaufnahmen:1,aktiv:1},neu:{text:"1 Auftrag aus der App wartet"},hinweise:[]}));
   const pk = await page.textContent("#pkKarte");
@@ -164,6 +164,15 @@ const { chromium } = require("playwright");
   pruefe(pk.includes("Freies Profil") && pk.includes("Fotos/Skizzen (1)") && pk.includes("18191-01") && pk.includes("Werkstatt: Gerüstet") && pk.includes("wartet auf das CAD"), "Massaufnahmen, CAD-Teile mit Werkstattstand, gesendeter Auftrag");
   pruefe(pk.includes("Plan.pdf") && pk.includes("O-1") && pk.includes("19.10.2026"), "Dateien, Offerten, Rapporte");
   pruefe((await page.textContent("#pkNeu")).includes("1 Auftrag aus der App wartet"), "Hinweis «Neu seit dem letzten Mal»");
+  pruefe(await page.isVisible("#pkStatusSpeichern") && await page.isVisible("#pkHinweisSpeichern") && await page.isVisible("#pkTerminNeu"), "Bedienelemente zum Ändern/Ergänzen sind da");
+  pruefe((await page.inputValue("#pkStatus")) === "in_arbeit" && (await page.inputValue("#pkHinweis")).includes("Hauswart"), "Status und Hinweis sind vorbelegt");
+  pruefe((await page.$$("button[data-pktermin]")).length === 1, "nur der in der App angelegte Termin ist änderbar (Outlook-Termin nicht)");
+  await page.click("#pkTerminNeu");
+  pruefe(await page.isVisible("#ptTitel"), "Formular für einen neuen Termin");
+  await page.click("#ptAbbrechen");
+  await page.click('button[data-pktermin="5"]');
+  pruefe((await page.inputValue("#ptStart")) === "10.11.2026" && (await page.inputValue("#ptStartZ")) === "07:30", "Termin ändern: Felder vorbelegt");
+  await page.click("#ptAbbrechen");
   await page.click("nav button[data-tab=auftraege]");
   await page.waitForFunction(() => document.getElementById("aSumme").textContent.includes("Aufträge"));
   pruefe((await page.textContent("#aListe")).includes("Keine Aufträge"), "Auftragsübersicht ohne Aufträge");
