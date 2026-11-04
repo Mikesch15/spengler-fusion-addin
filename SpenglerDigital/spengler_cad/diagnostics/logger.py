@@ -5,6 +5,7 @@ Protokolliert: Add-in-/Fusion-Version, Befehl, Vorlagen-ID/-Version, Operation, 
 """
 import datetime
 import os
+import re
 import traceback
 
 from .. import VERSION
@@ -28,6 +29,33 @@ def pfad():
 
 def fusion_version():
     return _kontext["fusion"]
+
+
+def maskiere(text):
+    """Persönliches aus Berichten entfernen: Benutzernamen in Pfaden (C:\\Users\\<Name>, /home/<Name>, /Users/<Name>) und E-Mail-Adressen."""
+    t = re.sub(r"(?i)([a-z]:[\\/]+users[\\/]+)[^\\/\s]+", "\\1…", str(text or ""))
+    t = re.sub(r"(?i)(/(?:users|home)/)[^/\s]+", "\\1…", t)
+    return re.sub(r"[\w.+-]+@[\w-]+\.[\w.-]+", "<E-Mail>", t)
+
+
+def marke():
+    """Aktuelle Grösse der Protokolldatei – mit seit() später nur das lesen, was danach geschrieben wurde."""
+    try:
+        return os.path.getsize(_pfad())
+    except OSError:
+        return 0
+
+
+def seit(marke_, max_zeichen=19000):
+    """Nur die Protokollzeilen, die nach marke() geschrieben wurden (maskiert) – für Testberichte ohne Altlasten aus früheren Arbeiten. Rotierte Datei: ab Anfang."""
+    try:
+        with open(_pfad(), "rb") as f:
+            if marke_ > os.path.getsize(_pfad()):
+                marke_ = 0
+            f.seek(marke_)
+            return maskiere(f.read().decode("utf-8", "replace"))[-max_zeichen:]
+    except Exception:
+        return ""
 
 
 def ende(zeilen=150, max_zeichen=19000):

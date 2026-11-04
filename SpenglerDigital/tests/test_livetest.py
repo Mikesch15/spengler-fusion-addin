@@ -504,3 +504,75 @@ class Zeitzone(unittest.TestCase):
         # gesehen 16:00:00 UTC: Eintrag 1 (16:00:00.5 UTC) ist neuer; Eintrag 2 (17:00+01:00 = 16:00 UTC) ist gleich alt; Eintrag 3 nicht lesbar
         self.assertEqual(p.neu_seit(daten, "2026-11-03T16:00:00+00:00")["massaufnahmen"], 1)
         self.assertEqual(p.neu_seit(daten, "unsinn")["massaufnahmen"], 0, "unlesbarer Zeitpunkt = noch nie gesehen")
+
+
+class BerichtDatenschutz(unittest.TestCase):
+    def test_maskieren(self):
+        from spengler_cad.diagnostics import logger
+        t = logger.maskiere("File \"C:\\Users\\Mike\\AppData\\Local\\x.py\" und C:/Users/Anna/Doc, /home/peter/x, /Users/lisa/y, mail mik.ledermann@gmail.com")
+        for geheim in ("Mike", "Anna", "peter", "lisa", "ledermann"):
+            self.assertNotIn(geheim, t)
+        self.assertIn("C:\\Users\\…\\AppData", t)
+        self.assertIn("<E-Mail>", t)
+        self.assertEqual(logger.maskiere(None), "")
+
+    def test_protokoll_nur_seit_teststart(self):
+        import os
+        import tempfile
+        from spengler_cad.diagnostics import logger
+        alt = os.environ.get("SPENGLER_CAD_DATEN")
+        tmp = tempfile.mkdtemp()
+        os.environ["SPENGLER_CAD_DATEN"] = tmp
+
+        def zurueck():
+            if alt is None:
+                os.environ.pop("SPENGLER_CAD_DATEN", None)
+            else:
+                os.environ["SPENGLER_CAD_DATEN"] = alt
+        self.addCleanup(zurueck)
+        logger.info("Altlast: Kunde Muster AG, Auftrag 17642")
+        m = logger.marke()
+        logger.info("Live-Test Schritt", pfad="C:\\Users\\Mike\\x")
+        neu = logger.seit(m)
+        self.assertIn("Live-Test Schritt", neu)
+        self.assertNotIn("Muster AG", neu)
+        self.assertNotIn("Mike", neu)
+        self.assertEqual(logger.seit(10 ** 9).count("Altlast") >= 0, True, "marke grösser als die Datei (rotiert): ab Anfang, kein Absturz")
+
+    def test_gesendeter_bericht_enthaelt_keine_altlasten(self):
+        import os
+        import sys
+        import tempfile
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "fusion_stub"))
+        from spengler_cad.commands import livetest_command as lc
+        from spengler_cad.diagnostics import logger
+        alt = os.environ.get("SPENGLER_CAD_DATEN")
+        os.environ["SPENGLER_CAD_DATEN"] = tempfile.mkdtemp()
+
+        def zurueck():
+            if alt is None:
+                os.environ.pop("SPENGLER_CAD_DATEN", None)
+            else:
+                os.environ["SPENGLER_CAD_DATEN"] = alt
+        self.addCleanup(zurueck)
+
+        class Wolke(object):
+            angemeldet = True
+
+            def __init__(self):
+                self.zeile = None
+
+            def test_speichern(self, z):
+                self.zeile = z
+        logger.info("Altlast Objekt Nägeligasse 1a Bern")
+        m = logger.marke()
+        logger.info("Schritt Flansch ok")
+        w = Wolke()
+        erg = [{"name": "Flansch", "status": "fehler", "detail": "Datei C:\\Users\\Mike\\Temp\\a.dxf fehlt", "dauer": 1.0}]
+        self.assertTrue(lc._senden(erg, "Bericht C:\\Users\\Mike\\x", m, w))
+        z = w.zeile
+        gesamt = z["protokoll"] + z["notiz"] + z["text"]
+        self.assertIn("Schritt Flansch ok", z["protokoll"])
+        for verboten in ("Nägeligasse", "Mike"):
+            self.assertNotIn(verboten, gesamt)
+        self.assertNotIn("bild", z, "es wird kein Bildschirmfoto mitgeschickt")

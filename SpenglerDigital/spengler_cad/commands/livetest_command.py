@@ -14,16 +14,17 @@ from . import base
 BID = "spenglerLiveTest"
 
 
-def _senden(ergebnisse, text):
+def _senden(ergebnisse, text, marke=0, cloud=None):
+    """Bericht an die eigene Firma. Nur die Protokollzeilen SEIT Teststart (keine Altlasten aus früheren Arbeiten), Benutzerpfade und E-Mail-Adressen maskiert."""
     from ..storage.cloud_client import Cloud
-    c = Cloud(paths.daten_ordner(), timeout=20)
+    c = cloud or Cloud(paths.daten_ordner(), timeout=20)
     if not c.angemeldet:
         return False
     auff = bericht.auffaelliges(ergebnisse)
     c.test_speichern({"test_id": bericht.TEST_ID, "text": "Live-Test %s: %s" % (VERSION, bericht.kurz(ergebnisse)),
                       "status": bericht.gesamtstatus(ergebnisse),
-                      "notiz": ("; ".join("%s: %s" % (e["name"], (e.get("detail") or "").splitlines()[0] if e.get("detail") else "") for e in auff))[:4000] or "Alles ok.",
-                      "protokoll": (text + "\n\n--- Protokoll ---\n" + logger.ende())[-19000:], "addin_version": VERSION,
+                      "notiz": logger.maskiere(("; ".join("%s: %s" % (e["name"], (e.get("detail") or "").splitlines()[0] if e.get("detail") else "") for e in auff))[:4000] or "Alles ok."),
+                      "protokoll": (logger.maskiere(text) + "\n\n--- Protokoll (nur seit Teststart) ---\n" + logger.seit(marke))[-19000:], "addin_version": VERSION,
                       "fusion_version": logger.fusion_version(),
                       "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
     return True
@@ -34,6 +35,7 @@ def _ausfuehren_innen(self, args):
     from ..diagnostics import live_test
     senden = args.command.commandInputs.itemById("senden").value
     ui = base.ui()
+    marke = logger.marke()
     ergebnisse, kopf = live_test.ausfuehren()
     text = bericht.text(ergebnisse, kopf)
     datei = os.path.join(paths.daten_ordner(), "livetest.txt")
@@ -46,7 +48,7 @@ def _ausfuehren_innen(self, args):
     gesendet = False
     if senden:
         try:
-            gesendet = _senden(ergebnisse, text)
+            gesendet = _senden(ergebnisse, text, marke)
         except Exception:
             logger.ausnahme("Live-Test nicht gesendet")
     base.melden("Live-Test", "%s\n\n%s\n\n%s%s" % (bericht.kurz(ergebnisse), bericht.meldung(ergebnisse),

@@ -259,7 +259,7 @@ def t_bildschirmfoto(ctx):
 def t_ordnerliste(ctx):
     """Nur lesen: Ordner des aktiven Fusion-Projekts auflisten (Auswahl in «Andere Ablage»). Legt nichts an."""
     liste = fa.ordner_liste(2)
-    return "%d Ordner bis 2 Ebenen im aktiven Projekt%s" % (len(liste), (", z. B. " + " / ".join(liste[0])) if liste else "")
+    return "%d Ordner bis 2 Ebenen im aktiven Projekt (Namen werden bewusst nicht in den Bericht geschrieben)" % len(liste)
 
 
 def t_ordnerpfad(ctx):
