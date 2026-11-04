@@ -284,7 +284,9 @@ class Backend(object):
         zeile = projektaenderung.termin_pruefen(d.get("termin") or {}, d["project_id"])
         c = self._cloud()
         if d.get("id"):
-            r = c.termin_aendern(d["id"], {k: v for k, v in zeile.items() if k != "project_id"})
+            if not isinstance(d.get("alt"), dict):
+                raise ValueError("Der Termin kann nicht sicher geändert werden, weil die gelesenen Werte fehlen. Bitte die Projektkarte neu laden.")
+            r = c.termin_aendern(d["id"], {k: v for k, v in zeile.items() if k != "project_id"}, d["alt"])
         else:
             r = c.termin_anlegen(zeile)
         return {"id": r.get("id"), "titel": r.get("titel")}

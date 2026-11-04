@@ -483,5 +483,59 @@ class AppAenderungenTest(unittest.TestCase):
         c, z = self._cloud()
         t = c.termin_anlegen(pa.termin_pruefen({"titel": "Montage", "start_datum": "10.11.2026", "start_zeit": "7:30"}, 7))
         self.assertEqual((t["titel"], t["start_datum"], t["start_zeit"], t["quelle"]), ("Montage", "2026-11-10", "07:30", "app"))
-        g = c.termin_aendern(t["id"], pa.termin_pruefen({"titel": "Montage Dach", "start_datum": "11.11.2026"}, 7))
+        gelesen = {f: t.get(f) for f in c.TERMIN_FELDER}
+        g = c.termin_aendern(t["id"], pa.termin_pruefen({"titel": "Montage Dach", "start_datum": "11.11.2026"}, 7), gelesen)
         self.assertEqual((g["titel"], g["start_datum"], g["projekt_pruefen"]), ("Montage Dach", "2026-11-11", False))
+
+    def _termin(self, rolle="admin"):
+        from spengler_cad.core import projektaenderung as pa
+        c, z = self._cloud(rolle)
+        z.tab["termine"] = [{"company_id": "firma-a", "id": 31, "project_id": 7, "titel": "Montage", "start_datum": "2026-11-10", "ende_datum": "2026-11-10", "start_zeit": "07:30:00",
+                             "ende_zeit": None, "ort": "Bern", "notiz": None, "quelle": "app"}]
+        gelesen = {f: z.tab["termine"][0][f] for f in c.TERMIN_FELDER}
+        neu = pa.termin_pruefen({"titel": "Montage Dach", "start_datum": "10.11.2026", "start_zeit": "07:30", "ort": "Bern"}, 7)
+        return c, z, gelesen, neu
+
+    def test_termin_konflikt_nichts_ueberschreiben(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z, gelesen, neu = self._termin()
+        z.tab["termine"][0]["ort"] = "Thun"                                   # jemand ändert den Termin in der App, nachdem die Karte geladen wurde
+        with self.assertRaises(CloudFehler) as cm:
+            c.termin_aendern(31, neu, gelesen)
+        self.assertIn("NICHTS überschrieben", str(cm.exception))
+        self.assertEqual((z.tab["termine"][0]["titel"], z.tab["termine"][0]["ort"]), ("Montage", "Thun"), "der neuere Stand bleibt unverändert")
+
+    def test_termin_ohne_konflikt_wird_geaendert_auch_mit_leeren_feldern(self):
+        c, z, gelesen, neu = self._termin()
+        g = c.termin_aendern(31, neu, gelesen)                                # start_zeit «07:30:00» (DB) = «07:30»; ende_zeit/notiz None = is.null
+        self.assertEqual(g["titel"], "Montage Dach")
+        gelesen2 = {f: z.tab["termine"][0][f] for f in c.TERMIN_FELDER}
+        z.tab["termine"][0]["notiz"] = "neu"                                  # ein leeres Feld wurde inzwischen gefüllt → Konflikt
+        from spengler_cad.storage.cloud_client import CloudFehler
+        with self.assertRaises(CloudFehler):
+            c.termin_aendern(31, neu, gelesen2)
+
+    def test_termin_inzwischen_geloescht(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z, gelesen, neu = self._termin()
+        z.tab["termine"] = []
+        with self.assertRaises(CloudFehler) as cm:
+            c.termin_aendern(31, neu, gelesen)
+        self.assertIn("gelöscht", str(cm.exception))
+
+    def test_termin_ohne_recht_ist_kein_konflikt(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z, gelesen, neu = self._termin("employee")
+        with self.assertRaises(CloudFehler) as cm:
+            c.termin_aendern(31, neu, gelesen)
+        self.assertIn("Recht", str(cm.exception))
+        self.assertEqual(z.tab["termine"][0]["titel"], "Montage")
+
+    def test_termin_ohne_gelesene_werte_wird_abgelehnt(self):
+        from spengler_cad.storage.cloud_client import CloudFehler
+        c, z, gelesen, neu = self._termin()
+        for schlecht in (None, {}, {"titel": "Montage"}):
+            with self.assertRaises(CloudFehler) as cm:
+                c.termin_aendern(31, neu, schlecht)
+            self.assertIn("neu laden", str(cm.exception))
+        self.assertEqual(z.tab["termine"][0]["titel"], "Montage")

@@ -366,8 +366,39 @@ class Cloud(object):
             raise
         return (json.loads(inhalt.decode("utf-8")) if inhalt else [{}])[0]
 
-    def termin_aendern(self, termin_id, zeile):
-        return self._geaendert("PATCH", "/rest/v1/termine?id=eq.%d" % int(termin_id), dict(zeile, projekt_pruefen=False), "Der Termin konnte nicht geändert werden")[0]
+    TERMIN_FELDER = ("titel", "start_datum", "ende_datum", "start_zeit", "ende_zeit", "ort", "notiz")
+
+    @staticmethod
+    def _gleich(a, b):
+        """Vergleich eines Datenbankwerts mit dem gelesenen: Uhrzeiten «07:30» = «07:30:00», None = None."""
+        if a is None or b is None:
+            return a is None and b is None
+        a, b = str(a), str(b)
+        if len(a) >= 5 and a[2:3] == ":" and len(b) >= 5 and b[2:3] == ":":
+            return a[:5] == b[:5]
+        return a == b
+
+    def termin_aendern(self, termin_id, zeile, erwartet):
+        """Termin ändern – NUR wenn er in der Datenbank noch genau die Werte hat, die die Projektkarte gelesen hat (`erwartet`, alle sieben Felder, None = leer).
+        Die Bedingung steht im PATCH selbst (WHERE), die Datenbank prüft und schreibt in einem Schritt: ein zwischenzeitlich in der App geänderter Termin wird nicht überschrieben.
+        Trifft der PATCH nichts, wird nachgesehen und genau gemeldet: gelöscht, geändert oder Recht fehlt."""
+        if not isinstance(erwartet, dict) or any(f not in erwartet for f in self.TERMIN_FELDER):
+            raise CloudFehler("Der Termin kann nicht sicher geändert werden, weil die gelesenen Werte fehlen. Bitte die Projektkarte neu laden.")
+        pfad = "/rest/v1/termine?id=eq.%d" % int(termin_id)
+        for f in self.TERMIN_FELDER:
+            w = erwartet[f]
+            pfad += "&%s=%s" % (f, "is.null" if w is None else "eq." + urllib.parse.quote(str(w), safe=""))
+        try:
+            return self._geaendert("PATCH", pfad, dict(zeile, projekt_pruefen=False), "Der Termin konnte nicht geändert werden")[0]
+        except CloudFehler as ex:
+            if ex.status is not None or ex.offline:
+                raise
+            jetzt = self._json("GET", "/rest/v1/termine?select=%s&id=eq.%d" % (",".join(self.TERMIN_FELDER), int(termin_id))) or []
+            if not jetzt:
+                raise CloudFehler("Der Termin wurde inzwischen in der App gelöscht. Es wurde nichts geändert – bitte die Projektkarte neu laden.")
+            if any(not self._gleich(jetzt[0].get(f), erwartet[f]) for f in self.TERMIN_FELDER):
+                raise CloudFehler("Der Termin wurde seit dem Laden der Projektkarte in der App geändert. Es wurde NICHTS überschrieben – bitte die Projektkarte neu laden und die Änderung erneut vornehmen.")
+            raise CloudFehler("Der Termin konnte nicht geändert werden – das Recht «Projekte bearbeiten» (bzw. das Modul «Termine») fehlt.")
 
     def foto_laden(self, pfad):
         """Foto/Skizze/Datei einer Massaufnahme bzw. eines Projekts aus dem Speicher der App (nur lesen) → Bytes. pfad wie in der Datenbank (measurements/<Projekt>/<Aufnahme>/photo/<Datei>)."""

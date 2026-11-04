@@ -441,8 +441,17 @@ class ProjektAenderungBackend(unittest.TestCase):
         self.assertEqual(r["daten"]["hinweis"], "")
         t = json.loads(b.behandle("termin_speichern", json.dumps({"project_id": 7, "termin": {"titel": "Montage", "start_datum": "10.11.2026", "start_zeit": "7:30"}})))
         self.assertTrue(t["ok"], t)
-        g = json.loads(b.behandle("termin_speichern", json.dumps({"id": t["daten"]["id"], "project_id": 7, "termin": {"titel": "Montage Dach", "start_datum": "11.11.2026"}})))
+        zeile = z.tab["termine"][-1]
+        alt = {f: zeile.get(f) for f in ("titel", "start_datum", "ende_datum", "start_zeit", "ende_zeit", "ort", "notiz")}
+        ohne_alt = json.loads(b.behandle("termin_speichern", json.dumps({"id": t["daten"]["id"], "project_id": 7, "termin": {"titel": "X", "start_datum": "11.11.2026"}})))
+        self.assertFalse(ohne_alt["ok"], "ohne die gelesenen Werte wird nicht geändert")
+        self.assertIn("neu laden", ohne_alt["fehler"])
+        g = json.loads(b.behandle("termin_speichern", json.dumps({"id": t["daten"]["id"], "project_id": 7, "alt": alt, "termin": {"titel": "Montage Dach", "start_datum": "11.11.2026"}})))
         self.assertEqual(g["daten"]["titel"], "Montage Dach")
+        veraltet = json.loads(b.behandle("termin_speichern", json.dumps({"id": t["daten"]["id"], "project_id": 7, "alt": alt, "termin": {"titel": "Nochmal", "start_datum": "12.11.2026"}})))
+        self.assertFalse(veraltet["ok"], "die Karte war veraltet: Termin hat sich inzwischen geändert")
+        self.assertIn("NICHTS überschrieben", veraltet["fehler"])
+        self.assertEqual(z.tab["termine"][-1]["titel"], "Montage Dach")
         f = json.loads(b.behandle("termin_speichern", json.dumps({"project_id": 7, "termin": {"titel": "", "start_datum": "x"}})))
         self.assertFalse(f["ok"])
         self.assertIn("Titel", f["fehler"])

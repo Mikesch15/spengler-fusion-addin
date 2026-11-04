@@ -122,7 +122,8 @@ def termine(zeilen):
     for t in zeilen or []:
         von, bis = _tag(t.get("start_datum")), _tag(t.get("ende_datum"))
         zeit = " ".join(x for x in (str(t.get("start_zeit") or "")[:5], ("– " + str(t.get("ende_zeit"))[:5]) if t.get("ende_zeit") else "") if x)
-        out.append({"id": t.get("id"), "aenderbar": (t.get("quelle") or "app") == "app" and not t.get("abo_id") and t.get("id") is not None, "quelle": t.get("quelle") or "app",
+        roh = {f: t.get(f) for f in ("titel", "start_datum", "ende_datum", "start_zeit", "ende_zeit", "ort", "notiz")}
+        out.append({"roh": roh, "id": t.get("id"), "aenderbar": (t.get("quelle") or "app") == "app" and not t.get("abo_id") and t.get("id") is not None, "quelle": t.get("quelle") or "app",
                     "start": str(t.get("start_datum") or "")[:10], "ende": str(t.get("ende_datum") or "")[:10], "start_zeit": str(t.get("start_zeit") or "")[:5],
                     "ende_zeit": str(t.get("ende_zeit") or "")[:5], "titel": t.get("titel") or "", "wann": (von if not bis or bis == von else "%s – %s" % (von, bis)) + ((" " + zeit) if zeit else ""),
                     "sortierung": str(t.get("start_datum") or ""), "ort": t.get("ort") or "", "notiz": t.get("notiz") or "", "mitarbeiter": _liste(t.get("mitarbeiter"))})

@@ -552,7 +552,8 @@ $("pkKarte").addEventListener("click", async (ev) => {
   if (t.id === "ptAbbrechen") { $("pkTerminForm").innerHTML = ""; return; }
   if (t.id === "ptSpeichern") {
     const termin = { titel: $("ptTitel").value, start_datum: $("ptStart").value, start_zeit: $("ptStartZ").value, ende_datum: $("ptEnde").value, ende_zeit: $("ptEndeZ").value, ort: $("ptOrt").value, notiz: $("ptNotiz").value };
-    return pkAenderung(`Termin «${termin.titel}» (${termin.start_datum}) ${t.dataset.id ? "in der App ändern" : "in der App anlegen"}?`, "termin_speichern", { id: t.dataset.id || null, project_id: h.id, termin }, t.dataset.id ? "Termin geändert." : "Termin angelegt.");
+    const alt = t.dataset.id ? (k.termine.find((x) => String(x.id) === t.dataset.id) || {}).roh : null;      // Werte, wie die Karte sie gelesen hat – Bedingung für das Ändern
+    return pkAenderung(`Termin «${termin.titel}» (${termin.start_datum}) ${t.dataset.id ? "in der App ändern" : "in der App anlegen"}?`, "termin_speichern", { id: t.dataset.id || null, project_id: h.id, termin, alt }, t.dataset.id ? "Termin geändert." : "Termin angelegt.");
   }
 });
 $("pkLaden").onclick = pkLaden;

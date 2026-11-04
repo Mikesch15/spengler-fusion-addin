@@ -213,12 +213,27 @@ def server(z):
                         lst.append(d)
                         neu.append(d)
                     return self._antwort(201, neu)
-                treffer = [r for r in lst if str(r.get("id")) == f["id"][3:] and r.get("company_id") == me["firma"]]
+                def passt(r):
+                    for k, v in f.items():
+                        if k in ("select", "order", "limit"):
+                            continue
+                        ist = r.get(k)
+                        if v == "is.null":
+                            if ist is not None:
+                                return False
+                        elif v.startswith("eq."):
+                            soll = urllib.parse.unquote(v[3:])
+                            if ist is None or not (str(ist) == soll or (len(soll) >= 5 and soll[2:3] == ":" and str(ist)[:5] == soll[:5])):
+                                return False
+                    return True
+                treffer = [r for r in lst if r.get("company_id") == me["firma"] and passt(r)]
                 for r in treffer:
                     r.update(json.loads(body))
                 return self._antwort(200, treffer)
             if pfad.startswith("/rest/v1/") and pfad[9:] in ("reports", "termine", "offerten", "leistungen") and m == "GET":
                 zeilen = [r for r in z.tab.get(pfad[9:], []) if r.get("company_id") in (None, me["firma"])]
+                if "id" in f:
+                    zeilen = [r for r in zeilen if str(r.get("id")) == f["id"][3:]]
                 if "project_id" in f:
                     zeilen = [r for r in zeilen if str(r.get("project_id")) == f["project_id"][3:]]
                 return self._antwort(200, zeilen)
