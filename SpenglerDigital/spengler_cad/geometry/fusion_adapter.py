@@ -486,17 +486,88 @@ def markieren(obj, daten):
         logger.warnung("Attribut nicht gesetzt", objekt=type(obj).__name__)
 
 
+def _objektname(o):
+    t = type(o).__name__
+    try:
+        n = o.name
+        return "%s «%s»" % (t, n) if n else t
+    except Exception:
+        return t
+
+
+def _loeschen(o):
+    """Ein Fusion-Objekt löschen und das Ergebnis PRÜFEN. → None = weg (oder war schon weg), sonst Problemtext mit Objektname/-typ.
+    deleteMe() → False gilt als Fehlschlag (nicht als Erfolg); ein Objekt, das danach noch gültig ist, ebenso. Nicht live geprüft."""
+    if o is None:
+        return None
+    try:
+        if not o.isValid:
+            return None                       # schon weg (z. B. als abhängiges Objekt mitgelöscht)
+    except Exception:
+        pass
+    name = _objektname(o)
+    try:
+        r = o.deleteMe()
+    except Exception as e:
+        return "%s: Löschen fehlgeschlagen (%s)" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1][:120])
+    if r is False:
+        return "%s: deleteMe() meldet False (nicht gelöscht)" % name
+    try:
+        if o.isValid:
+            return "%s: nach dem Löschen noch vorhanden" % name
+    except Exception:
+        pass
+    return None
+
+
+def entfernen_bericht(objekte):
+    """Erzeugte Objekte in UMGEKEHRTER Erstellungsreihenfolge löschen (abhängige zuerst). → Liste der Probleme (leer = alles entfernt)."""
+    probleme = [p for p in (_loeschen(o) for o in reversed(list(objekte or []))) if p]
+    if probleme:
+        logger.warnung("Rückbau unvollständig", objekte=" | ".join(probleme))
+    return probleme
+
+
 def entfernen(objekte):
-    """Kontrollierte Wiederherstellung: erzeugte Features in umgekehrter Reihenfolge löschen."""
-    ok = True
-    for o in reversed(objekte):
-        try:
-            if o is not None and o.isValid:
-                o.deleteMe()
-        except Exception:
-            ok = False
-            logger.ausnahme("Rückbau fehlgeschlagen")
-    return ok
+    """Kontrollierte Wiederherstellung: erzeugte Objekte in umgekehrter Reihenfolge löschen. → True nur, wenn ALLE nachweislich entfernt sind."""
+    return not entfernen_bericht(objekte)
+
+
+class Rueckbau(object):
+    """Transaktion für mehrstufige Geometrieoperationen: jedes neu erzeugte Fusion-Objekt sofort mit merke() registrieren; bei einem Fehler
+    löscht zurueck() GENAU diese Objekte (umgekehrte Reihenfolge, deleteMe-Ergebnis geprüft) – bestehende Modellobjekte werden nie angefasst."""
+
+    def __init__(self, was):
+        self.was, self.objekte, self.probleme = was, [], []
+
+    def merke(self, obj):
+        if obj is not None:
+            self.objekte.append(obj)
+        return obj
+
+    def zurueck(self):
+        self.probleme = entfernen_bericht(self.objekte)
+        self.objekte = []
+        return not self.probleme
+
+    def abbrechen(self, fehler):
+        """Zurückbauen und AdapterFehler mit klarer Aussage zum Rückbau werfen."""
+        anzahl = len(self.objekte)
+        ok = self.zurueck()
+        text = str(fehler) if isinstance(fehler, AdapterFehler) else "Fusion meldet: %s" % ((str(fehler).strip().splitlines() or [type(fehler).__name__])[-1])
+        if anzahl:
+            text += (" – die %d dabei erzeugten Objekte wurden wieder entfernt." % anzahl if ok else
+                     " – ACHTUNG: Rückbau unvollständig (%s). Bitte mit Strg+Z zurücknehmen." % "; ".join(self.probleme))
+        raise AdapterFehler("%s: %s" % (self.was, text), rueckbau_ok=ok)
+
+
+# Nur für den Live-Test: an diesen Stellen absichtlich einen Fehler auslösen, um den Rückbau in Fusion zu prüfen (sonst leer).
+TESTFEHLER = set()
+
+
+def _testfehler(stelle):
+    if stelle in TESTFEHLER:
+        raise AdapterFehler("Absichtlich ausgelöster Testfehler (%s)" % stelle)
 
 
 # ------------------------------------------------------------------ Richtung jedes Schritts prüfen
@@ -693,7 +764,8 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
     aussen (Streifen wird angefügt). Fusions Flansch kennt keine freie Verschiebung der Biegung; das Blech wird deshalb vorher entsprechend
     gekürzt oder verlängert (gerade Kanten, Streifen über die ganze Kantenlänge, alle Streifen in EINER Skizze/Extrusion). Zusammenstossende
     Kanten der Gruppe: beim Anfügen füllen die Streifen die Ecke, damit die versetzten Kanten wieder aufeinandertreffen und Fusion die Gehrung
-    rechnen kann. → (erzeugte Objekte, neue Kanten in der Reihenfolge der alten). Rückbau macht der Aufrufer."""
+    rechnen kann. → (erzeugte Objekte, neue Kanten in der Reihenfolge der alten). Scheitert etwas nach dem Anlegen der Skizze, baut die Funktion
+    ihre Skizze/Extrusion SELBST zurück, bevor der Fehler weitergeht; nach Erfolg übernimmt der Aufrufer den Rückbau. Nicht live geprüft."""
     if not dicke_mm:
         raise AdapterFehler("Für den Versatz fehlt die Blechdicke (Materialprofil).")
     # Auswahlkanten können Proxys im Koordinatensystem der Baugruppe sein; die Körper der neuen Features liegen im Bauteilsystem.
@@ -722,161 +794,172 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
     ueber, tief = 0.1, 0.1
     erzeugt = []
     skizze = comp.sketches.add(flaeche)
-    skizze.name = "Versatz %+g mm" % versatz_mm
     erzeugt.append(skizze)
-
-    def pt(x):
-        return skizze.modelToSketchSpace(adsk.core.Point3D.create(x[0], x[1], x[2]))
-
-    def ecke(d, laengs, quer):
-        return _plus(_plus(d["p0"], d["e"], 1.0, laengs), d["u"], 1.0, quer)
-    linien = skizze.sketchCurves.sketchLines
-    rechtecke = []
-    for i, d in enumerate(daten):
-        if s > 0:       # Rückversatz: von etwas ausserhalb der Kante bis s nach innen wegschneiden, an den Enden etwas länger
-            x0, x1, q0, q1 = -0.05, d["L"] + 0.05, ueber, -s
-        else:           # Vorversatz: Streifen der Breite |s| aussen anfügen; an Ecken zu Nachbarkanten bis in die Ecke verlängert
-            x0 = -abs(s) if geteilt(d["p0"], i) else 0.0
-            x1 = d["L"] + (abs(s) if geteilt(d["p1"], i) else 0.0)
-            q0, q1 = -tief, -s
-        rechtecke.append(((x1 - x0) * abs(q0 - q1),))
-        a, b, c, e_ = ecke(d, x0, q0), ecke(d, x1, q0), ecke(d, x1, q1), ecke(d, x0, q1)
-        l1 = linien.addByTwoPoints(pt(a), pt(b))
-        l2 = linien.addByTwoPoints(l1.endSketchPoint, pt(c))
-        l3 = linien.addByTwoPoints(l2.endSketchPoint, pt(e_))
-        linien.addByTwoPoints(l3.endSketchPoint, l1.startSketchPoint)
-    if skizze.profiles.count < 1:
-        raise AdapterFehler("Der Versatz-Streifen ergab keine Fläche in der Skizze.")
-    # Nur die Streifen-Profile verwenden. Live 31.10.: In der Skizze waren auch Profile der Blechfläche selbst (automatisch projizierte Kanten) –
-    # damit wurde beim Anfügen die Dicke verdoppelt und beim Schneiden der ganze Körper entfernt. Profile, die viel grösser sind als die
-    # gezeichneten Rechtecke, gehören nicht zum Streifen.
-    grenze = 1.05 * sum(abs(r[0]) for r in rechtecke) if rechtecke else None
-    profile = adsk.core.ObjectCollection.create()
-    uebersprungen = 0
-    for k in range(skizze.profiles.count):
-        pr = skizze.profiles.item(k)
-        try:
-            flaeche_pr = pr.areaProperties().area
-        except Exception:
-            flaeche_pr = None
-        if flaeche_pr is not None and grenze is not None and flaeche_pr > grenze:
-            uebersprungen += 1
-            continue
-        profile.add(pr)
-    if uebersprungen:
-        logger.info("Versatz: Profile der Blechfläche in der Skizze übersprungen", anzahl=uebersprungen)
-    if profile.count < 1:
-        raise AdapterFehler("Der Versatz-Streifen ergab keine passende Fläche in der Skizze.")
-    ef = comp.features.extrudeFeatures
-    vol0 = koerper.volume
-    soll = abs(s) * sum(d["L"] for d in daten) * t
-    feat = None
-    versuche = []
-    sign = _aufbau_richtung(flaeche, skizze)
-    # Live 31.10.: Der symmetrische Schnitt liess keinen Körper übrig (Volumen 0). Das Anfügen (einseitig, Richtung Blech) klappt – deshalb
-    # schneidet das Add-in zuerst genauso einseitig 1.5 × Dicke ins Blech, dann die Gegenrichtung, zuletzt symmetrisch.
-    if s > 0:
-        reihe = ((sign, "einseitig"), (-sign, "einseitig")) if sign else ((1.0, "einseitig"), (-1.0, "einseitig"))
-        reihe = reihe + ((None, "symmetrisch"),)
-    else:
-        reihe = tuple((r, "anfuegen") for r in ((sign, -sign) if sign else (1.0, -1.0)))
-    for richtung, art_ in reihe:
-        try:
-            if s > 0:
-                ei = ef.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
-                if art_ == "einseitig":
-                    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * 1.5 * t))
-                else:
-                    ei.setSymmetricExtent(adsk.core.ValueInput.createByReal(4 * t + 0.2), True)
-            else:
-                ei = ef.createInput(profile, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-                ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * t))
-            ei.participantBodies = [koerper]
-            f = ef.add(ei)
-        except Exception as ex:
-            versuche.append(str(ex).strip().splitlines()[-1][:120] if str(ex).strip() else type(ex).__name__)
-            continue
-        koerper_neu = _koerper_nach(comp, koerper, f, vol0 + (soll if s < 0 else -soll), 0.5 * soll)
-        delta = (koerper_neu.volume - vol0) if koerper_neu is not None else None
-        # Schnitt: Volumen sinkt um etwa den Streifen (nicht auf 0!); Anfügen: Volumen steigt um etwa den Streifen
-        if delta is not None and ((s > 0 and -1.5 * soll < delta < -0.5 * soll) or (s < 0 and 0.5 * soll < delta < 1.5 * soll)):
-            feat, koerper = f, koerper_neu
-            break
-        versuche.append("%s: Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
-            art_ if richtung is None else "%s %+g" % (art_, richtung), "nicht gefunden" if koerper_neu is None else "gefunden",
-            "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
-        try:
-            versuche[-1] += " [Körper im Bauteil: %s]" % ", ".join("%s %.2f cm³" % (b.name, b.volume) for b in comp.bRepBodies)
-        except Exception:
-            pass
-        f.deleteMe()
-    if feat is None:
-        raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
-    erzeugt.append(feat)
-    # Kandidaten: Kanten der vom Feature erzeugten Flächen (so wie bei Flanschen, live bewährt), dazu alle Kanten des Körpers.
-    # Bericht 31.10.: beim Zurückschneiden (+) fand sich unter den Körperkanten keine einzige parallele Kante.
-    pool, gesehen = [], set()
     try:
-        quellen = [k for f in feat.faces for k in f.edges] + list(koerper.edges)
-    except Exception:
-        quellen = list(koerper.edges)
-    for k in quellen:
-        try:
-            schluessel = k.tempId
-        except Exception:
-            schluessel = id(k)
-        if schluessel not in gesehen:
-            gesehen.add(schluessel)
-            pool.append(k)
-    try:
-        logger.info("Versatz: Körper nach der Extrusion", richtung=sign, kanten=len(list(koerper.edges)), flaechen_des_features=len(list(feat.faces)),
-                    volumen_cm3=koerper.volume)
-    except Exception:
-        logger.warnung("Versatz: Körper nach der Extrusion nicht lesbar")
-    neue = []
-    for nr, d in enumerate(daten, 1):
-        mitte = _plus(_plus(d["p0"], d["p1"], 0.5, 0.5), d["u"], 1.0, -s)
-        kandidaten = []
-        for k in pool:
+        skizze.name = "Versatz %+g mm" % versatz_mm
+        _testfehler("versatz_skizze")
+
+        def pt(x):
+            return skizze.modelToSketchSpace(adsk.core.Point3D.create(x[0], x[1], x[2]))
+
+        def ecke(d, laengs, quer):
+            return _plus(_plus(d["p0"], d["e"], 1.0, laengs), d["u"], 1.0, quer)
+        linien = skizze.sketchCurves.sketchLines
+        rechtecke = []
+        for i, d in enumerate(daten):
+            if s > 0:       # Rückversatz: von etwas ausserhalb der Kante bis s nach innen wegschneiden, an den Enden etwas länger
+                x0, x1, q0, q1 = -0.05, d["L"] + 0.05, ueber, -s
+            else:           # Vorversatz: Streifen der Breite |s| aussen anfügen; an Ecken zu Nachbarkanten bis in die Ecke verlängert
+                x0 = -abs(s) if geteilt(d["p0"], i) else 0.0
+                x1 = d["L"] + (abs(s) if geteilt(d["p1"], i) else 0.0)
+                q0, q1 = -tief, -s
+            rechtecke.append(((x1 - x0) * abs(q0 - q1),))
+            a, b, c, e_ = ecke(d, x0, q0), ecke(d, x1, q0), ecke(d, x1, q1), ecke(d, x0, q1)
+            l1 = linien.addByTwoPoints(pt(a), pt(b))
+            l2 = linien.addByTwoPoints(l1.endSketchPoint, pt(c))
+            l3 = linien.addByTwoPoints(l2.endSketchPoint, pt(e_))
+            linien.addByTwoPoints(l3.endSketchPoint, l1.startSketchPoint)
+        if skizze.profiles.count < 1:
+            raise AdapterFehler("Der Versatz-Streifen ergab keine Fläche in der Skizze.")
+        # Nur die Streifen-Profile verwenden. Live 31.10.: In der Skizze waren auch Profile der Blechfläche selbst (automatisch projizierte Kanten) –
+        # damit wurde beim Anfügen die Dicke verdoppelt und beim Schneiden der ganze Körper entfernt. Profile, die viel grösser sind als die
+        # gezeichneten Rechtecke, gehören nicht zum Streifen.
+        grenze = 1.05 * sum(abs(r[0]) for r in rechtecke) if rechtecke else None
+        profile = adsk.core.ObjectCollection.create()
+        uebersprungen = 0
+        for k in range(skizze.profiles.count):
+            pr = skizze.profiles.item(k)
             try:
-                q0, dk = _linie(k)
+                flaeche_pr = pr.areaProperties().area
             except Exception:
+                flaeche_pr = None
+            if flaeche_pr is not None and grenze is not None and flaeche_pr > grenze:
+                uebersprungen += 1
                 continue
-            dk = _v(dk)
-            if abs(abs(_skal(dk, d["e"])) - 1.0) > 1e-6 or k.length < 0.3 * d["L"]:
+            profile.add(pr)
+        if uebersprungen:
+            logger.info("Versatz: Profile der Blechfläche in der Skizze übersprungen", anzahl=uebersprungen)
+        if profile.count < 1:
+            raise AdapterFehler("Der Versatz-Streifen ergab keine passende Fläche in der Skizze.")
+        ef = comp.features.extrudeFeatures
+        vol0 = koerper.volume
+        soll = abs(s) * sum(d["L"] for d in daten) * t
+        feat = None
+        versuche = []
+        sign = _aufbau_richtung(flaeche, skizze)
+        # Live 31.10.: Der symmetrische Schnitt liess keinen Körper übrig (Volumen 0). Das Anfügen (einseitig, Richtung Blech) klappt – deshalb
+        # schneidet das Add-in zuerst genauso einseitig 1.5 × Dicke ins Blech, dann die Gegenrichtung, zuletzt symmetrisch.
+        if s > 0:
+            reihe = ((sign, "einseitig"), (-sign, "einseitig")) if sign else ((1.0, "einseitig"), (-1.0, "einseitig"))
+            reihe = reihe + ((None, "symmetrisch"),)
+        else:
+            reihe = tuple((r, "anfuegen") for r in ((sign, -sign) if sign else (1.0, -1.0)))
+        for richtung, art_ in reihe:
+            try:
+                if s > 0:
+                    ei = ef.createInput(profile, adsk.fusion.FeatureOperations.CutFeatureOperation)
+                    if art_ == "einseitig":
+                        ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * 1.5 * t))
+                    else:
+                        ei.setSymmetricExtent(adsk.core.ValueInput.createByReal(4 * t + 0.2), True)
+                else:
+                    ei = ef.createInput(profile, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+                    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(richtung * t))
+                ei.participantBodies = [koerper]
+                f = ef.add(ei)
+            except Exception as ex:
+                versuche.append(str(ex).strip().splitlines()[-1][:120] if str(ex).strip() else type(ex).__name__)
                 continue
-            w = _plus(mitte, _v(q0), 1.0, -1.0)
-            if math.sqrt(_skal(_ohne_komponente(w, dk), _ohne_komponente(w, dk))) > 0.005:
-                continue
-            if -0.005 <= _skal(w, dk) <= k.length + 0.005:
-                kandidaten.append(k)
-        if len(kandidaten) != 1:
-            nah = []       # Diagnose: die nächsten parallelen Kanten (Abstand von der Zielkante in mm, Länge in mm)
+            koerper_neu = _koerper_nach(comp, koerper, f, vol0 + (soll if s < 0 else -soll), 0.5 * soll)
+            delta = (koerper_neu.volume - vol0) if koerper_neu is not None else None
+            # Schnitt: Volumen sinkt um etwa den Streifen (nicht auf 0!); Anfügen: Volumen steigt um etwa den Streifen
+            if delta is not None and ((s > 0 and -1.5 * soll < delta < -0.5 * soll) or (s < 0 and 0.5 * soll < delta < 1.5 * soll)):
+                feat, koerper = f, koerper_neu
+                break
+            versuche.append("%s: Körper nach dem Feature %s, Volumenänderung %s cm³ (erwartet %+.3f)" % (
+                art_ if richtung is None else "%s %+g" % (art_, richtung), "nicht gefunden" if koerper_neu is None else "gefunden",
+                "–" if delta is None else "%.3f" % delta, -soll if s > 0 else soll))
+            try:
+                versuche[-1] += " [Körper im Bauteil: %s]" % ", ".join("%s %.2f cm³" % (b.name, b.volume) for b in comp.bRepBodies)
+            except Exception:
+                pass
+            p_ = _loeschen(f)
+            if p_:
+                raise AdapterFehler("Ein verworfener Versatz-Versuch liess sich nicht entfernen: " + p_)
+        if feat is None:
+            raise AdapterFehler("Der Versatz konnte nicht an das Blech angefügt/abgeschnitten werden (%s)." % "; ".join(versuche))
+        erzeugt.append(feat)
+        _testfehler("versatz_extrusion")
+        # Kandidaten: Kanten der vom Feature erzeugten Flächen (so wie bei Flanschen, live bewährt), dazu alle Kanten des Körpers.
+        # Bericht 31.10.: beim Zurückschneiden (+) fand sich unter den Körperkanten keine einzige parallele Kante.
+        pool, gesehen = [], set()
+        try:
+            quellen = [k for f in feat.faces for k in f.edges] + list(koerper.edges)
+        except Exception:
+            quellen = list(koerper.edges)
+        for k in quellen:
+            try:
+                schluessel = k.tempId
+            except Exception:
+                schluessel = id(k)
+            if schluessel not in gesehen:
+                gesehen.add(schluessel)
+                pool.append(k)
+        try:
+            logger.info("Versatz: Körper nach der Extrusion", richtung=sign, kanten=len(list(koerper.edges)), flaechen_des_features=len(list(feat.faces)),
+                        volumen_cm3=koerper.volume)
+        except Exception:
+            logger.warnung("Versatz: Körper nach der Extrusion nicht lesbar")
+        neue = []
+        for nr, d in enumerate(daten, 1):
+            mitte = _plus(_plus(d["p0"], d["p1"], 0.5, 0.5), d["u"], 1.0, -s)
+            kandidaten = []
             for k in pool:
                 try:
                     q0, dk = _linie(k)
-                    dk = _v(dk)
-                    if abs(abs(_skal(dk, d["e"])) - 1.0) > 1e-6:
-                        continue
-                    w = _plus(mitte, _v(q0), 1.0, -1.0)
-                    lot = _ohne_komponente(w, dk)
-                    nah.append((math.sqrt(_skal(lot, lot)) * 10, k.length * 10))
                 except Exception:
                     continue
-            nah.sort()
-            logger.warnung("Versatz: versetzte Kante nicht gefunden", kante=nr, treffer=len(kandidaten), laenge_mm=d["L"] * 10, versatz_mm=versatz_mm,
-                           naechste=" | ".join("%.2f mm weg, %.1f lang" % x for x in nah[:5]) or "keine parallele Kante", pool=len(pool))
-            raise AdapterFehler("Die versetzte Kante %d wurde nicht eindeutig gefunden (%d Treffer). Nächste parallele Kante: %s." % (
-                nr, len(kandidaten), "%.2f mm vom Soll entfernt" % nah[0][0] if nah else "keine"))
-        neue.append(kandidaten[0])
-    logger.info("Versatz angewendet", versatz_mm=versatz_mm, art="Rückversatz" if s > 0 else "Vorversatz", kanten=len(neue))
-    for k in neue:           # Ersatzkanten merken und die Kante für das Protokoll untersuchen (Live 4.11.: Fusion lehnte die Kante nach dem Rückversatz ab)
-        try:
-            _VERSATZ_ALT[k.entityToken] = _versatz_alternativen(k)
-            _kante_sonde(k, "nach dem Versatz")
-        except Exception:
-            logger.warnung("Versatz: Kante nicht untersucht")
-    return erzeugt, neue
+                dk = _v(dk)
+                if abs(abs(_skal(dk, d["e"])) - 1.0) > 1e-6 or k.length < 0.3 * d["L"]:
+                    continue
+                w = _plus(mitte, _v(q0), 1.0, -1.0)
+                if math.sqrt(_skal(_ohne_komponente(w, dk), _ohne_komponente(w, dk))) > 0.005:
+                    continue
+                if -0.005 <= _skal(w, dk) <= k.length + 0.005:
+                    kandidaten.append(k)
+            if len(kandidaten) != 1:
+                nah = []       # Diagnose: die nächsten parallelen Kanten (Abstand von der Zielkante in mm, Länge in mm)
+                for k in pool:
+                    try:
+                        q0, dk = _linie(k)
+                        dk = _v(dk)
+                        if abs(abs(_skal(dk, d["e"])) - 1.0) > 1e-6:
+                            continue
+                        w = _plus(mitte, _v(q0), 1.0, -1.0)
+                        lot = _ohne_komponente(w, dk)
+                        nah.append((math.sqrt(_skal(lot, lot)) * 10, k.length * 10))
+                    except Exception:
+                        continue
+                nah.sort()
+                logger.warnung("Versatz: versetzte Kante nicht gefunden", kante=nr, treffer=len(kandidaten), laenge_mm=d["L"] * 10, versatz_mm=versatz_mm,
+                               naechste=" | ".join("%.2f mm weg, %.1f lang" % x for x in nah[:5]) or "keine parallele Kante", pool=len(pool))
+                raise AdapterFehler("Die versetzte Kante %d wurde nicht eindeutig gefunden (%d Treffer). Nächste parallele Kante: %s." % (
+                    nr, len(kandidaten), "%.2f mm vom Soll entfernt" % nah[0][0] if nah else "keine"))
+            neue.append(kandidaten[0])
+        logger.info("Versatz angewendet", versatz_mm=versatz_mm, art="Rückversatz" if s > 0 else "Vorversatz", kanten=len(neue))
+        for k in neue:           # Ersatzkanten merken und die Kante für das Protokoll untersuchen (Live 4.11.: Fusion lehnte die Kante nach dem Rückversatz ab)
+            try:
+                _VERSATZ_ALT[k.entityToken] = _versatz_alternativen(k)
+                _kante_sonde(k, "nach dem Versatz")
+            except Exception:
+                logger.warnung("Versatz: Kante nicht untersucht")
+        return erzeugt, neue
+    except Exception as e:
+        # Selbst zurückbauen, bevor der Fehler weitergeht – der Aufrufer bekommt die Liste sonst nie zu sehen (Skizze/Extrusion blieben zurück).
+        probleme = entfernen_bericht(erzeugt)
+        text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % ((str(e).strip().splitlines() or [type(e).__name__])[-1])
+        raise AdapterFehler(text + (" (Versatz-Skizze/-Extrusion wieder entfernt)" if not probleme else
+                                    " – ACHTUNG: Versatz-Teile nicht vollständig entfernt: %s" % "; ".join(probleme)), rueckbau_ok=not probleme)
 
 
 def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None):
@@ -963,7 +1046,9 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                     logger.info("Richtung weicht ab – Schritt wird gespiegelt neu angelegt", schritt=i, typ=op["typ"])
                     phase = "Schritt %d (gespiegelt neu anlegen)" % i
                     erzeugt.pop()
-                    feat.deleteMe()
+                    p_ = _loeschen(feat)
+                    if p_:
+                        raise AdapterFehler("Der falsch gerichtete Schritt liess sich nicht entfernen: " + p_)
                     aktuell = _kante_aufloesen(token, aktuell) if token else aktuell
                     feat = _schritt_bauen(aktuell, op, True, dicke_mm)
                     erzeugt.append(feat)
@@ -1229,62 +1314,280 @@ def referenzbild_einfuegen(dateipfad, name="Referenzbild"):
 
 
 def neue_komponente(name):
-    """Leere neue Komponente im aktiven Design. Nicht live geprüft."""
+    """Leere neue Komponente im aktiven Design (unter der Root-Komponente). → Komponente; die Occurrence findet _occurrence_von().
+    Aktiviert wird sie erst beim Bauen (blech_aus_profil) und danach wieder zurückgestellt. Nicht live geprüft."""
     occ = design().rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
     occ.component.name = name
     return occ.component
 
 
+def _gleiche(a, b):
+    if a is None or b is None:
+        return False
+    try:
+        return a.entityToken == b.entityToken
+    except Exception:
+        return a == b
+
+
+def _occurrence_von(comp):
+    """Occurrence der Komponente (None = Root-Komponente). Bei mehreren Vorkommen die erste."""
+    root = design().rootComponent
+    if _gleiche(comp, root):
+        return None
+    try:
+        vorkommen = list(root.allOccurrencesByComponent(comp))
+        if vorkommen:
+            return vorkommen[0]
+    except Exception:
+        pass
+    for occ in list(root.allOccurrences):
+        if _gleiche(occ.component, comp):
+            return occ
+    raise AdapterFehler("Die Zielkomponente «%s» ist im Design nicht zu finden." % getattr(comp, "name", "?"))
+
+
+class _Aktiviert(object):
+    """Zielkomponente für die Blech-Erstellung aktivieren (Fusion legt Blechkörper sonst u. U. in der aktiven/Root-Komponente an) und danach
+    – nach Erfolg UND nach Fehler – den vorherigen Aktivierungszustand wiederherstellen. Nicht live geprüft (Occurrence.activate,
+    Design.activeOccurrence, Design.activateRootComponent)."""
+
+    def __init__(self, occ):
+        self.occ, self.vorher, self.bekannt = occ, None, False
+
+    def __enter__(self):
+        d = design()
+        try:
+            self.vorher, self.bekannt = d.activeOccurrence, True
+        except Exception:
+            self.bekannt = False
+        ok = self.occ.activate() if self.occ is not None else d.activateRootComponent()
+        if ok is False:
+            raise AdapterFehler("Die Zielkomponente liess sich nicht aktivieren – das Blech wird nicht gebaut (es entstünde sonst womöglich in der falschen Komponente).")
+        return self
+
+    def __exit__(self, *_):
+        if not self.bekannt:
+            return False
+        try:
+            if self.vorher is None:
+                design().activateRootComponent()
+            elif self.vorher.isValid:
+                self.vorher.activate()
+        except Exception:
+            logger.warnung("Vorherige Aktivierung nicht wiederhergestellt")
+        return False
+
+
+def _regel_dicke_mm(regel):
+    try:
+        return units.cm_zu_mm(regel.thickness.value)
+    except Exception:
+        return None
+
+
+def regel_fuer_dicke(comp, dicke_mm):
+    """Blechregel mit genau dieser Dicke: vorhandene Design-Regel wiederverwenden, sonst eine KOPIE anlegen («Spengler 0.70 mm») und deren Dicke
+    setzen. Bibliotheks- und Standardregeln werden nie verändert. → (Regel, neu angelegt). Bricht ab, wenn die Dicke nicht stimmt.
+    API: Design.designSheetMetalRules / librarySheetMetalRules, SheetMetalRules.addByCopy(regel, name), SheetMetalRule.thickness.expression
+    (Autodesk: «Sheet Metal Rules», ab November 2022). Nicht live geprüft."""
+    d = design()
+    regeln = getattr(d, "designSheetMetalRules", None)
+    if regeln is None or not hasattr(regeln, "addByCopy"):
+        raise AdapterFehler("Diese Fusion-Version kann per API keine Blechregel anlegen (designSheetMetalRules.addByCopy fehlt) – das Grundblech wird nicht gebaut.")
+    alle = [regeln.item(i) for i in range(regeln.count)]
+    for r in alle:
+        t = _regel_dicke_mm(r)
+        if t is not None and abs(t - dicke_mm) < 0.001:
+            return r, False
+    quelle = None
+    try:
+        quelle = comp.activeSheetMetalRule
+    except Exception:
+        pass
+    if quelle is None and alle:
+        quelle = alle[0]
+    if quelle is None:
+        bib = getattr(d, "librarySheetMetalRules", None)
+        if bib is not None and bib.count:
+            quelle = bib.item(0)
+    if quelle is None:
+        raise AdapterFehler("Keine Blechregel als Vorlage gefunden (Design und Bibliothek leer) – das Grundblech wird nicht gebaut.")
+    namen = set()
+    for r in alle:
+        try:
+            namen.add(r.name)
+        except Exception:
+            pass
+    name, nr = "Spengler %.2f mm" % dicke_mm, 2
+    while name in namen:
+        name, nr = "Spengler %.2f mm (%d)" % (dicke_mm, nr), nr + 1
+    neu = regeln.addByCopy(quelle, name)
+    if neu is None:
+        raise AdapterFehler("Fusion hat die Blechregel «%s» nicht angelegt." % name)
+    try:
+        neu.thickness.expression = "%g mm" % dicke_mm
+    except Exception as e:
+        raise AdapterFehler("Die Dicke der Blechregel «%s» liess sich nicht auf %g mm setzen (Fusion: %s)." % (name, dicke_mm, (str(e).strip().splitlines() or ["?"])[-1]))
+    t = _regel_dicke_mm(neu)
+    if t is None or abs(t - dicke_mm) > 0.001:
+        raise AdapterFehler("Die Blechregel «%s» hat %s mm statt %g mm – das Grundblech wird nicht gebaut." % (name, "?" if t is None else "%.3f" % t, dicke_mm))
+    logger.info("Blechregel angelegt", name=name, dicke_mm=dicke_mm, vorlage=getattr(quelle, "name", "?"))
+    return neu, True
+
+
+def schleifen_pruefen(schleifen_mm):
+    """Profil VOR dem Modellieren prüfen: 1–2 geschlossene Polygonzüge mit je ≥ 3 Punkten und Fläche > 1 mm². → Problemtext oder None."""
+    if not schleifen_mm or len(schleifen_mm) > 2:
+        return "Das Profil braucht einen Umriss (und höchstens ein Loch), erhalten: %d Polygonzüge." % len(schleifen_mm or [])
+    for nr, poly in enumerate(schleifen_mm, 1):
+        try:
+            pts = [(float(p[0]), float(p[1])) for p in poly]
+        except Exception:
+            return "Polygonzug %d enthält ungültige Koordinaten." % nr
+        if len(pts) < 3:
+            return "Polygonzug %d hat nur %d Punkte (mindestens 3)." % (nr, len(pts))
+        flaeche = 0.5 * abs(sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts))))
+        if flaeche < 1.0:
+            return "Polygonzug %d umschliesst keine Fläche (%.2f mm²)." % (nr, flaeche)
+    return None
+
+
+def grundblech_pruefen(comp, body, dicke_mm, root_koerper_vorher=None):
+    """Nach dem Bauen: Körper in der Zielkomponente, nichts in Root, gültiger Blechkörper, Dicke laut Regel UND gemessen (Ausdehnung in Z beim
+    ebenen Blech auf XY) = Soll, Oberseite für die Abwicklung vorhanden. → Liste der Probleme. Nicht live geprüft."""
+    probleme = []
+    try:
+        if not _gleiche(body.parentComponent, comp):
+            probleme.append("Der Körper liegt nicht in der Zielkomponente «%s», sondern in «%s»." % (getattr(comp, "name", "?"), getattr(body.parentComponent, "name", "?")))
+    except Exception:
+        probleme.append("Die Komponente des Körpers ist nicht lesbar.")
+    if root_koerper_vorher is not None:
+        try:
+            n = design().rootComponent.bRepBodies.count
+            if n != root_koerper_vorher:
+                probleme.append("In der Root-Komponente ist ein Körper entstanden (%d statt %d)." % (n, root_koerper_vorher))
+        except Exception:
+            pass
+    probleme += koerper_pruefen(body)
+    v = getattr(body, "isSheetMetal", None)
+    if v is False:
+        probleme.append("Der Körper ist kein Blechkörper (isSheetMetal = False).")
+    t_regel = blechdicke_mm(body)
+    if t_regel is None or abs(t_regel - dicke_mm) > 0.001:
+        probleme.append("Blechregel der Komponente: %s mm statt %g mm." % ("?" if t_regel is None else "%.3f" % t_regel, dicke_mm))
+    try:
+        bb = body.boundingBox
+        t_mess = units.cm_zu_mm(bb.maxPoint.z - bb.minPoint.z)
+        if abs(t_mess - dicke_mm) > 0.005:
+            probleme.append("Gemessene Blechdicke %.3f mm statt %g mm." % (t_mess, dicke_mm))
+    except Exception:
+        probleme.append("Die Blechdicke liess sich nicht messen.")
+    try:
+        _oberseite(body)
+    except AdapterFehler:
+        probleme.append("Keine ebene Oberseite – für die Abwicklung ungeeignet.")
+    return probleme
+
+
 def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
-    """Ebenes Blech (Basisflansch) aus einem oder zwei geschlossenen Polygonzügen auf der XY-Ebene (mm; ein Polygon = Fläche, zwei = Ring mit Loch).
-    Aufrufformen von FlangeFeatures.createBaseFlangeInput werden nacheinander versucht, alle Antworten stehen im Fehlertext. → Blechkörper.
-    NICHT live geprüft (der Live-Test prüft genau diese Funktion)."""
+    """Ebenes Blech (Basisflansch) aus einem oder zwei geschlossenen Polygonzügen auf der XY-Ebene (mm; ein Polygon = Fläche, zwei = Ring mit Loch)
+    in der Komponente comp, mit GENAU der Soll-Dicke dicke_mm. Ablauf: Profil und Dicke prüfen → Zielkomponente aktivieren → Blechregel mit
+    dieser Dicke setzen (comp.activeSheetMetalRule, VOR dem Feature) → Skizze → createBaseFlangeInput(profil) → Ergebnis prüfen (Komponente,
+    Dicke, Blechkörper). Jeder Fehler baut Skizze/Feature wieder ab und stellt Regel und Aktivierung zurück; mit falscher Dicke wird nie
+    weitergearbeitet. → Blechkörper. createBaseFlangeInput ist laut Autodesk «Preview». NICHT live geprüft."""
+    if dicke_mm is None or not (0.1 <= float(dicke_mm) <= 20.0):
+        raise AdapterFehler("Ungültige Blechdicke %s mm (erlaubt 0.1–20 mm) – das Grundblech wird nicht gebaut." % dicke_mm)
+    dicke_mm = float(dicke_mm)
+    fehler = schleifen_pruefen(schleifen_mm)
+    if fehler:
+        raise AdapterFehler(fehler + " Das Grundblech wird nicht gebaut.")
     ff = getattr(comp.features, "flangeFeatures", None)
     if ff is None or not hasattr(ff, "createBaseFlangeInput"):
         raise AdapterFehler("FlangeFeatures.createBaseFlangeInput fehlt in dieser Fusion-Version – kein Grundblech möglich.")
-    vorher = comp.bRepBodies.count
-    sk = comp.sketches.add(comp.xYConstructionPlane)
-    for poly in schleifen_mm:
-        n = len(poly)
-        for i in range(n):
-            a_, b_ = poly[i], poly[(i + 1) % n]
-            sk.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(a_[0] / 10.0, a_[1] / 10.0, 0), adsk.core.Point3D.create(b_[0] / 10.0, b_[1] / 10.0, 0))
-    prof = None
-    for i in range(sk.profiles.count):
-        p_ = sk.profiles.item(i)
-        try:
-            schleifen = p_.profileLoops.count
-        except Exception:
-            schleifen = 1
-        if schleifen == len(schleifen_mm):
-            prof = p_
-            break
-    if prof is None:
-        raise AdapterFehler("Aus dem Verlauf entstand keine geschlossene Fläche in der Skizze (%d Profil(e))." % sk.profiles.count)
-    antworten = []
-    for name in ("Liste", "ObjectCollection"):
-        profile = [prof]
-        if name == "ObjectCollection":
-            profile = adsk.core.ObjectCollection.create()
-            profile.add(prof)
-        for dist in (_vi_mm(dicke_mm), None):
+    rb = Rueckbau("Grundblech")
+    root = design().rootComponent
+    root_vorher = None if _gleiche(comp, root) else root.bRepBodies.count
+    try:
+        regel_alt = comp.activeSheetMetalRule
+    except Exception:
+        regel_alt = None
+    regel_gesetzt = False
+    try:
+        with _Aktiviert(_occurrence_von(comp)):
+            regel, _neu = regel_fuer_dicke(comp, dicke_mm)
+            comp.activeSheetMetalRule = regel
+            regel_gesetzt = True
+            if not _gleiche(comp.activeSheetMetalRule, regel):
+                raise AdapterFehler("Die Blechregel liess sich der Komponente nicht zuweisen.")
+            vorher = comp.bRepBodies.count
+            sk = rb.merke(comp.sketches.add(comp.xYConstructionPlane))
+            for poly in schleifen_mm:
+                n = len(poly)
+                for i in range(n):
+                    a_, b_ = poly[i], poly[(i + 1) % n]
+                    sk.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(a_[0] / 10.0, a_[1] / 10.0, 0), adsk.core.Point3D.create(b_[0] / 10.0, b_[1] / 10.0, 0))
+            _testfehler("grundblech_skizze")
+            prof = None
+            for i in range(sk.profiles.count):
+                p_ = sk.profiles.item(i)
+                try:
+                    schleifen = p_.profileLoops.count
+                except Exception:
+                    schleifen = 1
+                if schleifen == len(schleifen_mm):
+                    prof = p_
+                    break
+            if prof is None:
+                raise AdapterFehler("Aus dem Verlauf entstand keine geschlossene Fläche in der Skizze (%d Profil(e))." % sk.profiles.count)
+            # Dokumentierte Form: createBaseFlangeInput(profile) – OHNE Dickenparameter (die Dicke kommt aus der aktiven Blechregel).
+            # Die Listen-Formen sind nur Rückfall für abweichende Preview-Stände; alle Antworten stehen im Fehlertext.
+            antworten, feat = [], None
+            for name in ("Profil", "Liste", "ObjectCollection"):
+                arg = prof
+                if name == "Liste":
+                    arg = [prof]
+                elif name == "ObjectCollection":
+                    arg = adsk.core.ObjectCollection.create()
+                    arg.add(prof)
+                try:
+                    inp = ff.createBaseFlangeInput(arg)
+                except Exception as e:
+                    antworten.append("%s: %s" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1]))
+                    continue
+                if inp is None:
+                    antworten.append("%s: Fusion lieferte keine Eingabe" % name)
+                    continue
+                _eigenschaften_einmal("BaseFlangeInput", inp)
+                try:
+                    feat = rb.merke(ff.add(inp))
+                except Exception as e:
+                    antworten.append("%s add: %s" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1]))
+                    continue
+                if feat is not None:
+                    break                   # genau EIN Feature – kein weiterer Versuch, auch wenn der Körper woanders entstand
+                antworten.append("%s add: kein Feature" % name)
+            if feat is None:
+                raise AdapterFehler("Das Grundblech liess sich nicht erzeugen. Fusion meldet: " + " | ".join(antworten))
+            _testfehler("grundblech_feature")
+            if comp.bRepBodies.count <= vorher:
+                woanders = ""
+                if root_vorher is not None and root.bRepBodies.count > root_vorher:
+                    woanders = " – er entstand in der Root-Komponente"
+                raise AdapterFehler("Der Basisflansch liegt nicht in der Zielkomponente «%s»%s." % (getattr(comp, "name", "?"), woanders))
+            body = comp.bRepBodies.item(comp.bRepBodies.count - 1)
+            probleme = grundblech_pruefen(comp, body, dicke_mm, root_vorher)
+            if probleme:
+                raise AdapterFehler("Das Grundblech ist fehlerhaft: " + " ".join(probleme))
+            logger.info("Grundblech erzeugt", komponente=getattr(comp, "name", "?"), dicke_mm=dicke_mm, regel=getattr(regel, "name", "?"))
+            return body
+    except Exception as e:
+        if regel_gesetzt and regel_alt is not None:
             try:
-                inp = ff.createBaseFlangeInput(profile, dist) if dist is not None else ff.createBaseFlangeInput(profile)
-            except Exception as e:
-                antworten.append("%s%s: %s" % (name, "" if dist is not None else " ohne Distanz", (str(e).strip().splitlines() or [type(e).__name__])[-1]))
-                continue
-            if inp is None:
-                antworten.append("%s: Fusion lieferte keine Eingabe" % name)
-                continue
-            _eigenschaften_einmal("BaseFlangeInput", inp)
-            try:
-                feat = ff.add(inp)
-            except Exception as e:
-                antworten.append("%s add: %s" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1]))
-                continue
-            if feat is not None and comp.bRepBodies.count > vorher:
-                return comp.bRepBodies.item(comp.bRepBodies.count - 1)
-    raise AdapterFehler("Das Grundblech liess sich nicht erzeugen. Fusion meldet: " + " | ".join(antworten))
+                comp.activeSheetMetalRule = regel_alt
+            except Exception:
+                logger.warnung("Vorherige Blechregel nicht wiederhergestellt")
+        rb.abbrechen(e)
 
 
 def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
