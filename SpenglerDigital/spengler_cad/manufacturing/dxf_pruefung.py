@@ -40,8 +40,33 @@ def _enden(e):
     return []
 
 
-def pruefe(text, erwartet_breite=None, erwartet_laenge=None, toleranz_mm=1.0):
-    """→ {'ok', 'probleme' [schwer], 'hinweise', 'masse' (kleiner, grösser) oder None, 'elemente', 'doppelte', 'offene_enden', 'einheit'}"""
+def _konturen(elemente):
+    """Anzahl zusammenhängender Konturen ohne Biegelinien (über gemeinsame Endpunkte verbunden; Kreis/geschlossene Polylinie = eigene Kontur)."""
+    eltern = {}
+
+    def wurzel(k):
+        eltern.setdefault(k, k)
+        while eltern[k] != k:
+            eltern[k] = eltern[eltern[k]]
+            k = eltern[k]
+        return k
+    einzeln = 0
+    for el in elemente:
+        if dxf_lesen.BIEGE.search(el.get("layer", "")):
+            continue
+        enden = [_schluessel(p) for p in _enden(el)]
+        if not enden:
+            einzeln += 1
+            continue
+        a = wurzel(enden[0])
+        for b in enden[1:]:
+            eltern[wurzel(b)] = a
+    return einzeln + len({wurzel(k) for k in list(eltern)})
+
+
+def pruefe(text, erwartet_breite=None, erwartet_laenge=None, toleranz_mm=1.0, erwartete_konturen=None):
+    """→ {'ok', 'probleme' [schwer], 'hinweise', 'masse' (kleiner, grösser) oder None, 'elemente', 'doppelte', 'offene_enden', 'einheit', 'konturen'}
+    erwartete_konturen: bekannte Anzahl (Aussenkontur + Löcher) – weicht sie ab, ist das ein Hinweis auf unerwartete Zusatzprofile."""
     probleme, hinweise = [], []
     try:
         elemente, ignoriert = dxf_lesen.lesen(text)
@@ -90,16 +115,20 @@ def pruefe(text, erwartet_breite=None, erwartet_laenge=None, toleranz_mm=1.0):
     offen = sum(1 for n in zaehler.values() if n % 2 == 1)
     if offen:
         hinweise.append("Die Kontur ist nicht geschlossen (%d offene Enden)." % offen)
-    return {"ok": not probleme, "probleme": probleme, "hinweise": hinweise, "masse": masse, "elemente": len(elemente), "doppelte": doppelte, "offene_enden": offen, "einheit": e}
+    konturen = _konturen(elemente)
+    if erwartete_konturen is not None and konturen != erwartete_konturen:
+        hinweise.append("%d Kontur(en) statt %d – unerwartete Zusatzprofile oder fehlende Teile." % (konturen, erwartete_konturen))
+    return {"ok": not probleme, "probleme": probleme, "hinweise": hinweise, "masse": masse, "elemente": len(elemente), "doppelte": doppelte, "offene_enden": offen, "einheit": e,
+            "konturen": konturen}
 
 
-def pruefe_datei(pfad, erwartet_breite=None, erwartet_laenge=None, toleranz_mm=1.0):
+def pruefe_datei(pfad, erwartet_breite=None, erwartet_laenge=None, toleranz_mm=1.0, erwartete_konturen=None):
     try:
         with open(pfad, encoding="utf-8", errors="replace") as f:
             text = f.read()
     except OSError as ex:
         return {"ok": False, "probleme": ["Die DXF-Datei lässt sich nicht öffnen (%s)." % ex], "hinweise": [], "masse": None, "elemente": 0, "doppelte": 0, "offene_enden": 0, "einheit": None}
-    return pruefe(text, erwartet_breite, erwartet_laenge, toleranz_mm)
+    return pruefe(text, erwartet_breite, erwartet_laenge, toleranz_mm, erwartete_konturen)
 
 
 def zusammenfassung(r):

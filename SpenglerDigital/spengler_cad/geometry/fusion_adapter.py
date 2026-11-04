@@ -1858,15 +1858,61 @@ def koerper_pruefen(body):
 
 
 # ------------------------------------------------------------------ Abwicklung / DXF
-def abwicklung(comp, stationaere_flaeche=None):
-    """Bestehende Abwicklung verwenden oder neu erzeugen (Fusion-Blechfunktion). → FlatPattern"""
+def stationaere_flaeche_waehlen(body):
+    """Feste Regel statt Zufall: die grösste EBENE Fläche des Blechkörpers; bei gleicher Grösse (Ober-/Unterseite) die mit der Normale am
+    weitesten nach +Z, dann die mit dem kleinsten Punkt (x, y, z). → Fläche oder None."""
+    kandidaten = []
+    for f in body.faces:
+        try:
+            if not isinstance(f.geometry, adsk.core.Plane):
+                continue
+            n = flaechennormale(f)
+            p = f.pointOnFace
+            kandidaten.append(((-round(f.area, 6), -round(n[2], 6), round(p.x, 6), round(p.y, 6), round(p.z, 6)), f))
+        except Exception:
+            continue
+    if not kandidaten:
+        return None
+    kandidaten.sort(key=lambda x: x[0])
+    return kandidaten[0][1]
+
+
+def abwicklung(comp, stationaere_flaeche=None, body=None):
+    """Abwicklung der Komponente: eine vorhandene wird verwendet (Fusion führt sie selbst nach), sonst neu erzeugt. Vorher geprüft: gültiger
+    Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
+    (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
     fp = getattr(comp, "flatPattern", None)
     if fp:
+        logger.info("Abwicklung bereits vorhanden – sie wird verwendet", komponente=getattr(comp, "name", "?"))
         return fp, False
     if not hasattr(comp, "createFlatPattern"):
         raise AdapterFehler("Diese Fusion-Version kann per API keine Abwicklung erzeugen.")
+    if body is None and stationaere_flaeche is not None:
+        body = stationaere_flaeche.body
+    if body is None:
+        bleche = [b for b in comp.bRepBodies if ist_blech(b)]
+        if not bleche:
+            raise AdapterFehler("Kein gültiger Blechkörper in der Komponente «%s» – keine Abwicklung möglich." % getattr(comp, "name", "?"))
+        if len(bleche) > 1:
+            raise AdapterFehler("Die Komponente «%s» hat %d Blechkörper – bitte die feststehende Fläche des gewünschten Körpers wählen." % (getattr(comp, "name", "?"), len(bleche)))
+        body = bleche[0]
+    if not _gleiche(body.parentComponent, comp):
+        raise AdapterFehler("Der Körper gehört nicht zur Komponente «%s» – keine Abwicklung." % getattr(comp, "name", "?"))
+    if not ist_blech(body):
+        raise AdapterFehler("Kein gültiger Blechkörper: «%s» ist kein Blech (Fusion-Arbeitsbereich «Blech»)." % getattr(body, "name", "?"))
+    probleme = koerper_pruefen(body)
+    if probleme:
+        raise AdapterFehler("Kein gültiger Blechkörper: " + " ".join(probleme))
     if stationaere_flaeche is None:
-        raise AdapterFehler("Für die Abwicklung bitte die feststehende Fläche (Blechoberseite) wählen.")
+        stationaere_flaeche = stationaere_flaeche_waehlen(body)
+        if stationaere_flaeche is None:
+            raise AdapterFehler("Stationäre Fläche fehlt: Der Blechkörper hat keine ebene Fläche.")
+        logger.info("Stationäre Fläche nach fester Regel gewählt (grösste ebene Fläche, Normale +Z zuerst)")
+    else:
+        if not _gleiche(stationaere_flaeche.body, body):
+            raise AdapterFehler("Stationäre Fläche ungeeignet: Sie gehört zu einem anderen Körper.")
+        if not isinstance(stationaere_flaeche.geometry, adsk.core.Plane):
+            raise AdapterFehler("Stationäre Fläche ungeeignet: Sie ist nicht eben.")
     fp = comp.createFlatPattern(stationaere_flaeche)
     if not fp:
         raise AdapterFehler("Fusion konnte keine Abwicklung erzeugen (Körper evtl. nicht abwickelbar).")
@@ -1902,12 +1948,33 @@ def abwicklung_masse(fp):
 
 
 def dxf_abwicklung(fp, dateipfad):
+    """Abwicklung als DXF exportieren und den Export WIRKLICH prüfen (execute() ausgeführt, Datei neu geschrieben und nicht leer).
+    Optionen ausdrücklich: Splines bleiben Splines (isSplineConvertedToPolyline = False, falls die Eigenschaft existiert). Einheit/Massstab legt
+    Fusion fest (Massstab 1:1; die Einheit folgt laut Erfahrung den Dokumenteinheiten – die Gegenprobe dxf_pruefung meldet cm statt mm als
+    Fehler). Eine alte Datei gleichen Namens wird vorher entfernt, damit sie nie als neuer Export gilt. Nicht live geprüft."""
+    import os
     em = design().exportManager
     if not hasattr(em, "createDXFFlatPatternExportOptions"):
         raise AdapterFehler("Diese Fusion-Version kann die Abwicklung nicht als DXF exportieren.")
+    ordner = os.path.dirname(os.path.abspath(dateipfad))
+    if not os.path.isdir(ordner):
+        raise AdapterFehler("Exportordner fehlt: %s" % ordner)
+    if not os.access(ordner, os.W_OK):
+        raise AdapterFehler("In den Exportordner kann nicht geschrieben werden: %s" % ordner)
+    if os.path.exists(dateipfad):
+        try:
+            os.remove(dateipfad)
+        except OSError as e:
+            raise AdapterFehler("Die alte DXF-Datei lässt sich nicht ersetzen (%s): %s" % (e, dateipfad))
     opt = em.createDXFFlatPatternExportOptions(dateipfad, fp)
-    ok = em.execute(opt)
-    import os
+    if opt is None:
+        raise AdapterFehler("Fusion hat keine DXF-Exportoptionen geliefert.")
+    gesetzt = setze(opt, ["isSplineConvertedToPolyline"], False)
+    logger.info("DXF-Exportoptionen", splines_als_splines=gesetzt, pfad=os.path.basename(dateipfad))
+    try:
+        ok = em.execute(opt)
+    except Exception as e:
+        raise AdapterFehler("Der DXF-Export ist fehlgeschlagen (Fusion: %s): %s" % ((str(e).strip().splitlines() or ["?"])[-1], dateipfad))
     if not ok or not os.path.exists(dateipfad) or os.path.getsize(dateipfad) == 0:
         raise AdapterFehler("Fusion hat die DXF-Datei nicht erzeugt: %s" % dateipfad)
     return dateipfad

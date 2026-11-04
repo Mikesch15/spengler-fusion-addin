@@ -112,3 +112,13 @@ class ExportKontrolle(DatenTest):
                 ex.dxf_kontrolle(self._datei(inhalt), soll)
             self.assertIn("DXF fehlerhaft", str(cm.exception))
             self.assertIn("t.dxf", str(cm.exception), "die Datei wird zur Kontrolle genannt")
+
+
+class Konturen(unittest.TestCase):
+    """Zusatzprofile erkennen: Anzahl Konturen ohne Biegelinien (selbst gebaute DXF – KEINE echte Fusion-DXF)."""
+    def test_rechteck_mit_biegelinie_und_loch(self):
+        r = dp.pruefe(dxf(rechteck(100, 60) + [linie(0, 20, 100, 20, "BEND_UP")]), 100, 60, erwartete_konturen=1)
+        self.assertEqual((r["konturen"], r["hinweise"]), (1, []))
+        r = dp.pruefe(dxf(rechteck(100, 60) + [kreis(50, 40, 5)]), 100, 60, erwartete_konturen=1)
+        self.assertEqual(r["konturen"], 2)
+        self.assertTrue(any("Zusatzprofile" in h for h in r["hinweise"]))

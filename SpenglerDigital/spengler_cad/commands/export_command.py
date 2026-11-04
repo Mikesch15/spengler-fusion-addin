@@ -132,7 +132,7 @@ def _abw(self, args):
         try:
             if not fa.ist_blech(body):
                 raise fa.AdapterFehler("kein Blechkörper")
-            fp, neu = fa.abwicklung(comp, flaeche if flaeche is not None and flaeche.body == body else None)
+            fp, neu = fa.abwicklung(comp, flaeche if flaeche is not None and flaeche.body == body else None, body)
             masse = fa.abwicklung_masse(fp)
             t = fa.blechdicke_mm(body)
             q = _quelle(body) or {}

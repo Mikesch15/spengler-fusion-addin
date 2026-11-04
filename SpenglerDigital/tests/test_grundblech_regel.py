@@ -198,3 +198,88 @@ class VersatzRueckbau(_Patch):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Abwicklung(_Patch):
+    """Voraussetzungen vor createFlatPattern und echter DXF-Export – Attrappen, KEIN Fusion-Test."""
+    def _flaeche(self, body, area, nz, x=0.0):
+        import adsk.core
+        f = type("F", (), {})()
+        f.geometry, f.area, f.body, f.nz = adsk.core.Plane(), area, body, nz
+        f.pointOnFace = ff.Punkt(x, 0, 0)
+        return f
+
+    def _aufbau(self, n_bleche=1, blech=True):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Teil")
+        for _ in range(n_bleche):
+            k = ff.Koerper(c, 1.0, c.bRepBodies)
+            k.isSheetMetal = blech
+            k.faces = [self._flaeche(k, 60.0, -1.0), self._flaeche(k, 60.0, 1.0), self._flaeche(k, 2.0, 0.0)]
+            c.bRepBodies.elemente.append(k)
+        c.flatPattern = None
+        c.erzeugt = []
+        c.createFlatPattern = lambda f: c.erzeugt.append(f) or "FP"
+        self.patche(flaechennormale=lambda f, p=None: (0, 0, f.nz))
+        return fa, d, c
+
+    def test_feste_auswahlregel(self):
+        fa, d, c = self._aufbau()
+        self.assertEqual(fa.abwicklung(c), ("FP", True))
+        self.assertEqual(c.erzeugt[0].nz, 1.0, "grösste ebene Fläche, Normale +Z zuerst")
+
+    def test_vorhandene_abwicklung_wird_verwendet(self):
+        fa, d, c = self._aufbau()
+        c.flatPattern = "ALT"
+        self.assertEqual(fa.abwicklung(c), ("ALT", False))
+
+    def test_ungueltiges_wird_abgelehnt(self):
+        fa, d, c = self._aufbau(blech=False)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c)
+        self.assertIn("Kein gültiger Blechkörper", str(cm.exception))
+        fa, d, c = self._aufbau(n_bleche=2)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c)
+        self.assertIn("2 Blechkörper", str(cm.exception))
+        fremd = ff.Koerper(d.neue_komponente("Anderes"), 1.0, ff.Liste())
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c, self._flaeche(c.bRepBodies.item(0), 60, 1.0), fremd)
+        self.assertIn("gehört nicht zur Komponente", str(cm.exception))
+        rund = self._flaeche(c.bRepBodies.item(0), 60, 1.0)
+        rund.geometry = object()
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c, rund, c.bRepBodies.item(0))
+        self.assertIn("nicht eben", str(cm.exception))
+        self.assertEqual(c.erzeugt, [], "nichts abgewickelt")
+
+    def test_dxf_export_wird_wirklich_geprueft(self):
+        import os
+        import tempfile
+        fa, d, c = self._aufbau()
+        ordner = tempfile.mkdtemp(prefix="spengler_dxf_")
+        pfad = os.path.join(ordner, "teil.dxf")
+        with open(pfad, "w") as f:
+            f.write("ALT")                                           # alte Datei darf nie als neuer Export gelten
+
+        class EM(object):
+            schreiben = False
+
+            def createDXFFlatPatternExportOptions(self, p, fp):
+                return type("O", (), {"isSplineConvertedToPolyline": True, "p": p})()
+
+            def execute(self, opt):
+                if self.schreiben:
+                    with open(opt.p, "w") as f:
+                        f.write("0\nEOF\n")
+                return True
+        d.exportManager = EM()
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.dxf_abwicklung("FP", pfad)                            # execute meldet True, schreibt aber nichts
+        self.assertIn("nicht erzeugt", str(cm.exception))
+        d.exportManager.schreiben = True
+        self.assertEqual(fa.dxf_abwicklung("FP", pfad), pfad)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.dxf_abwicklung("FP", os.path.join(ordner, "fehlt", "x.dxf"))
+        self.assertIn("Exportordner fehlt", str(cm.exception))
