@@ -636,6 +636,52 @@ def _aufbau_richtung(flaeche, skizze):
         return None
 
 
+_VERSATZ_ALT = {}      # entityToken der versetzten Kante → [entityToken der Kanten auf der Stirnfläche (anderes Niveau)] – Ersatz, falls Fusion die Kante ablehnt
+
+
+def _kante_sonde(edge, text=""):
+    """Diagnose für das Protokoll: Flächen der Kante, Blech-Eigenschaft, und ob Fusion für diese Kante überhaupt eine Flansch-Eingabe anlegt
+    (createEdgeFlangeInput). Verändert nichts. Nicht live geprüft."""
+    info = {}
+    try:
+        info["flaechen"] = " | ".join("%s %.3f cm²" % (type(f.geometry).__name__, f.area) for f in edge.faces)
+    except Exception as ex:
+        info["flaechen"] = "nicht lesbar (%s)" % ex
+    try:
+        info["blech"] = getattr(edge.body, "isSheetMetal", None)
+    except Exception:
+        info["blech"] = "?"
+    try:
+        inp = _flange_features(edge.body.parentComponent).createEdgeFlangeInput([edge], _vi_mm(5))
+        info["eingabe"] = "ok" if inp is not None else "keine Eingabe"
+    except Exception as ex:
+        info["eingabe"] = (str(ex).strip().splitlines() or [type(ex).__name__])[-1][:160]
+    try:
+        info["laenge_mm"] = round(edge.length * 10, 2)
+    except Exception:
+        pass
+    logger.info("Kanten-Sonde " + text, **info)
+    return info
+
+
+def _versatz_alternativen(edge):
+    """Die andere lange Kante derselben Stirnfläche (Blech-Dickenfläche) – oben/unten. → Liste entityToken."""
+    try:
+        stirn = min(list(edge.faces), key=lambda f: f.area)
+        _, d0 = _linie(edge)
+        out = []
+        for k in stirn.edges:
+            if k.entityToken == edge.entityToken or _kurventyp(k) != "linie":
+                continue
+            _, dk = _linie(k)
+            if abs(abs(_skal(_v(dk), _v(d0))) - 1.0) < 1e-6 and k.length > 0.5 * edge.length:
+                out.append(k.entityToken)
+        return out
+    except Exception:
+        logger.warnung("Versatz: Alternativkanten nicht bestimmbar")
+        return []
+
+
 def _versatz_anwenden(edge, versatz_mm, dicke_mm):
     """Versatz an EINER Kante → (erzeugte Objekte, neue Kante)."""
     erzeugt, kanten = _versatz_gruppe([edge], versatz_mm, dicke_mm)
@@ -824,6 +870,12 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
                 nr, len(kandidaten), "%.2f mm vom Soll entfernt" % nah[0][0] if nah else "keine"))
         neue.append(kandidaten[0])
     logger.info("Versatz angewendet", versatz_mm=versatz_mm, art="Rückversatz" if s > 0 else "Vorversatz", kanten=len(neue))
+    for k in neue:           # Ersatzkanten merken und die Kante für das Protokoll untersuchen (Live 4.11.: Fusion lehnte die Kante nach dem Rückversatz ab)
+        try:
+            _VERSATZ_ALT[k.entityToken] = _versatz_alternativen(k)
+            _kante_sonde(k, "nach dem Versatz")
+        except Exception:
+            logger.warnung("Versatz: Kante nicht untersucht")
     return erzeugt, neue
 
 
@@ -868,7 +920,27 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                 except Exception:
                     token = None
                 phase = "Schritt %d" % i
-            feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm)
+            try:
+                feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm)
+            except AdapterFehler as ex_versatz:
+                # Versetzte Kante von Fusion abgelehnt: dieselbe Stirnfläche hat noch eine Kante auf dem anderen Niveau (Blech oben/unten) – damit versuchen.
+                feat = None
+                alt = _VERSATZ_ALT.get(token, []) if (op.get("versatz") and token) else []
+                for nr_alt, tok in enumerate(alt, 1):
+                    k_alt = _kante_aufloesen(tok, None)
+                    if k_alt is None:
+                        continue
+                    _kante_sonde(k_alt, "Ersatzkante %d" % nr_alt)
+                    try:
+                        feat = _schritt_bauen(k_alt, op, gespiegelt, dicke_mm)
+                        aktuell = k_alt
+                        logger.info("Flansch an der Ersatzkante der Stirnfläche gebaut", ersatz=nr_alt)
+                        hinweise.append("Schritt %d: Fusion lehnte die versetzte Kante ab – die Kante auf dem anderen Niveau der Stirnfläche wurde verwendet." % i)
+                        break
+                    except AdapterFehler as ex2:
+                        logger.warnung("Ersatzkante abgelehnt", ersatz=nr_alt, grund=str(ex2).splitlines()[0][:160])
+                if feat is None:
+                    raise ex_versatz
             erzeugt.append(feat)
             neu = None
             if i < len(ops):
