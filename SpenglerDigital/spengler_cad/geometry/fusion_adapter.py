@@ -1179,6 +1179,39 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                             rueckbau_ok=zurueck)
 
 
+def komponente_entfernen(comp):
+    """Eine vom Add-in neu angelegte Komponente samt Inhalt wieder löschen (Rückbau nach einem Fehler). → True, wenn sie weg ist. Nicht live geprüft (Occurrence.deleteMe)."""
+    try:
+        try:
+            token = comp.entityToken
+        except Exception:
+            token = None
+        for occ in list(design().rootComponent.occurrences):
+            try:
+                gleich = (occ.component.entityToken == token) if token else (occ.component == comp)
+            except Exception:
+                gleich = False
+            if gleich:
+                return bool(occ.deleteMe())
+        return False
+    except Exception:
+        logger.ausnahme("Rückbau der Komponente fehlgeschlagen")
+        return False
+
+
+def abbruch_mit_rueckbau(comp, fehler, was):
+    """Nach einem Fehler beim Bau einer NEUEN Komponente: halbfertige Komponente entfernen und mit klarer Aussage abbrechen (das Modell bleibt nicht halb verändert zurück).
+    Gelingt der Rückbau nicht, steht das ausdrücklich in der Meldung."""
+    ok = komponente_entfernen(comp)
+    text = str(fehler) if isinstance(fehler, AdapterFehler) else "Fusion meldet: %s" % ((str(fehler).strip().splitlines() or [type(fehler).__name__])[-1])
+    try:
+        name = comp.name
+    except Exception:
+        name = "?"
+    raise AdapterFehler("%s: %s %s" % (was, text, "Das halbfertige Bauteil wurde wieder entfernt." if ok else
+                                       "ACHTUNG: Das halbfertige Bauteil «%s» liess sich nicht entfernen – bitte mit Strg+Z zurücknehmen oder die Komponente löschen." % name), rueckbau_ok=ok)
+
+
 def referenzbild_einfuegen(dateipfad, name="Referenzbild"):
     """Bild (Foto/Skizze aus der App) als Referenzbild (Canvas) auf die XY-Ebene des aktiven Dokuments legen; Grösse und Lage stellt der Benutzer in Fusion ein.
     NICHT live geprüft (Canvases.createInput/add)."""

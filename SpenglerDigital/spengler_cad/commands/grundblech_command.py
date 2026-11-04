@@ -94,6 +94,32 @@ def _geaendert(args):
         _vorbelegen(args.inputs)
 
 
+def bauen(m, g, mat, laenge, name, mit_kanten):
+    """Baut das Blech in einer NEUEN Komponente. → (Bericht, Hinweise). Bei JEDEM Fehler wird die halbfertige Komponente wieder entfernt (fa.abbruch_mit_rueckbau)."""
+    von = fa.zeitleiste_stand()
+    comp = fa.neue_komponente(name)
+    try:
+        bericht = []
+        body = fa.grundblech_bauen(comp, laenge, g["breite"], mat["thickness"])
+        dicke = fa.blechdicke_mm(body)
+        bericht.append("Grundblech %.0f × %.0f mm erzeugt." % (laenge, g["breite"]))
+        if dicke is not None and abs(dicke - mat["thickness"]) > 0.01:
+            bericht.append("⚠ Die Blechregel in Fusion hat %.2f mm, das Material «%s» %.2f mm – bitte die Blechregel (Blech → Blechregeln) anpassen." % (dicke, mat["name"], mat["thickness"]))
+        hinweise = list(g["hinweise"])
+        if mit_kanten and g["ops"]:
+            kante = fa.grundblech_kante(body)
+            markierung = {"vorlageName": "Massaufnahme " + (m.get("title") or str(m["id"])), "material": mat, "operationen": g["ops"], "addin": VERSION, "quelle": "app"}
+            h2 = []
+            feats = fa.folge_anbringen(kante, g["ops"], dicke or mat["thickness"], markierung, h2)
+            bericht.append("%d Schritt(e) an der Kante gebaut." % len(feats))
+            hinweise += h2
+    except Exception as ex:
+        logger.ausnahme("Blech aus Massaufnahme abgebrochen")
+        fa.abbruch_mit_rueckbau(comp, ex, "Blech «%s»" % name)
+    fa.zeitleiste_gruppieren(von, "Spengler: %s" % name)
+    return bericht, hinweise
+
+
 @base.sicher("Blech aus Massaufnahme")
 def _ausfuehren_innen(self, args):
     inp = args.command.commandInputs
@@ -104,23 +130,7 @@ def _ausfuehren_innen(self, args):
     if laenge <= 0:
         raise fa.AdapterFehler("Die Länge muss grösser als 0 sein.")
     name = inp.itemById("name").value.strip() or "Blech aus App"
-    von = fa.zeitleiste_stand()
-    comp = fa.neue_komponente(name)
-    bericht = []
-    body = fa.grundblech_bauen(comp, laenge, g["breite"], mat["thickness"])
-    dicke = fa.blechdicke_mm(body)
-    bericht.append("Grundblech %.0f × %.0f mm erzeugt." % (laenge, g["breite"]))
-    if dicke is not None and abs(dicke - mat["thickness"]) > 0.01:
-        bericht.append("⚠ Die Blechregel in Fusion hat %.2f mm, das Material «%s» %.2f mm – bitte die Blechregel (Blech → Blechregeln) anpassen." % (dicke, mat["name"], mat["thickness"]))
-    hinweise = list(g["hinweise"])
-    if inp.itemById("kanten").value and g["ops"]:
-        kante = fa.grundblech_kante(body)
-        markierung = {"vorlageName": "Massaufnahme " + (m.get("title") or str(m["id"])), "material": mat, "operationen": g["ops"], "addin": VERSION, "quelle": "app"}
-        h2 = []
-        feats = fa.folge_anbringen(kante, g["ops"], dicke or mat["thickness"], markierung, h2)
-        bericht.append("%d Schritt(e) an der Kante gebaut." % len(feats))
-        hinweise += h2
-    fa.zeitleiste_gruppieren(von, "Spengler: %s" % name)
+    bericht, hinweise = bauen(m, g, mat, laenge, name, bool(inp.itemById("kanten").value))
     try:
         e = Einstellungen().laden()
         if auftrag_logik.material_merken(e, mat["id"]):

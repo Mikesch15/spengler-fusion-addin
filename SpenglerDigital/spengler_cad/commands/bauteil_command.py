@@ -165,6 +165,34 @@ def _pruefen(args):
         args.areInputsValid = False
 
 
+def bauen(p, v, mat, name):
+    """Baut das Bauteil in einer NEUEN Komponente. → (Bericht, Hinweise). Bei JEDEM Fehler wird die halbfertige Komponente wieder entfernt (fa.abbruch_mit_rueckbau)."""
+    g = p["geometrie"]
+    von = fa.zeitleiste_stand()
+    comp = fa.neue_komponente(name)
+    try:
+        body = fa.blech_aus_profil(comp, g["schleifen"], mat["thickness"])
+        dicke = fa.blechdicke_mm(body) or mat["thickness"]
+        bericht = ["Grundblech erzeugt: %s." % p["text"]]
+        if abs(dicke - mat["thickness"]) > 0.01:
+            bericht.append("⚠ Die Blechregel in Fusion hat %.2f mm, das Material «%s» %.2f mm – bitte die Blechregel anpassen." % (dicke, mat["name"], mat["thickness"]))
+        ketten = fa.kanten_nach_ketten(body, g["ketten"])
+        hinweise = []
+        for seite in ("verlauf", "gegen", "start", "ende"):
+            ops = p["seiten"].get(seite) or []
+            if not ops or seite not in ketten:
+                continue
+            markierung = {"vorlageId": v["id"], "vorlageVersion": v.get("version"), "vorlageName": v["name"], "seite": seite, "material": mat, "operationen": ops, "addin": VERSION}
+            feats = fa.kanten_folge_bauen(ketten[seite], ops, dicke, markierung, hinweise)
+            bericht.append("%s: %d Feature(s) an %d Kante(n)." % (models_text(seite), len(feats), len(ketten[seite])))
+    except Exception as ex:
+        logger.ausnahme("Bauteil abgebrochen")
+        fa.abbruch_mit_rueckbau(comp, ex, "Bauteil «%s»" % name)
+    if fa.zeitleiste_gruppieren(von, "Spengler: %s" % name):
+        bericht.append("In der Zeitleiste als Gruppe abgelegt – ein Strg+Z nimmt alles zurück.")
+    return bericht, hinweise
+
+
 @base.sicher("Bauteil erstellen")
 def _ausfuehren_innen(self, args):
     inp = args.command.commandInputs
@@ -175,25 +203,7 @@ def _ausfuehren_innen(self, args):
         raise fa.AdapterFehler(fehler)
     name = inp.itemById("name").value.strip() or v["name"]
     g = p["geometrie"]
-    von = fa.zeitleiste_stand()
-    comp = fa.neue_komponente(name)
-    body = fa.blech_aus_profil(comp, g["schleifen"], mat["thickness"])
-    dicke = fa.blechdicke_mm(body) or mat["thickness"]
-    bericht = ["Grundblech erzeugt: %s." % p["text"]]
-    if abs(dicke - mat["thickness"]) > 0.01:
-        bericht.append("⚠ Die Blechregel in Fusion hat %.2f mm, das Material «%s» %.2f mm – bitte die Blechregel anpassen." % (dicke, mat["name"], mat["thickness"]))
-    ketten = fa.kanten_nach_ketten(body, g["ketten"])
-    hinweise = []
-    for seite in ("verlauf", "gegen", "start", "ende"):
-        ops = p["seiten"].get(seite) or []
-        if not ops or seite not in ketten:
-            continue
-        markierung = {"vorlageId": v["id"], "vorlageVersion": v.get("version"), "vorlageName": v["name"], "seite": seite, "material": mat, "operationen": ops, "addin": VERSION}
-        feats = fa.kanten_folge_bauen(ketten[seite], ops, dicke, markierung, hinweise)
-        bericht.append("%s: %d Feature(s) an %d Kante(n)." % (models_text(seite), len(feats), len(ketten[seite])))
-    gruppiert = fa.zeitleiste_gruppieren(von, "Spengler: %s" % name)
-    if gruppiert:
-        bericht.append("In der Zeitleiste als Gruppe abgelegt – ein Strg+Z nimmt alles zurück.")
+    bericht, hinweise = bauen(p, v, mat, name)
     try:
         e = Einstellungen().laden()
         auftrag_logik.material_merken(e, mat["id"])
