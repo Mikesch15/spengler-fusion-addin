@@ -2,6 +2,7 @@
 Ein Ergebnis ist {"name", "status", "detail", "dauer"}; status: ok | warnung | fehler | uebersprungen."""
 
 SYMBOL = {"ok": "✓", "warnung": "⚠", "fehler": "✗", "uebersprungen": "–"}
+WORT = {"ok": "PASS", "warnung": "PASS mit Hinweis", "fehler": "FAIL", "uebersprungen": "NICHT GETESTET"}
 TEST_ID = "97.002"
 
 
@@ -31,7 +32,7 @@ def text(ergebnisse, kopf=""):
     zeilen = [kopf] if kopf else []
     zeilen.append("Ergebnis: " + kurz(ergebnisse))
     for i, e in enumerate(ergebnisse, 1):
-        zeilen.append("%s %d. %s%s" % (SYMBOL.get(e.get("status"), "?"), i, e.get("name", ""),
+        zeilen.append("%s %s %d. %s%s" % (SYMBOL.get(e.get("status"), "?"), WORT.get(e.get("status"), "?"), i, e.get("name", ""),
                                        "  (%.1f s)" % e["dauer"] if e.get("dauer") is not None else ""))
         d = (e.get("detail") or "").strip()
         if d:

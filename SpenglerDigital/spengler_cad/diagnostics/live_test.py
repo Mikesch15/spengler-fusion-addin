@@ -57,7 +57,20 @@ def _zustand(root):
         skizzen += c.sketches.count
         koerper += c.bRepBodies.count
         vol += sum(b.volume for b in c.bRepBodies) * 1000.0
-    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": skizzen, "koerper": koerper, "vol": round(vol, 1)}
+    d = fa.design()
+
+    def zahl(f):
+        try:
+            return f()
+        except Exception:
+            return None
+    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": skizzen, "koerper": koerper, "vol": round(vol, 1),
+            "occurrences": zahl(lambda: root.allOccurrences.count), "komponenten": zahl(lambda: d.allComponents.count),
+            "parameter": zahl(lambda: d.userParameters.count), "blechregeln": zahl(lambda: d.designSheetMetalRules.count),
+            "canvases": zahl(lambda: root.canvases.count)}
+
+
+ZUSTAND_GLEICH = ("zeitleiste", "skizzen", "koerper", "occurrences", "komponenten", "parameter", "blechregeln", "canvases")
 
 
 def _oberflaeche(body, seite="oben"):
@@ -219,10 +232,14 @@ def _rueckbau_probe(ctx, stelle, bauen):
     finally:
         fa.TESTFEHLER.discard(stelle)
     nachher = _zustand(ctx.design.rootComponent)
-    gleich = all(nachher[k] == vorher[k] for k in ("skizzen", "koerper", "zeitleiste")) and abs(nachher["vol"] - vorher["vol"]) < 0.5
-    txt = "%s: vorher %s, nachher %s, Rückbau gemeldet %s" % (stelle, vorher, nachher, "ok" if ok else "UNVOLLSTÄNDIG")
-    if not gleich or not ok:
-        raise _Falsch(txt + " – " + meldung[:200])
+    # Nur GENAU der eingeschleuste Fehler zählt – ein anderer Adapterfehler vorher wäre kein Beweis für den Rückbau an dieser Stelle.
+    richtig = fa.testfehler_text(stelle) in meldung
+    abweichung = [k for k in ZUSTAND_GLEICH if nachher[k] != vorher[k]] + (["vol"] if abs(nachher["vol"] - vorher["vol"]) >= 0.5 else [])
+    txt = "%s: %s; Zustand %s%s; Rückbau gemeldet %s" % (
+        stelle, "eingeschleuster Fehler ausgelöst" if richtig else "ANDERER Fehler: " + meldung[:200], "unverändert" if not abweichung else "VERÄNDERT",
+        (" (%s)" % ", ".join("%s %s→%s" % (k, vorher[k], nachher[k]) for k in abweichung)) if abweichung else "", "ok" if ok else "UNVOLLSTÄNDIG")
+    if not richtig or abweichung or not ok:
+        raise _Falsch(txt)
     return txt
 
 
@@ -232,6 +249,28 @@ def t_rueckbau(ctx):
     for stelle in ("versatz_skizze", "versatz_extrusion"):
         erg.append(_rueckbau_probe(ctx, stelle, lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=5.0)], ctx.dicke, {"livetest": 1}, [])))
     erg.append(_rueckbau_probe(ctx, "grundblech_feature", lambda: fa.grundblech_bauen(ctx.root, LAENGE, BREITE, 1.0)))
+    erg.append(_rueckbau_probe(ctx, "gruppe_nach_versatz", lambda: fa.folge_anbringen_gruppe(_eckkanten(ctx), [_op("flansch", 90, FLANSCH, versatz=-5.0)], ctx.dicke, {"livetest": 1}, [])))
+    return "\n".join(erg)
+
+
+def _detail_datei(ctx):
+    """Kleines Test-Detail (Quader 50 × 10 × 20 mm mit Parameter) als .f3d – im Testdokument erzeugt, danach wieder entfernt."""
+    comp = fa.quader_komponente(ctx.design.rootComponent, "Live-Test Detailquelle", 50.0, 10.0, 20.0, "SD_LT_H")
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "detail.f3d")
+    fa.komponente_exportieren(comp, pfad)
+    fa.komponente_entfernen(comp)
+    return pfad
+
+
+def t_rueckbau_import(ctx):
+    """3D-Detail: Fehler in jeder Phase (Import, Ausrichtung, Parameter, Basis-Feature, Kombinieren) – danach darf weder Occurrence, Komponente,
+    Parameter noch Zwischenkörper/Feature übrig sein."""
+    f3d = _detail_datei(ctx)
+    T = [[1, 0, 0, 20.0], [0, 1, 0, 20.0], [0, 0, 1, 1.0], [0, 0, 0, 1]]
+    token = ctx.body.entityToken
+    erg = []
+    for stelle in ("detail_import", "detail_ausrichten", "detail_parameter", "detail_basis", "detail_kombinieren"):
+        erg.append(_rueckbau_probe(ctx, stelle, lambda: fa.detail_einsetzen(f3d, ctx.design.rootComponent, T, None, token)))
     return "\n".join(erg)
 
 
@@ -325,6 +364,14 @@ def t_gehrung_flansch(ctx):
         einzel.append(fa.flansch(k, winkel=90, laenge_mm=FLANSCH))
     einzeln = _messen(ctx)
     s, t = messung.pruefe_gehrung(einzeln, gemeinsam)
+    # Geometrische Eckprüfung am GEMEINSAMEN Flansch (neu gebaut, Eckdaten vor dem Bau gelesen): Volumen allein beweist keine Gehrung.
+    fa.entfernen(einzel)
+    eck = fa.ecke_daten(_eckkanten(ctx))
+    feat2 = fa.flansch(_eckkanten(ctx), winkel=90, laenge_mm=FLANSCH)
+    bew, txt = fa.gehrung_eckspalt(feat2, eck, ctx.dicke or 1.0)
+    t += "; " + txt
+    if bew != "ok" and s == "ok":
+        s = "fehler" if bew == "fehler" else "warnung"
     ratio = messung.pruefe_flansch(vor, gemeinsam, 90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kanten[0]) + _laenge_mm(kanten[1]))
     if ratio[0] == "fehler":
         s, t = "fehler", "Gemeinsamer Flansch: " + ratio[1]
@@ -502,7 +549,8 @@ SCHRITTE = [
     ("Versatz +5 mm und −5 mm", t_versatz, True),
     ("Abwicklung und DXF (L-Blech)", t_abwicklung, True),
     ("Abwicklung und DXF (zwei Biegungen)", t_abwicklung_mehrfach, True),
-    ("Rückbau bei provoziertem Fehler (Versatz, Grundblech)", t_rueckbau, True),
+    ("Rückbau bei provoziertem Fehler (Versatz, Grundblech, Gruppe)", t_rueckbau, True),
+    ("Rückbau 3D-Detail-Import in jeder Phase", t_rueckbau_import, True),
     ("Bauteil: L-förmiger Grundrissverlauf", t_bauteil_l, False),
     ("Bauteil: geschlossener Ring", t_bauteil_ring, False),
     ("Referenzbild (Canvas) einfügen", t_referenzbild, False),
@@ -528,7 +576,7 @@ def ausfuehren(fortschritt=None):
     except Exception:
         original = None
     from .. import VERSION
-    kopf = "Live-Test Add-in %s, Fusion %s, %s" % (VERSION, app.version, time.strftime("%d.%m.%Y %H:%M"))
+    kopf = "FUSION-LIVE-TEST (echte Fusion-API, keine Attrappen) – Add-in %s, Fusion %s, %s" % (VERSION, app.version, time.strftime("%d.%m.%Y %H:%M"))
     erg, dokumente = [], []
     f = fusion_capabilities.pruefen(app)
     fehlt = [t for ok, t in f.values() if not ok]

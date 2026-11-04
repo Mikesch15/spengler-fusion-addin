@@ -20,7 +20,8 @@ class Bericht(unittest.TestCase):
     def test_text_und_meldung(self):
         t = b.text(self.erg, "Kopf")
         self.assertIn("Kopf", t)
-        self.assertIn("⚠ 2. B", t)
+        self.assertIn("⚠ PASS mit Hinweis 2. B", t)
+        self.assertIn("NICHT GETESTET 3. C", t, "übersprungene Schritte heissen ausdrücklich NICHT GETESTET")
         self.assertIn("zweite Zeile", t)
         self.assertEqual(b.kurz(self.erg), "1 ok, 1 Warnungen, 0 Fehler, 1 übersprungen")
         self.assertIn("Gehrung nicht geschnitten", b.meldung(self.erg))

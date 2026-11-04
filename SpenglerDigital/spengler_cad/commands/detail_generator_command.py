@@ -238,40 +238,29 @@ def _einsetzen(inp, integrieren=False):
             raise fa.AdapterFehler("Quellgeometrie fehlt: %s" % f3d)
         phase = "Import"
         root = fa.design().rootComponent
-        occ, neue_param = fa.detail_importieren(f3d, root)
-        phase = "Ausrichten"
-        occ.transform = fa.matrix_fusion(T)
-        phase = "Parameter setzen"
-        nach_fusion = {}
-        for p in d.get("parameters", []):
-            e = p.get("unit")
-            nach_fusion[p["fusionName"]] = units.fusion_ausdruck_mm(werte[p["name"]]) if e == "mm" else (
-                units.fusion_ausdruck_grad(werte[p["name"]]) if e == "deg" else str(werte[p["name"]]))
-        zuordnung, offen = detail_validation.parameter_zuordnen(list(nach_fusion), neue_param)
-        gesetzt, fehlend = fa.parameter_setzen({zuordnung[n]: a for n, a in nach_fusion.items() if n in zuordnung})
-        fehlend += offen
-        if any(zuordnung[n] != n for n in zuordnung):
-            hinweise = hinweise + ["Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n)]
-        phase = "Markieren"
-        fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
-        phase = "Kollisionsprüfung"
-        ziel_body = fa.koerper_neu(ziel_body_token)
-        andere = [b for b in root.bRepBodies if b.entityToken != ziel_body_token]
-        koll = fa.kollision(occ, andere)
-        cf = None
-        if integrieren:
-            phase = "Integration"
-            if ziel_body is None:
-                raise fa.AdapterFehler("Der Zielkörper ist nach dem Import nicht mehr auffindbar.")
-            try:
-                cf, warn = fa.detail_integrieren(occ, ziel_body, neue_param)
-            except fa.AdapterFehler:
-                fa.entfernen([occ])   # Import wieder entfernen; Basis-/Kombinieren-Feature hat detail_integrieren selbst zurückgebaut
-                raise
-            hinweise = hinweise + warn
+
+        def nach_import(occ, neue_param):
+            nach_fusion = {}
+            for p in d.get("parameters", []):
+                e = p.get("unit")
+                nach_fusion[p["fusionName"]] = units.fusion_ausdruck_mm(werte[p["name"]]) if e == "mm" else (
+                    units.fusion_ausdruck_grad(werte[p["name"]]) if e == "deg" else str(werte[p["name"]]))
+            zuordnung, offen = detail_validation.parameter_zuordnen(list(nach_fusion), neue_param)
+            gesetzt, fehlend = fa.parameter_setzen({zuordnung[n]: a for n, a in nach_fusion.items() if n in zuordnung})
+            h = []
+            if any(zuordnung[n] != n for n in zuordnung):
+                h.append("Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n))
+            fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
+            andere = [b for b in root.bRepBodies if b.entityToken != ziel_body_token]
+            return {"gesetzt": gesetzt, "fehlend": fehlend + offen, "hinweise_import": h, "koll": fa.kollision(occ, andere)}
+        # Atomar: jeder Fehler in Import, Ausrichtung, Parametern oder Integration entfernt Import und neue Parameter wieder (fa.detail_einsetzen).
+        erg = fa.detail_einsetzen(f3d, root, T, nach_import, ziel_body_token if integrieren else None)
+        occ, cf = erg["occ"], erg["cf"]
+        gesetzt, fehlend, koll = erg.get("gesetzt", []), erg.get("fehlend", []), erg.get("koll", [])
+        hinweise = hinweise + erg.get("hinweise_import", []) + erg["warnungen"]
         return d, occ, gesetzt, fehlend, hinweise, koll, cf
     except fa.AdapterFehler as e:
-        if phase in ("Prüfen", "Ziel bestimmen") or str(e).startswith(phase):
+        if phase in ("Prüfen", "Ziel bestimmen", "Import"):
             raise
         raise fa.AdapterFehler("%s: %s" % (phase, e))
     except Exception as e:

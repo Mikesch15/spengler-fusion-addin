@@ -588,9 +588,16 @@ class Rueckbau(object):
 TESTFEHLER = set()
 
 
+def testfehler_text(stelle):
+    return "Absichtlich ausgelöster Testfehler (%s)" % stelle
+
+
 def _testfehler(stelle):
     if stelle in TESTFEHLER:
-        raise AdapterFehler("Absichtlich ausgelöster Testfehler (%s)" % stelle)
+        raise AdapterFehler(testfehler_text(stelle))
+
+
+testfehler = _testfehler
 
 
 # ------------------------------------------------------------------ Richtung jedes Schritts prüfen
@@ -1236,6 +1243,60 @@ def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, di
                                          "Flansch fehlt, Spalt oder Überlappung?")
 
 
+def ecke_daten(kanten):
+    """VOR dem Bau lesen (danach sind die Kanten oft ungültig): gemeinsame Ecke, Kantenrichtungen von der Ecke weg, Blechnormale an der Ecke.
+    → dict oder None. Nicht live geprüft."""
+    try:
+        ecke = None
+        for a in (kanten[0].startVertex, kanten[0].endVertex):
+            for b in (kanten[1].startVertex, kanten[1].endVertex):
+                if max(abs(x - y) for x, y in zip(_v(a.geometry), _v(b.geometry))) < 1e-4:
+                    ecke = _v(a.geometry)
+        if ecke is None:
+            return None
+
+        def weg(k):
+            p0, p1 = _v(k.startVertex.geometry), _v(k.endVertex.geometry)
+            q = p1 if max(abs(x - y) for x, y in zip(p0, ecke)) < 1e-4 else p0
+            return _einheit(_plus(q, ecke, 1.0, -1.0))
+        blech = max(list(kanten[0].faces), key=lambda f: f.area)
+        return {"ecke": ecke, "e1": weg(kanten[0]), "e2": weg(kanten[1]), "nb": tuple(flaechennormale(blech, adsk.core.Point3D.create(*ecke)))}
+    except Exception:
+        logger.warnung("Eckdaten nicht lesbar")
+        return None
+
+
+def gehrung_eckspalt(feat, daten, dicke_mm):
+    """Gemeinsamen Flansch an einer Ecke GEOMETRISCH prüfen (nicht nur Volumen): Gehrungsflächen des Features suchen (core/gehrung) und ihren kleinsten
+    Abstand mit Fusions MeasureManager messen. daten = ecke_daten(kanten) VOR dem Bau. → ('ok'|'fehler'|'unbekannt', Text).
+    Nicht live geprüft (Annahme: die Gehrungsflächen sind ebene Stirnflächen der Flansche, Normale in der Blechebene, gleicher Winkel zu beiden Kanten)."""
+    from ..core import gehrung
+    if not daten:
+        return "unbekannt", "Die Ecke der Kanten war nicht lesbar."
+    try:
+        kandidaten = []
+        for f in feat.faces:
+            try:
+                if not isinstance(f.geometry, adsk.core.Plane):
+                    continue
+                c = f.centroid
+                kandidaten.append((f, tuple(flaechennormale(f)), (c.x, c.y, c.z)))
+            except Exception:
+                continue
+        gw = gehrung.gehrungsflaechen([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], daten["ecke"])
+        if len(gw) < 2:
+            return "unbekannt", "Gehrungsflächen nicht eindeutig gefunden (%d) – Ecke bitte ansehen." % len(gw)
+        mm = app().measureManager
+        bester = None
+        for i in range(len(gw)):
+            for j in range(i + 1, len(gw)):
+                d = mm.measureMinimumDistance(kandidaten[gw[i]][0], kandidaten[gw[j]][0]).value * 10.0
+                bester = d if bester is None else min(bester, d)
+        return gehrung.bewerte_eckspalt(bester, dicke_mm)
+    except Exception as e:
+        return "unbekannt", "Eckspalt nicht messbar (%s)." % ((str(e).strip().splitlines() or [type(e).__name__])[-1][:100])
+
+
 def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
     """Umschlag an mehreren zusammenhängenden Kanten: je Kante ein EIGENES Saum-Feature (Fusions Saum-Eingabe nimmt laut Doku genau eine Kante),
     jedes mit Geometriekontrolle. Die Ecken sind dabei NICHT auf Gehrung geschnitten. Scheitert eine Kante, werden ALLE Säume dieser Gruppe
@@ -1307,6 +1368,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                             "auf Gehrung geschnitten." % len(edges))
             return erzeugt
         laengen = [e.length for e in edges]
+        eck = ecke_daten(list(edges)) if len(edges) == 2 else None
         vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
@@ -1314,6 +1376,11 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
         schlecht = gehrung_kontrolle(feat, comp, vol0, n0, laengen, op["laenge"], t)
         if schlecht:
             raise AdapterFehler("Fusion hat den gemeinsamen Flansch gebaut, die Kontrolle schlägt aber fehl: " + "; ".join(schlecht))
+        if len(edges) == 2:
+            # Geometrische Eckprüfung: gemessener Spalt zwischen den Gehrungsflächen. Im Bau nur als Hinweis (die Flächensuche ist live noch nicht
+            # bestätigt und soll ein gutes Ergebnis nicht verwerfen); der Live-Test wertet sie als PASS/FAIL.
+            bew, txt = gehrung_eckspalt(feat, eck, t)
+            hinweise.append("Gehrungsecke: " + txt if bew != "fehler" else "Gehrungsecke AUFFÄLLIG: " + txt)
         markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
         logger.info("Gemeinsamer Flansch mit Gehrung erzeugt und kontrolliert", kanten=len(edges), winkel=op["winkel"], laenge=op["laenge"])
         if len(ops) == 1:
@@ -2063,6 +2130,24 @@ def abwicklung_koerper(comp, zuschnitt, dicke_mm, name):
 
 
 # ------------------------------------------------------------------ 3D-Detailvorlagen
+def quader_komponente(parent, name, x_mm, y_mm, z_mm, parameter=None):
+    """Neue Komponente mit einem Quader (Ursprung in der Ecke; Höhe optional über einen neuen Benutzerparameter) – für Testdetails/Live-Test.
+    Nicht live geprüft."""
+    occ = parent.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+    comp = occ.component
+    comp.name = name
+    hoehe = adsk.core.ValueInput.createByString("%g mm" % z_mm)
+    if parameter:
+        up = design().userParameters
+        if up.itemByName(parameter) is None:
+            up.add(parameter, adsk.core.ValueInput.createByString("%g mm" % z_mm), "mm", "Live-Test")
+        hoehe = adsk.core.ValueInput.createByString(parameter)
+    sk = comp.sketches.add(comp.xYConstructionPlane)
+    sk.sketchCurves.sketchLines.addTwoPointRectangle(adsk.core.Point3D.create(0, 0, 0), adsk.core.Point3D.create(x_mm / 10.0, y_mm / 10.0, 0))
+    comp.features.extrudeFeatures.addSimple(sk.profiles.item(0), hoehe, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+    return comp
+
+
 def komponente_exportieren(comp, dateipfad):
     em = design().exportManager
     opt = em.createFusionArchiveExportOptions(dateipfad, comp)
@@ -2093,9 +2178,68 @@ def detail_importieren(f3d, ziel_comp):
     elif not im.importToTarget(opt, ziel_comp):
         raise AdapterFehler("Fusion hat das Detail nicht importiert.")
     neu = [o for o in ziel_comp.occurrences if o.entityToken not in vorher]
+    neue_param = [p.name for p in design().userParameters if p.name not in param_vorher]
     if len(neu) != 1:
-        raise AdapterFehler("Import lieferte %d neue Komponenten (erwartet 1)." % len(neu))
-    return neu[0], [p.name for p in design().userParameters if p.name not in param_vorher]
+        probleme = entfernen_bericht(neu) + parameter_entfernen(neue_param)
+        raise AdapterFehler("Import lieferte %d neue Komponenten (erwartet 1)%s." % (len(neu), " – wieder entfernt" if not probleme else
+                                                                                 " – ACHTUNG: nicht vollständig entfernt (%s)" % "; ".join(probleme)),
+                            rueckbau_ok=not probleme)
+    return neu[0], neue_param
+
+
+def parameter_entfernen(namen):
+    """Beim Import neu entstandene Benutzerparameter löschen (nur diese). → Liste der Probleme. deleteMe() → False = noch benutzt/nicht gelöscht."""
+    probleme = []
+    try:
+        up = design().userParameters
+    except Exception:
+        return ["Benutzerparameter nicht lesbar"]
+    for n in namen or []:
+        try:
+            p = up.itemByName(n)
+            if p is None:
+                continue
+            if p.deleteMe() is False or up.itemByName(n) is not None:
+                probleme.append("Parameter «%s» noch vorhanden" % n)
+        except Exception as e:
+            probleme.append("Parameter «%s»: %s" % (n, (str(e).strip().splitlines() or ["?"])[-1][:80]))
+    return probleme
+
+
+def detail_einsetzen(f3d, ziel_comp, T_mm, nach_import=None, integrieren_token=None):
+    """3D-Detail ATOMAR einsetzen: importieren → ausrichten (T_mm, 4×4 mm) → nach_import(occ, neue_param) (Parameter, Markierung, Prüfungen;
+    liefert ein dict) → optional in den Zielkörper integrieren. Jeder Fehler in jeder Phase entfernt die importierte Occurrence und die beim Import
+    neu entstandenen Parameter wieder (Integration baut ihre Basis-/Kombinieren-Features selbst zurück). → dict mit occ, neue_param, cf, warnungen
+    und den Werten aus nach_import. Testfehler-Stellen: detail_import, detail_ausrichten, detail_parameter, detail_basis, detail_kombinieren.
+    Nicht live geprüft."""
+    erg = {"occ": None, "neue_param": [], "cf": None, "warnungen": []}
+    phase = "Import"
+    try:
+        occ, neue_param = detail_importieren(f3d, ziel_comp)
+        erg.update(occ=occ, neue_param=neue_param)
+        _testfehler("detail_import")
+        phase = "Ausrichten"
+        occ.transform = matrix_fusion(T_mm)
+        _testfehler("detail_ausrichten")
+        phase = "Parameter setzen"
+        if nach_import is not None:
+            erg.update(nach_import(occ, neue_param) or {})
+        _testfehler("detail_parameter")
+        if integrieren_token:
+            phase = "Integration"
+            ziel_body = koerper_neu(integrieren_token)
+            if ziel_body is None:
+                raise AdapterFehler("Der Zielkörper ist nach dem Import nicht mehr auffindbar.")
+            erg["cf"], erg["warnungen"] = detail_integrieren(occ, ziel_body, neue_param)
+            erg["occ"] = None
+        return erg
+    except Exception as e:
+        logger.ausnahme("Detail einsetzen", phase=phase)
+        probleme = (entfernen_bericht([erg["occ"]]) if erg["occ"] is not None else []) + parameter_entfernen(erg["neue_param"])
+        text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % ((str(e).strip().splitlines() or [type(e).__name__])[-1])
+        raise AdapterFehler("%s: %s%s" % (phase, text, (" – Import wieder entfernt." if erg["occ"] is not None or erg["neue_param"] else "") if not probleme else
+                                          " – ACHTUNG: Rückbau unvollständig (%s), bitte mit Strg+Z zurücknehmen." % "; ".join(probleme)),
+                            rueckbau_ok=not probleme)
 
 
 def detail_integrieren(occ, ziel_body, neue_param=()):
@@ -2121,6 +2265,7 @@ def detail_integrieren(occ, ziel_body, neue_param=()):
         kopien = [tbm.copy(b) for b in werkzeuge]
         bf = comp.features.baseFeatures.add()
         erzeugt.append(bf)
+        _testfehler("detail_basis")
         bf.startEdit()
         try:
             for k in kopien:
@@ -2141,6 +2286,7 @@ def detail_integrieren(occ, ziel_body, neue_param=()):
             raise AdapterFehler("Fusion konnte das Detail nicht mit dem Körper vereinigen – es berührt den Körper vermutlich nicht oder "
                                 "die Geometrie überschneidet sich unzulässig (Fusion: %s)." % (str(e).strip().splitlines()[-1] if str(e).strip() else "keine Angabe"))
         erzeugt.append(cf)
+        _testfehler("detail_kombinieren")
         body = koerper_neu(token)
         if body is None:
             raise AdapterFehler("Zielkörper nach dem Vereinigen nicht auffindbar.")
@@ -2159,20 +2305,12 @@ def detail_integrieren(occ, ziel_body, neue_param=()):
         text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)
         raise AdapterFehler(text + (" – die Änderungen wurden zurückgenommen." if zurueck else
                                     " – ACHTUNG: Rückbau unvollständig, bitte mit Strg+Z zurücknehmen."), rueckbau_ok=zurueck)
-    # Aufräumen erst nach Erfolg: die Kopie im Basis-Feature hängt nicht an der Import-Komponente.
-    try:
-        occ.deleteMe()
-    except Exception:
-        logger.ausnahme("Import-Komponente nicht entfernt")
-        warnungen.append("Die leere Import-Komponente «%s» liess sich nicht entfernen – bitte von Hand löschen." % getattr(occ, "name", "?"))
-    up = design().userParameters
-    for n in neue_param:
-        try:
-            p = up.itemByName(n)
-            if p is not None:
-                p.deleteMe()   # False, solange der Parameter noch benutzt wird – dann bleibt er stehen
-        except Exception:
-            pass
+    # Aufräumen erst nach Erfolg: die Kopie im Basis-Feature hängt nicht an der Import-Komponente. Ergebnis geprüft (deleteMe → False = Fehlschlag).
+    p_ = _loeschen(occ)
+    if p_:
+        warnungen.append("Die leere Import-Komponente liess sich nicht entfernen (%s) – bitte von Hand löschen." % p_)
+    for p_ in parameter_entfernen(neue_param):
+        warnungen.append("Beim Import entstandener Parameter bleibt stehen (%s)." % p_)
     return cf, warnungen
 
 
