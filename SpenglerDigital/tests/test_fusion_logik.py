@@ -183,7 +183,7 @@ def kante_mit(flange=None, hem=None):
         feats.hemFeatures = hem
     comp = type("Comp", (), {"features": feats})()
     k = Kante((0, 0, 0), (50, 0, 0))
-    k.body = type("Body", (), {"parentComponent": comp})()
+    k.body = type("Body", (), {"parentComponent": comp, "entityToken": "tok-koerper"})()
     return k
 
 
@@ -238,30 +238,16 @@ class FlanschTest(unittest.TestCase):
             fa.flansch(kante_mit(), 90, 20)
         self.assertIn("Oktober 2026", str(cm.exception))
 
-    def test_runde_kante_wird_versucht_und_fusions_antwort_gemeldet(self):
-        class Wirft(Sammlung):
-            def createEdgeFlangeInput(self, kanten, hoehe):
-                raise RuntimeError("Edges must be linear")
-        k = kante_mit(Wirft(Eingabe("angle")))
-        k.geometry.curveType = "KREIS"
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.flansch(k, 90, 20)
-        self.assertIn("Edges must be linear", str(cm.exception))
-        self.assertIn("nur an geraden Kanten", str(cm.exception))
-        ff = Sammlung(Eingabe("angle"))
-        ff.createEdgeFlangeInput = lambda kanten, hoehe: None     # Fusion liefert null
-        k2 = kante_mit(ff)
-        k2.geometry.curveType = "BOGEN"
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.flansch(k2, 90, 20)
-        self.assertIn("lehnt den Flansch an dieser runden Kante ab", str(cm.exception))
-
-    def test_runde_kante_klappt_wenn_fusion_sie_nimmt(self):
-        ff = Sammlung(Eingabe("angle"))
-        k = kante_mit(ff)
-        k.geometry.curveType = "KREIS"
-        fa.flansch(k, 90, 20)
-        self.assertEqual(len(ff.hinzu), 1)
+    def test_runde_kante_wird_vorher_abgelehnt(self):
+        """Neu (Geometrie-Auftrag 4.11.): Kreis/Bogen werden NICHT mehr an Fusion gegeben – die Flansch-API ist nur für gerade Kanten beschrieben."""
+        for typ in ("KREIS", "BOGEN"):
+            ff = Sammlung(Eingabe("angle"))
+            k = kante_mit(ff)
+            k.geometry.curveType = typ
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.flansch(k, 90, 20)
+            self.assertIn("nur an geraden Kanten", str(cm.exception))
+            self.assertEqual((ff.aufrufe, ff.hinzu), ([], []), "nichts an Fusion gegeben")
 
     def test_mehrere_kanten_in_einem_feature_mit_gehrung(self):
         inp = Eingabe("angle", "isMiteredCorners")
@@ -891,13 +877,28 @@ class GruppeTest(unittest.TestCase):
         self.assertTrue(isinstance(self.aufrufe[1][0], list) and len(self.aufrufe[1][0]) == 2, "Schritt 2: beide neuen Kanten in EINEM Feature")
         self.assertEqual([a[2] for a in self.aufrufe], [False, False])
 
-    def test_gemeinsamer_schritt_scheitert_dann_je_kante(self):
+    def test_gemeinsamer_schritt_scheitert_kein_stiller_rueckfall(self):
+        """Neu: scheitert ein gemeinsamer Schritt, wird ALLES zurückgebaut – nicht mehr still je Kante weitergebaut (stumpfe Ecken)."""
         k1, k2, _ = self.kanten()
         self.fehler_bei = {2}
-        r = fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
-        self.assertEqual(len(r), 3, "1 gemeinsamer Flansch + Schritt 2 je Kante")
-        self.assertTrue(isinstance(self.aufrufe[1][0], list), "der gemeinsame Versuch ging voraus")
-        self.assertTrue(all(not isinstance(a[0], list) for a in self.aufrufe[2:]), "danach einzeln")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertIn("Fusion lehnt ab", str(cm.exception))
+        self.assertEqual(len(self.aufrufe), 2, "kein Einzelkanten-Versuch")
+        self.assertTrue(self.feats[0].geloescht)
+        self.assertTrue(cm.exception.rueckbau_ok)
+
+    def test_gruppe_wird_vor_dem_modellieren_geprueft(self):
+        k1, k2, k3 = self.kanten()
+        for kanten, text in (([k1, k3], "nicht über gemeinsame Ecken"), ([k1, Kante((10, 0, 0), (10, 10, 0), body=type("B", (), {"entityToken": "x"})())], "verschiedenen Körpern")):
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.folge_anbringen_gruppe(kanten, self.OPS, 0.7, {}, [])
+            self.assertIn(text, str(cm.exception))
+        k2.geometry.curveType = "BOGEN"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.folge_anbringen_gruppe([k1, k2], self.OPS, 0.7, {}, [])
+        self.assertIn("nicht gerade", str(cm.exception))
+        self.assertEqual(self.aufrufe, [], "nichts modelliert")
 
     def test_nur_ein_schritt(self):
         k1, k2, _ = self.kanten()
@@ -1188,95 +1189,86 @@ class ProfilLesenTest(unittest.TestCase):
 
 
 class GruppeUmschlagTest(unittest.TestCase):
-    """Umschlag als einziger Schritt an zusammenhängenden Kanten: gemeinsamer 179°-Flansch mit Gehrung (Live 31.10.: setFlatHem/setOpenHem nehmen nur
-    EINE Kante, «U+ 12» an 2 Kanten wurde einzeln gebaut)."""
+    """Umschlag an zusammenhängenden Kanten (neu 4.11.): je Kante ein EIGENES Saum-Feature (setFlatHem/setOpenHem nehmen laut Doku eine Kante),
+    KEIN 179°-Flansch als Ersatz; scheitert eine Kante, werden alle Säume der Gruppe zurückgebaut."""
     def setUp(self):
-        self.alt = fa.flansch
-        self.aufrufe = []
-        self.ablehnen = 0
+        self.alt = (fa.flansch, fa.umschlag)
+        self.addCleanup(lambda: (setattr(fa, "flansch", self.alt[0]), setattr(fa, "umschlag", self.alt[1])))
+        self.aufrufe, self.feats, self.ablehnen_bei = [], [], set()
+        fa.flansch = lambda *a, **k: self.fail("kein Flansch als Umschlag-Ersatz")
 
-        def flansch(kanten, winkel, laenge, radius=None, gespiegelt=None, bezug=None, lage=None):
-            self.aufrufe.append((list(kanten), winkel, laenge, radius, gespiegelt))
-            if self.ablehnen:
-                self.ablehnen -= 1
-                raise fa.AdapterFehler("Fusion lehnt ab")
-            return Feature([], "saum")
-        fa.flansch = flansch
-        self.addCleanup(setattr, fa, "flansch", self.alt)
+        def umschlag(kante, laenge, hinten, radius=None, lage=None, dicke=None, nur_erste_bauart=False):
+            self.aufrufe.append((kante, laenge, hinten, radius))
+            if len(self.aufrufe) in self.ablehnen_bei:
+                raise fa.AdapterFehler("Fusion kann den Umschlag nicht berechnen")
+            f = Feature([], "Saum %d" % len(self.aufrufe))
+            self.feats.append(f)
+            return f
+        fa.umschlag = umschlag
 
-    def test_ein_feature_fuer_beide_kanten(self):
-        k1, k2 = kante_mit(), kante_mit()
+    def test_je_kante_ein_saum(self):
+        k1 = kante_mit()
         hinweise = []
-        erzeugt = fa.folge_anbringen_gruppe([k1, k2], [{"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": None}], 0.6, {}, hinweise)
-        self.assertEqual(len(erzeugt), 1)
-        kanten, winkel, laenge, radius, gespiegelt = self.aufrufe[0]
-        self.assertEqual((kanten, winkel, laenge, gespiegelt), ([k1, k2], 179.0, 12, False))
-        self.assertAlmostEqual(radius, 0.3, msg="Abstand = Dicke 0.6 → Innenradius 0.3")
-        self.assertIn("gemeinsam gebaut", hinweise[0])
+        erzeugt = fa.folge_anbringen_gruppe([k1, Kante((50, 0, 0), (50, 30, 0), body=k1.body)], [{"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": None}], 0.6, {}, hinweise)
+        self.assertEqual(len(erzeugt), 2)
+        self.assertEqual([(a[1], a[2]) for a in self.aufrufe], [(12, False), (12, False)])
+        self.assertIn("NICHT", hinweise[0])
+        self.assertIn("Gehrung", hinweise[0])
 
-    def test_nach_hinten_und_rueckfall_auf_kleineren_winkel(self):
-        self.ablehnen = 1
-        fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": -180, "laenge": 12, "radius": 1.0}], 0.6, {}, [])
-        self.assertEqual([(a[1], a[3], a[4]) for a in self.aufrufe], [(-179.0, 0.5, True), (-179.0, 0.6, True)])
+    def test_nach_hinten(self):
+        k1 = kante_mit()
+        fa.folge_anbringen_gruppe([k1, Kante((50, 0, 0), (50, 30, 0), body=k1.body)], [{"typ": "umschlag", "winkel": -180, "laenge": 12, "radius": 1.0}], 0.6, {}, [])
+        self.assertEqual([(a[2], a[3]) for a in self.aufrufe], [(True, 1.0), (True, 1.0)])
 
-    def test_alles_abgelehnt_gibt_fehler_fuer_den_rueckfall_je_kante(self):
-        self.ablehnen = 99
-        with self.assertRaises(fa.AdapterFehler):
-            fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}], 0.6, {}, [])
+    def test_zweite_kante_scheitert_alles_zurueck(self):
+        k1 = kante_mit()
+        self.ablehnen_bei = {2}
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.folge_anbringen_gruppe([k1, Kante((50, 0, 0), (50, 30, 0), body=k1.body)], [{"typ": "umschlag", "winkel": 180, "laenge": 12}], 0.6, {}, [])
+        self.assertTrue(self.feats[0].geloescht, "der erste Saum wird wieder entfernt")
+        self.assertIn("nicht berechnen", str(cm.exception))
+        self.assertTrue(cm.exception.rueckbau_ok)
 
     def test_umschlag_mit_weiteren_schritten_bleibt_einzeln(self):
         with self.assertRaises(fa.AdapterFehler):
             fa.folge_anbringen_gruppe([kante_mit(), kante_mit()], [{"typ": "umschlag", "winkel": 180, "laenge": 12}, {"typ": "flansch", "winkel": 90, "laenge": 5}], 0.6, {}, [])
 
 
-class SaumMehrereKantenTest(unittest.TestCase):
-    """Weg A: Saum-Werkzeug mit mehreren Kanten in einer Eingabe (Fusions Dialog «Falz»), nur gültig, wenn alle Kanten umgeschlagen wurden."""
-    def setUp(self):
-        self.alt = (fa.neue_aussenkante, fa.flansch)
-        self.addCleanup(lambda: (setattr(fa, "neue_aussenkante", self.alt[0]), setattr(fa, "flansch", self.alt[1])))
-        fa.flansch = lambda *a, **k: Feature([], "Ersatzflansch")
-
-    def aufbau(self):
+class SaumEineKanteTest(unittest.TestCase):
+    """Die Saum-Eingabe bekommt genau EINE Kante – mehrfaches Aufrufen derselben Eingabe ist nicht dokumentiert und wird nicht gemacht."""
+    def test_liste_mit_zwei_kanten_wird_abgelehnt(self):
         inp = HemEingabe()
         hf = Sammlung(inp)
-        k1, k2 = kante_mit(hem=hf), kante_mit(hem=hf)
-        return inp, hf, k1, k2
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag([kante_mit(hem=hf), kante_mit(hem=hf)], 7, False)
+        self.assertIn("genau EINE Kante", str(cm.exception))
+        self.assertEqual(hf.hinzu, [])
 
-    OP = {"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": 1.5}
-
-    def test_alle_kanten_werden_in_die_eingabe_gegeben_und_geprueft(self):
-        inp, hf, k1, k2 = self.aufbau()
-        fa.neue_aussenkante = lambda f, v, L, t: "neu"
-        feat = fa._umschlag_gruppe([k1, k2], self.OP, 0.6, False)
-        self.assertEqual(len(hf.hinzu), 1, "ein Saum-Feature")
-        self.assertEqual([a[1] for a in inp.aufrufe], [k1, k2], "setOpenHem für jede Kante")
-        self.assertEqual({a[3] for a in inp.aufrufe}, {"1.5 mm"}, "Abstand = Radius der Vorlage")
-        self.assertIsNot(feat.name, "Ersatzflansch")
-
-    def test_nur_eine_kante_umgeschlagen_dann_ersatz_ueber_flansch(self):
-        inp, hf, k1, k2 = self.aufbau()
-
-        def nur_k2(f, v, L, t):
-            if v is k1:
-                raise fa.AdapterFehler("nicht gefunden")
-            return "neu"
-        fa.neue_aussenkante = nur_k2
-        feat = fa._umschlag_gruppe([k1, k2], self.OP, 0.6, False)
-        self.assertEqual(feat.name, "Ersatzflansch")
-        self.assertTrue(hf.hinzu[0].geloescht if hasattr(hf.hinzu[0], "geloescht") else True)
+    def test_runde_kante_wird_abgelehnt(self):
+        inp = HemEingabe()
+        hf = Sammlung(inp)
+        k = kante_mit(hem=hf)
+        k.geometry.curveType = "KREIS"
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(k, 7, False)
+        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        self.assertEqual(inp.aufrufe, [])
 
 
 class GemeinsameSchritteTest(unittest.TestCase):
-    """Umschlag/Schritte an mehreren Kanten gemeinsam (Gehrung): Umschlag = fast-180°-Flansch; das Saum-Werkzeug nimmt nur eine Kante."""
+    """Schritte an mehreren Kanten: Flansch als EIN Feature (Gehrung), Umschlag je Kante als Saum (kein fast-180°-Flansch)."""
     def test_schritt_gruppe_flansch_und_umschlag(self):
-        alt = fa.flansch
-        aufrufe = []
+        alt = (fa.flansch, fa.umschlag)
+        aufrufe, saeume = [], []
         fa.flansch = lambda kanten, w, L, r=None, g=None, b=None, l=None: (aufrufe.append((list(kanten), w, L, r, g)) or Feature([], "F"))
-        self.addCleanup(setattr, fa, "flansch", alt)
-        fa._schritt_gruppe(["k1", "k2"], {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": 1.5}, 0.7, False)
-        fa._schritt_gruppe(["k1", "k2"], {"typ": "flansch", "winkel": -45, "laenge": 10, "radius": None}, 0.7, False)
-        fa._schritt_gruppe(["k1", "k2"], {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}, 0.7, True)
-        self.assertEqual([(a[1], a[3], a[4]) for a in aufrufe], [(90, 1.5, False), (45, None, False), (-179.0, 0.35, True)])
+        fa.umschlag = lambda k, L, h, r=None, l=None, t=None, nur_erste_bauart=False: (saeume.append((k, L, h)) or Feature([], "S"))
+        self.addCleanup(lambda: (setattr(fa, "flansch", alt[0]), setattr(fa, "umschlag", alt[1])))
+        k1, k2 = kante_mit(), kante_mit()
+        self.assertEqual(len(fa._schritt_gruppe([k1, k2], {"typ": "flansch", "winkel": 90, "laenge": 10, "radius": 1.5}, 0.7, False)), 1)
+        fa._schritt_gruppe([k1, k2], {"typ": "flansch", "winkel": -45, "laenge": 10, "radius": None}, 0.7, False)
+        self.assertEqual(len(fa._schritt_gruppe([k1, k2], {"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}, 0.7, True)), 2)
+        self.assertEqual([(a[1], a[3], a[4]) for a in aufrufe], [(90, 1.5, False), (45, None, False)])
+        self.assertEqual([(s[0], s[1], s[2]) for s in saeume], [(k1, 7, True), (k2, 7, True)])
 
     def test_radius_der_vorlage_ist_der_abstand_des_offenen_saums(self):
         """Live 2.11.: Im Fusion-Dialog «Falz» heisst der Radius «Abstand» (Typ Offen) – die Vorlage setzt genau diesen Abstand."""
@@ -1285,13 +1277,6 @@ class GemeinsameSchritteTest(unittest.TestCase):
         fa.umschlag(kante_mit(hem=hf), 10, False, 1.5, None, 0.6)
         name, _, laenge, spalt, geflippt, _ = inp.aufrufe[0]
         self.assertEqual((name, laenge, spalt), ("open", "10 mm", "1.5 mm"))
-
-    def test_saum_werkzeug_nimmt_nur_die_erste_kante(self):
-        inp = HemEingabe()
-        hf = Sammlung(inp)
-        k1, k2 = kante_mit(hem=hf), kante_mit(hem=hf)
-        fa.umschlag([k1, k2], 7, False)
-        self.assertIs(inp.aufrufe[0][1], k1, "setFlatHem(edge, …) bekommt EINE Kante (Live: eine Auswahl wird abgelehnt)")
 
 
 class VersatzTest(unittest.TestCase):
@@ -1514,3 +1499,80 @@ class VersatzTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class KontrolleNachDemBauTest(unittest.TestCase):
+    """Neu 4.11.: Saum und gemeinsamer Flansch werden nach dem Bauen geprüft (Volumen, Körper) – Attrappen, KEINE echte Fusion-Geometrie."""
+    class K(object):
+        def __init__(self, vol):
+            self.volume, self.isValid, self.isSolid = vol, True, True
+
+    def comp(self, *vols):
+        c = type("C", (), {})()
+        c.bRepBodies = Liste([self.K(v) for v in vols])
+        return c
+
+    def test_umschlag_kontrolle(self):
+        c = self.comp(6.0 + 0.5)                     # +0.5 cm³: Kante 5 cm × Saum 1 cm × Dicke 0.1 cm
+        self.assertEqual(fa.umschlag_kontrolle(c, 6.0, 1, 5.0, 10, 1.0), [])
+        self.assertTrue(fa.umschlag_kontrolle(self.comp(6.0), 6.0, 1, 5.0, 10, 1.0), "keine zweite Lage")
+        self.assertTrue(fa.umschlag_kontrolle(self.comp(6.3, 0.2), 6.0, 1, 5.0, 10, 1.0), "zusätzlicher Körper")
+
+    def test_gehrung_kontrolle(self):
+        feat = type("F", (), {"isMiteredCorners": True})()
+        self.assertEqual(fa.gehrung_kontrolle(feat, self.comp(7.0), 6.0, 1, [2.0, 2.0], 25, 1.0), [])   # 4 cm × 2.5 cm × 0.1 cm = 1 cm³
+        t = " ".join(fa.gehrung_kontrolle(feat, self.comp(6.5), 6.0, 1, [2.0, 2.0], 25, 1.0))
+        self.assertIn("Flansch fehlt", t)
+        feat.isMiteredCorners = False
+        self.assertIn("keine Gehrung", " ".join(fa.gehrung_kontrolle(feat, self.comp(7.0), 6.0, 1, [2.0, 2.0], 25, 1.0)))
+
+    def test_saum_ohne_zweite_lage_wird_verworfen(self):
+        feats = []
+
+        class Merkt(Sammlung):
+            def add(s, inp):
+                f = Feature([], "Saum")
+                feats.append(f)
+                return f
+        hf = Merkt(HemEingabe())
+        k = kante_mit(hem=hf)
+        k.body.parentComponent.bRepBodies = Liste([self.K(6.0)])   # Fusion «baut», das Volumen ändert sich aber nicht
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(k, 10, False, None, None, 1.0)
+        self.assertIn("Geometrie verworfen", str(cm.exception))
+        self.assertTrue(feats and all(f.geloescht for f in feats), "jede verworfene Variante wird gelöscht")
+
+
+class OhneGehrungNurNachFrageTest(unittest.TestCase):
+    """kanten_folge_bauen: scheitert der gemeinsame Bau, wird nur nach ausdrücklichem Ja je Kante (ohne Gehrung) gebaut."""
+    def setUp(self):
+        namen = ("_kante_aufloesen", "gruppen_bilden", "folge_anbringen_gruppe", "folge_anbringen")
+        self.alt = {n: getattr(fa, n) for n in namen}
+        self.addCleanup(lambda: [setattr(fa, n, f) for n, f in self.alt.items()])
+        self.einzeln = []
+        fa._kante_aufloesen = lambda t, alt: "kante-" + t
+        fa.gruppen_bilden = lambda kanten: [[0, 1]]
+        fa.folge_anbringen_gruppe = lambda *a, **k: (_ for _ in ()).throw(fa.AdapterFehler("Fusion lehnt die Gehrung ab"))
+        fa.folge_anbringen = lambda k, *a, **kw: self.einzeln.append(k) or ["F"]
+
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 20}]
+
+    def test_ohne_frage_kein_einzelbau(self):
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.kanten_folge_bauen(["a", "b"], self.OPS, 1.0, {}, [])
+        self.assertIn("nicht freigegeben", str(cm.exception))
+        self.assertEqual(self.einzeln, [])
+
+    def test_nein(self):
+        fragen = []
+        with self.assertRaises(fa.AdapterFehler):
+            fa.kanten_folge_bauen(["a", "b"], self.OPS, 1.0, {}, [], lambda text: fragen.append(text) or False)
+        self.assertIn("OHNE Gehrung", fragen[0])
+        self.assertIn("Fusion lehnt die Gehrung ab", fragen[0])
+        self.assertEqual(self.einzeln, [])
+
+    def test_ja_baut_je_kante_und_sagt_es(self):
+        hinweise = []
+        r = fa.kanten_folge_bauen(["a", "b"], self.OPS, 1.0, {}, hinweise, lambda text: True)
+        self.assertEqual((r, self.einzeln), (["F", "F"], ["kante-a", "kante-b"]))
+        self.assertIn("OHNE Gehrung", hinweise[0])

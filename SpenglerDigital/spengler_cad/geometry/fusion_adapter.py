@@ -314,7 +314,10 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
     erste = kanten[0]
     comp = erste.body.parentComponent
     ff = _flange_features(comp)
-    rund = any(_kurventyp(k) in ("kreis", "bogen") for k in kanten)
+    rund = any(_kurventyp(k) != "linie" for k in kanten)
+    if rund:
+        raise AdapterFehler("Flansch nur an geraden Kanten: Die Flansch-Schnittstelle von Fusion (EdgeFlangeInput, Preview) ist nur für gerade Kanten beschrieben – "
+                            "an runden Kanten wird nichts versucht.")
     try:
         inp = ff.createEdgeFlangeInput(kanten, _vi_mm(laenge_mm))
     except Exception as e:
@@ -398,11 +401,15 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     aussen/tangential und dann die Gegenrichtung versucht; die erste, die Fusion rechnet, gilt (im Protokoll vermerkt). NICHT live bestätigt."""
     # Live-Test 30.10.: mit Radius (offener Saum, Spalt 2 × Radius) scheiterte Fusion, ohne Radius (geschlossener Saum) klappt es.
     # Der Radius des Umschlags kommt deshalb aus der Blechregel; ein Radius in der Vorlage wird hier bewusst nicht verwendet.
-    kanten_liste = list(edge) if isinstance(edge, (list, tuple)) else None
-    alle_kanten = kanten_liste or [edge]
-    edge = alle_kanten[0]
-    # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante (eine Auswahl wird abgelehnt). Mehrere Kanten: dieselbe Eingabe wird nacheinander für
-    # jede Kante aufgerufen (im Dialog «Falz» sind es mehrere Kanten in einem Feature mit Gehrung) – ob Fusion sie sammelt, prüft _umschlag_gruppe.
+    if isinstance(edge, (list, tuple)):
+        if len(edge) != 1:
+            raise AdapterFehler("Ein Saum-Feature nimmt genau EINE Kante (setFlatHem/setOpenHem(edge, …) laut Autodesk-Doku) – mehrere Kanten baut "
+                                "_umschlag_gruppe je Kante.")
+        edge = edge[0]
+    # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante. Mehrfaches Aufrufen derselben Eingabe mit weiteren Kanten ist nicht dokumentiert
+    # und wird deshalb nicht mehr gemacht.
+    if _kurventyp(edge) != "linie":
+        raise AdapterFehler("Umschlag nur an geraden Kanten: Das Saum-Werkzeug von Fusion ist nur für gerade Kanten beschrieben – an runden Kanten wird nichts versucht.")
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -426,9 +433,18 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
     if nur_erste_bauart:
         bauarten = bauarten[:1]
     versuche = []
+    try:
+        token = edge.entityToken
+    except Exception:
+        token = None
+    kante_cm = edge.length
+    t_kontrolle = t or blechdicke_mm(edge.body) or 1.0
     for art, rad, spalt in bauarten:
         for flip in richtungen:
             for l in lagen:
+                if token:
+                    edge = _kante_aufloesen(token, edge)     # nach einem verworfenen Versuch kann die alte Referenz ungültig sein
+                vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
                 inp = hf.createHemFeatureInput()
                 if inp is None:
                     raise AdapterFehler("Fusion konnte die Saum-Eingabe nicht anlegen.")
@@ -445,12 +461,10 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
                         if ov is None or not ov.setOverride(_vi_mm(rad)):
                             versuche.append("%s: Radius nicht einstellbar" % name)
                             continue
-                    ok = True
-                    for kante_arg in alle_kanten:
-                        if spalt is not None:
-                            ok = inp.setOpenHem(kante_arg, L, _vi_mm(spalt), flip, _lage_enum(l)) and ok
-                        else:
-                            ok = inp.setFlatHem(kante_arg, L, flip, _lage_enum(l)) and ok
+                    if spalt is not None:
+                        ok = inp.setOpenHem(edge, L, _vi_mm(spalt), flip, _lage_enum(l))
+                    else:
+                        ok = inp.setFlatHem(edge, L, flip, _lage_enum(l))
                     if not ok:
                         versuche.append("%s: von Fusion abgelehnt" % name)
                         continue
@@ -460,6 +474,15 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
                     continue
                 if feat is None:
                     versuche.append("%s: nicht erzeugt" % name)
+                    continue
+                # Ergebnis kontrollieren statt «erste angenommene Variante gilt»: zweite Materiallage (Volumenzuwachs ≈ Kante × Saumlänge × Dicke),
+                # gültiger geschlossener Körper, kein zusätzlicher Körper. Sonst Variante verwerfen und die nächste versuchen.
+                schlecht = umschlag_kontrolle(comp, vol0, n0, kante_cm, laenge_mm, t_kontrolle)
+                if schlecht:
+                    versuche.append("%s: Geometrie verworfen (%s)" % (name, "; ".join(schlecht)))
+                    p_ = _loeschen(feat)
+                    if p_:
+                        raise AdapterFehler("Ein verworfener Umschlag liess sich nicht entfernen: " + p_)
                     continue
                 logger.info("Umschlag erzeugt", variante=name, versuche=len(versuche) + 1)
                 if versuche:
@@ -1111,90 +1134,188 @@ def gruppen_bilden(kanten, tol_cm=1e-4):
     return sorted(gruppen.values(), key=lambda g: g[0])
 
 
-def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
-    """Umschlag an mehreren zusammenhängenden Kanten MIT Gehrung. Zwei Wege:
-    A) Saum-Werkzeug: dieselbe Eingabe für jede Kante (Fusions Dialog «Falz» nimmt mehrere Kanten mit Gehrung). Gilt nur, wenn danach für ALLE Kanten
-       eine neue Aussenkante gefunden wird (sonst hat Fusion nur die letzte Kante gebaut) – NICHT live bestätigt.
-    B) Ersatz: gemeinsamer Flansch von fast 180° (Gehrung rechnet Fusion dort). Live 2.11. (0.4.29): 179° mit Innenradius 1.5 scheiterte mit
-       SM_GENERIC_FAILURE – deshalb mehrere Winkel und Radien nacheinander (Ergebnis im Protokoll)."""
-    feat = None
+def _comp_volumen(comp):
+    """Summe der Körpervolumen (cm³) oder None, wenn nicht lesbar – dann entfällt die Volumenkontrolle (im Protokoll vermerkt)."""
     try:
-        feat = umschlag(list(kanten), op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm, nur_erste_bauart=True)
-        fehlend = []
-        for k in kanten:
-            try:
-                neue_aussenkante(feat, k, op["laenge"], dicke_mm or 1.0)
-            except AdapterFehler:
-                fehlend.append(k)
-        if not fehlend:
-            logger.info("Gemeinsamer Umschlag: Saum-Werkzeug mit mehreren Kanten in einer Eingabe", kanten=len(kanten))
-            return feat
-        raise AdapterFehler("Fusion hat nur einen Teil der Kanten umgeschlagen (%d von %d)." % (len(kanten) - len(fehlend), len(kanten)))
-    except Exception as ex:
-        logger.warnung("Saum-Werkzeug mit mehreren Kanten nicht möglich – Ersatz über Flansch", grund=ex)
+        return sum(b.volume for b in comp.bRepBodies)
+    except Exception:
+        return None
+
+
+def _koerperzahl(comp):
+    try:
+        return comp.bRepBodies.count
+    except Exception:
+        return None
+
+
+def _koerper_kontrolle(comp, koerper_vorher):
+    probleme = []
+    n = _koerperzahl(comp)
+    if n is None:
+        logger.warnung("Körperkontrolle nicht möglich (Körper nicht lesbar)")
+        return probleme
+    if koerper_vorher is not None and n != koerper_vorher:
+        probleme.append("%d statt %d Körper" % (n, koerper_vorher))
+    for b in comp.bRepBodies:
+        probleme += koerper_pruefen(b)
+    return probleme
+
+
+def _volumen_kontrolle(comp, vol0, soll, unten, oben, text):
+    v1 = _comp_volumen(comp)
+    if vol0 is None or v1 is None or soll <= 0:
+        logger.warnung("Volumenkontrolle nicht möglich", was=text)
+        return []
+    delta = v1 - vol0
+    if not (unten <= delta / soll <= oben):
+        return ["Volumenzuwachs %.0f mm³ statt ca. %.0f mm³ (%s)" % (delta * 1000, soll * 1000, text)]
+    return []
+
+
+def umschlag_kontrolle(comp, vol0, koerper_vorher, kante_cm, laenge_mm, dicke_mm):
+    """Saum nach dem Bauen prüfen. → Liste der Probleme (leer = plausibel). Volumen in cm³, Kante in cm. Nicht live geprüft."""
+    probleme = _koerper_kontrolle(comp, koerper_vorher)
+    return probleme + _volumen_kontrolle(comp, vol0, kante_cm * (laenge_mm / 10.0) * (dicke_mm / 10.0), 0.5, 2.5,
+                                         "keine zweite Materiallage in der erwarteten Länge?")
+
+
+def gruppe_pruefen(kanten):
+    """VOR einer Gruppenoperation: alle Kanten gerade, am selben Körper, zusammenhängend als Kette (jede Kante hat höchstens zwei Nachbarn, über
+    gemeinsame Eckpunkte verbunden; geschlossener Umlauf erlaubt). → Problemtext oder None."""
+    if len(kanten) < 2:
+        return "Eine Gruppe braucht mindestens zwei Kanten."
+    for nr, k in enumerate(kanten, 1):
+        if _kurventyp(k) != "linie":
+            return "Kante %d ist nicht gerade." % nr
+    try:
+        koerper = {k.body.entityToken for k in kanten}
+    except Exception:
+        return "Der Körper der Kanten ist nicht lesbar."
+    if len(koerper) != 1:
+        return "Die Kanten gehören zu %d verschiedenen Körpern." % len(koerper)
+    try:
+        enden = [(_v(k.startVertex.geometry), _v(k.endVertex.geometry)) for k in kanten]
+    except Exception:
+        return "Die Eckpunkte der Kanten sind nicht lesbar."
+
+    def gleich(p, q):
+        return max(abs(a - b) for a, b in zip(p, q)) < 1e-4
+    nachbarn = [set() for _ in kanten]
+    for i in range(len(kanten)):
+        for j in range(i + 1, len(kanten)):
+            if any(gleich(p, q) for p in enden[i] for q in enden[j]):
+                nachbarn[i].add(j)
+                nachbarn[j].add(i)
+    for i, n in enumerate(nachbarn):
+        if len(n) > 2:
+            return "An Kante %d stossen %d andere Kanten – keine einfache Kantenkette." % (i + 1, len(n))
+    gesehen, offen = {0}, [0]
+    while offen:
+        for j in nachbarn[offen.pop()]:
+            if j not in gesehen:
+                gesehen.add(j)
+                offen.append(j)
+    if len(gesehen) != len(kanten):
+        return "Die Kanten hängen nicht über gemeinsame Ecken zusammen."
+    return None
+
+
+def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, dicke_mm):
+    """Gemeinsamer Flansch nach dem Bauen: Fusion meldet Gehrung (isMiteredCorners, falls lesbar), gültige Körper, kein zusätzlicher Körper,
+    Volumenzuwachs passt zu Σ Kantenlänge × Höhe × Dicke (fehlender Flansch, Spalt/Überlappung grösseren Umfangs). Feine Spalte an der Ecke kann
+    diese Prüfung NICHT erkennen. → Liste der Probleme. Nicht live geprüft."""
+    probleme = []
+    try:
+        if getattr(feat, "isMiteredCorners", None) is False:
+            probleme.append("Fusion meldet keine Gehrung (isMiteredCorners = False)")
+    except Exception:
+        pass
+    probleme += _koerper_kontrolle(comp, koerper_vorher)
+    return probleme + _volumen_kontrolle(comp, vol0, sum(laengen_cm) * (hoehe_mm / 10.0) * (dicke_mm / 10.0), 0.6, 1.5,
+                                         "Flansch fehlt, Spalt oder Überlappung?")
+
+
+def _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt):
+    """Umschlag an mehreren zusammenhängenden Kanten: je Kante ein EIGENES Saum-Feature (Fusions Saum-Eingabe nimmt laut Doku genau eine Kante),
+    jedes mit Geometriekontrolle. Die Ecken sind dabei NICHT auf Gehrung geschnitten. Scheitert eine Kante, werden ALLE Säume dieser Gruppe
+    zurückgebaut. Kein Ersatz durch einen 179°-Flansch (der wäre kein echter Umschlag). → Liste der Features. Nicht live geprüft."""
+    tokens = []
+    for k in kanten:
         try:
-            if feat is not None and feat.isValid:
-                feat.deleteMe()
+            tokens.append(k.entityToken)
         except Exception:
-            pass
-    abstand = op.get("radius") if op.get("radius") is not None else dicke_mm
-    radien = []
-    for r in ((abstand / 2.0) if abstand else None, dicke_mm, None):      # None = Radius der Blechregel
-        if r not in radien:
-            radien.append(r)
-    versuche, antworten = [], []
-    for winkel in (179.0, 178.0, 175.0, 170.0, 160.0):
-        for r in radien:
-            try:
-                f = flansch(list(kanten), -winkel if gespiegelt else winkel, op["laenge"], r, gespiegelt, None, op.get("lage"))
-                logger.info("Gemeinsamer Umschlag als Flansch erzeugt", winkel=winkel, radius=r, versuche=len(versuche) + 1)
-                return f
-            except AdapterFehler as ex:
-                text = str(ex)
-                versuche.append("%g°, Ri %s: %s" % (winkel, "Regel" if r is None else "%.2f" % r, text[:140]))
-                if text not in antworten:
-                    antworten.append(text)
-    logger.warnung("Gemeinsamer Umschlag als Flansch nicht möglich", versuche=" | ".join(versuche))
-    raise AdapterFehler(antworten[-1] if antworten else "Gemeinsamer Umschlag nicht möglich.")
+            tokens.append(None)
+    rb = Rueckbau("Umschlag an %d Kanten" % len(kanten))
+    try:
+        for nr, (k, tok) in enumerate(zip(kanten, tokens), 1):
+            kante = _kante_aufloesen(tok, k) if tok else k
+            rb.merke(umschlag(kante, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm))
+        feats = list(rb.objekte)
+        logger.info("Umschlag je Kante gebaut (eigene Saum-Features, keine Gehrung)", kanten=len(kanten))
+        return feats
+    except Exception as e:
+        rb.abbrechen(e)
 
 
 def _schritt_gruppe(kanten, op, dicke_mm, gespiegelt):
-    """Ein Schritt als EIN Feature an mehreren zusammenhängenden Kanten (Gehrung): Flansch direkt, Umschlag als fast-180°-Flansch."""
+    """Ein Schritt an mehreren zusammenhängenden Kanten. Flansch: EIN Feature (Gehrung). Umschlag: je Kante ein Saum-Feature. → Liste der Features."""
     if op["typ"] == "umschlag":
         return _umschlag_gruppe(kanten, op, dicke_mm, gespiegelt)
-    return flansch(list(kanten), -abs(op["winkel"]) if gespiegelt else abs(op["winkel"]), op["laenge"], op.get("radius"), gespiegelt,
-                   op.get("bezug"), op.get("lage"))
+    return [flansch(list(kanten), -abs(op["winkel"]) if gespiegelt else abs(op["winkel"]), op["laenge"], op.get("radius"), gespiegelt,
+                    op.get("bezug"), op.get("lage"))]
+
+
+def _neue_kanten(feats, kanten, laenge_mm, dicke_mm):
+    if len(feats) == 1:
+        return [neue_aussenkante(feats[0], e, laenge_mm, dicke_mm or 1.0) for e in kanten]
+    return [neue_aussenkante(f, e, laenge_mm, dicke_mm or 1.0) for f, e in zip(feats, kanten)]
 
 
 def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
-    """Wie folge_anbringen für MEHRERE zusammenhängende Kanten: Schritt 1 (Flansch) als ein Feature – Fusion schneidet die Ecken auf
-    Gehrung –, die weiteren Schritte je Kante. → Liste erzeugter Features. Jeder Fehler baut ALLES wieder zurück und meldet AdapterFehler
-    (der Aufrufer baut dann einzeln). NICHT live geprüft."""
+    """Wie folge_anbringen für MEHRERE zusammenhängende Kanten: Flansch-Schritte als EIN Feature – Fusion schneidet die Ecken auf Gehrung, das
+    Ergebnis wird kontrolliert –, Umschläge je Kante als eigenes Saum-Feature. Vor dem Modellieren wird die Gruppe geprüft (gerade, ein Körper,
+    Kette). Scheitert ein Schritt oder fällt die Kontrolle durch, wird ALLES zurückgebaut und AdapterFehler gemeldet – es gibt KEINEN stillen
+    Rückfall auf Einzelkanten (den entscheidet der Aufrufer nach Rückfrage). Nur ein Versatz in einem späteren Schritt wird je Kante gebaut
+    (Hinweis «ohne Gehrung»). NICHT live geprüft."""
     hinweise = hinweise if hinweise is not None else []
     if len(edges) < 2 or (ops[0]["typ"] == "umschlag" and len(ops) > 1):
         raise AdapterFehler("Gemeinsamer Flansch nur für mehrere Kanten und einen Flansch als ersten Schritt (ein Umschlag nur allein).")
+    problem = gruppe_pruefen(list(edges))
+    if problem:
+        raise AdapterFehler("Gemeinsam mit Gehrung nicht möglich, vor dem Modellieren abgelehnt: " + problem)
     erzeugt = []
     phase = "Gemeinsamer Flansch (Gehrung)"
+    t = dicke_mm or blechdicke_mm(edges[0].body) or 1.0
     try:
+        comp = getattr(edges[0].body, "parentComponent", None)
         op = ops[0]
         rahmen = [_kantenrahmen_quer(e) for e in edges]
         if op.get("versatz"):
             phase = "Versatz der gemeinsamen Kanten"
             vorbereitung, edges = _versatz_gruppe(list(edges), op["versatz"], dicke_mm)
             erzeugt.extend(vorbereitung)
+            _testfehler("gruppe_nach_versatz")
             phase = "Gemeinsamer Flansch (Gehrung)"
-        if op["typ"] == "umschlag":      # Saum an mehreren Kanten in EINEM Feature (Gehrung wie im Fusion-Dialog «Falz»)
-            phase = "Gemeinsamer Umschlag (Gehrung)"
-            feat = _umschlag_gruppe(list(edges), op, dicke_mm, op["winkel"] < 0)
-            erzeugt.append(feat)
-            markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
-            hinweise.append("Umschlag an %d Kanten gemeinsam gebaut (Gehrung); die Methode steht im Protokoll." % len(edges))
-            logger.info("Gemeinsamer Umschlag (Flansch 179°) erzeugt", kanten=len(edges), laenge=op["laenge"])
+        if op["typ"] == "umschlag":
+            phase = "Umschlag je Kante"
+            feats = _umschlag_gruppe(list(edges), op, dicke_mm, op["winkel"] < 0)
+            erzeugt.extend(feats)
+            for f in feats:
+                markieren(f, dict(markierung, schritt=1, kanten=len(edges)))
+            hinweise.append("Umschlag an %d Kanten: je Kante ein eigenes Saum-Feature (Fusions Saum nimmt eine Kante je Feature) – die Ecken sind NICHT "
+                            "auf Gehrung geschnitten." % len(edges))
             return erzeugt
+        laengen = [e.length for e in edges]
+        vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
+        phase = "Kontrolle des gemeinsamen Flansches"
+        schlecht = gehrung_kontrolle(feat, comp, vol0, n0, laengen, op["laenge"], t)
+        if schlecht:
+            raise AdapterFehler("Fusion hat den gemeinsamen Flansch gebaut, die Kontrolle schlägt aber fehl: " + "; ".join(schlecht))
         markieren(feat, dict(markierung, schritt=1, kanten=len(edges)))
-        logger.info("Gemeinsamer Flansch erzeugt", kanten=len(edges), winkel=op["winkel"], laenge=op["laenge"])
+        logger.info("Gemeinsamer Flansch mit Gehrung erzeugt und kontrolliert", kanten=len(edges), winkel=op["winkel"], laenge=op["laenge"])
         if len(ops) == 1:
             return erzeugt
         phase = "Nach dem gemeinsamen Flansch (Kanten für Schritt 2 suchen)"
@@ -1204,53 +1325,56 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
             gemessen = _gemessen(edges[0], neue[0], rahmen[0][0])
             quer = _einheit(_ohne_komponente(gemessen, rahmen[0][1])) if gemessen is not None else None
             v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
-        # Weitere Schritte ebenfalls GEMEINSAM (Gehrung an den Ecken – Live 2.11.: Umschläge und spätere Flansche wurden je Kante gebaut, die Ecken
-        # blieben stumpf). Scheitert ein gemeinsamer Schritt, wird ab dort je Kante weitergebaut (wie bisher).
         aktuell, lauf, i = list(neue), op["winkel"], 2
         while i <= len(ops):
             o = ops[i - 1]
             if o.get("versatz"):
                 break
-            phase = "Gemeinsamer Schritt %d (Gehrung)" % i
-            feat2, nxt = None, None
-            try:
-                feat2 = _schritt_gruppe(aktuell, o, dicke_mm, False)
-                if i < len(ops) or (rahmen[0] is not None and v is not None):
-                    try:
-                        nxt = [neue_aussenkante(feat2, e, o["laenge"], dicke_mm or 1.0) for e in aktuell]
-                    except AdapterFehler:
-                        if i < len(ops):
-                            raise
-                        hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
-                if nxt is not None and rahmen[0] is not None and v is not None:
-                    gem = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
-                    if gem is not None and richtung_stimmt(lauf, o["winkel"], gem, rahmen[0][1], v) is False:
-                        feat2.deleteMe()
-                        feat2 = _schritt_gruppe(aktuell, o, dicke_mm, True)
-                        nxt = [neue_aussenkante(feat2, e, o["laenge"], dicke_mm or 1.0) for e in aktuell]
-                        gem2 = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
-                        if gem2 is not None and richtung_stimmt(lauf, o["winkel"], gem2, rahmen[0][1], v) is False:
-                            raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab." % i)
-                        hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
-            except AdapterFehler as ex:
-                logger.warnung("Gemeinsamer Schritt nicht möglich – weiter je Kante", schritt=i, grund=ex)
-                hinweise.append("Schritt %d konnte nicht gemeinsam (mit Gehrung) gebaut werden – er wird je Kante gebaut, die Ecken bleiben stumpf. Grund: %s" % (
-                    i, str(ex).splitlines()[0][:300]))
+            phase = "Gemeinsamer Schritt %d" % i
+            laengen = [e.length for e in aktuell]
+            vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
+            feats = _schritt_gruppe(aktuell, o, dicke_mm, False)
+            erzeugt.extend(feats)
+            nxt = None
+            if i < len(ops) or (rahmen[0] is not None and v is not None):
                 try:
-                    if feat2 is not None and feat2.isValid:
-                        feat2.deleteMe()
-                except Exception:
-                    pass
-                break
-            erzeugt.append(feat2)
-            markieren(feat2, dict(markierung, schritt=i, kanten=len(aktuell)))
-            logger.info("Gemeinsamer Schritt erzeugt", schritt=i, typ=o["typ"], kanten=len(aktuell))
+                    nxt = _neue_kanten(feats, aktuell, o["laenge"], dicke_mm)
+                except AdapterFehler:
+                    if i < len(ops):
+                        raise
+                    hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
+            if nxt is not None and rahmen[0] is not None and v is not None:
+                gem = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                if gem is not None and richtung_stimmt(lauf, o["winkel"], gem, rahmen[0][1], v) is False:
+                    phase = "Gemeinsamer Schritt %d (gespiegelt neu anlegen)" % i
+                    for f in feats:
+                        erzeugt.remove(f)
+                    probleme = entfernen_bericht(feats)
+                    if probleme:
+                        raise AdapterFehler("Der falsch gerichtete Schritt liess sich nicht entfernen: " + "; ".join(probleme))
+                    feats = _schritt_gruppe(aktuell, o, dicke_mm, True)
+                    erzeugt.extend(feats)
+                    nxt = _neue_kanten(feats, aktuell, o["laenge"], dicke_mm)
+                    gem2 = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                    if gem2 is not None and richtung_stimmt(lauf, o["winkel"], gem2, rahmen[0][1], v) is False:
+                        raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab." % i)
+                    hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
+            if o["typ"] == "flansch" and len(feats) == 1:
+                schlecht = gehrung_kontrolle(feats[0], comp, vol0, n0, laengen, o["laenge"], t)
+                if schlecht:
+                    raise AdapterFehler("Schritt %d: Kontrolle des gemeinsamen Flansches schlägt fehl: %s" % (i, "; ".join(schlecht)))
+            else:
+                hinweise.append("Schritt %d (Umschlag): je Kante ein eigenes Saum-Feature – die Ecken sind NICHT auf Gehrung geschnitten." % i)
+            for f in feats:
+                markieren(f, dict(markierung, schritt=i, kanten=len(aktuell)))
+            logger.info("Gemeinsamer Schritt erzeugt", schritt=i, typ=o["typ"], kanten=len(aktuell), features=len(feats))
             lauf += o["winkel"]
             if i == len(ops):
                 return erzeugt
             aktuell = nxt
             i += 1
         if i <= len(ops):
+            hinweise.append("Ab Schritt %d (Versatz) wird je Kante gebaut – die Ecken dieser Schritte sind NICHT auf Gehrung geschnitten." % i)
             for nr, n in enumerate(aktuell, 1):
                 phase = "Kante %d, weitere Schritte" % nr
                 erzeugt.extend(folge_anbringen(n, ops, dicke_mm, markierung, hinweise,
@@ -1258,10 +1382,11 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
         return erzeugt
     except Exception as e:
         logger.ausnahme("Gemeinsamer Flansch abgebrochen", phase=phase)
-        zurueck = entfernen(erzeugt)
+        probleme = entfernen_bericht(erzeugt)
         text = str(e) if isinstance(e, AdapterFehler) else "Fusion meldet: %s" % (str(e).strip().splitlines()[-1] if str(e).strip() else type(e).__name__)
-        raise AdapterFehler("%s: %s%s" % (phase, text, "" if zurueck else " – ACHTUNG: Rückbau unvollständig, bitte mit Strg+Z zurücknehmen."),
-                            rueckbau_ok=zurueck)
+        raise AdapterFehler("%s: %s%s" % (phase, text, (" – alle %d erzeugten Teile wurden wieder entfernt." % len(erzeugt) if erzeugt else "") if not probleme else
+                                          " – ACHTUNG: Rückbau unvollständig (%s), bitte mit Strg+Z zurücknehmen." % "; ".join(probleme)),
+                            rueckbau_ok=not probleme)
 
 
 def komponente_entfernen(comp):
@@ -1633,9 +1758,10 @@ def kanten_nach_ketten(body, ketten, tol_mm=0.05):
     return out
 
 
-def kanten_folge_bauen(tokens, ops, dicke_mm, markierung, hinweise):
+def kanten_folge_bauen(tokens, ops, dicke_mm, markierung, hinweise, ohne_gehrung_frage=None):
     """Kantenfolge an mehreren Kanten (entityTokens): zusammenhängende Kanten gemeinsam (Gehrung an den Ecken), sonst je Kante. → Liste Features.
-    Scheitert ein gemeinsamer Bau, wird je Kante gebaut und im Hinweis erwähnt. Nicht live geprüft."""
+    Scheitert der gemeinsame Bau, wird NUR dann je Kante (ohne Gehrung) gebaut, wenn ohne_gehrung_frage(text) True liefert (Rückfrage an den
+    Benutzer); ohne Frage-Funktion oder bei Nein wird abgebrochen. Nicht live geprüft."""
     def kante(t):
         k = _kante_aufloesen(t, None)
         if k is None:
@@ -1649,11 +1775,21 @@ def kanten_folge_bauen(tokens, ops, dicke_mm, markierung, hinweise):
                 erz += folge_anbringen_gruppe([kante(tokens[i]) for i in gruppe], ops, dicke_mm, markierung, hinweise)
                 continue
             except AdapterFehler as e:
-                hinweise.append("Kanten %s: gemeinsam (mit Gehrung) nicht möglich, einzeln gebaut. Grund: %s" % (
-                    "+".join(str(i + 1) for i in gruppe), str(e).splitlines()[0][:200]))
+                nrn = "+".join(str(i + 1) for i in gruppe)
+                grund = str(e).splitlines()[0][:400]
+                if not (ohne_gehrung_frage and ohne_gehrung_frage(gehrung_frage_text(nrn, grund))):
+                    raise AdapterFehler("Kanten %s: gemeinsamer Flansch mit Gehrung nicht möglich, Bau ohne Gehrung nicht freigegeben. Grund: %s" % (nrn, grund),
+                                        rueckbau_ok=e.rueckbau_ok)
+                hinweise.append("Kanten %s: gemeinsamer Flansch (Gehrung) nicht möglich – auf deine Bestätigung je Kante OHNE Gehrung gebaut (Ecken stumpf). Grund: %s" % (
+                    nrn, grund))
         for i in gruppe:
             erz += folge_anbringen(kante(tokens[i]), ops, dicke_mm, markierung, hinweise)
     return erz
+
+
+def gehrung_frage_text(nrn, grund):
+    return ("Kanten %s: Fusion kann den gemeinsamen Flansch mit Gehrung nicht bauen (alles wurde zurückgebaut).\n\nGrund: %s\n\n"
+            "Stattdessen je Kante OHNE Gehrung bauen? Die Ecken bleiben stumpf (kein Gehrungsschnitt, Spalt oder Überlappung möglich)." % (nrn, grund))
 
 
 def grundblech_kante(body, seite_y="max"):

@@ -337,7 +337,8 @@ def pruefen(args):
         args.areInputsValid = False
 
 
-def _bauen(inp, ergebnis):
+def _bauen(inp, ergebnis, frage=None):
+    """frage(titel, text) → bool: Rückfrage vor einem Bau OHNE Gehrung (nur beim OK; in der Vorschau None = nie ohne Gehrung bauen)."""
     plan, fehler = _plan(inp)
     if fehler or not operation_plan.ist_ausfuehrbar(plan):
         ergebnis.fehler.append(fehler or "; ".join(plan["validation"]["errors"]))
@@ -354,6 +355,7 @@ def _bauen(inp, ergebnis):
     except Exception:
         logger.ausnahme("Kantengruppen nicht bestimmbar – es wird einzeln gebaut")
         gruppen = [[i] for i in range(len(tokens))]
+    ohne_gehrung = set()
     for gruppe in gruppen:
         einzeln = list(gruppe)
         if len(gruppe) >= 2 and ops and (ops[0]["typ"] != "umschlag" or len(ops) == 1):
@@ -374,8 +376,16 @@ def _bauen(inp, ergebnis):
                         ergebnis.warnungen.append("Kanten %s: %s" % ("+".join(map(str, nrn)), p))
                 einzeln = []
             except fa.AdapterFehler as e:
-                ergebnis.warnungen.append("Kanten %s: gemeinsamer Flansch (Gehrung) nicht möglich – sie werden einzeln gebaut. Grund: %s" % ("+".join(map(str, nrn)), e))
                 logger.warnung("Gruppe nicht gemeinsam gebaut", kanten=nrn, grund=e)
+                text_nrn = "+".join(map(str, nrn))
+                if frage is not None and frage("Gehrung nicht möglich", fa.gehrung_frage_text(text_nrn, str(e)[:600])):
+                    ergebnis.warnungen.append("Kanten %s: gemeinsamer Flansch (Gehrung) nicht möglich – auf deine Bestätigung je Kante OHNE Gehrung gebaut (Ecken stumpf). Grund: %s" % (text_nrn, e))
+                    ohne_gehrung.update(gruppe)
+                else:
+                    ergebnis.fehler.append("Kanten %s: nicht gebaut – gemeinsamer Flansch mit Gehrung nicht möglich%s. Grund: %s" % (
+                        text_nrn, " (beim OK wirst du gefragt, ob ohne Gehrung gebaut werden soll)" if frage is None else ", Bau ohne Gehrung abgelehnt", e))
+                    ergebnis.zurueckgesetzt = ergebnis.zurueckgesetzt or getattr(e, "rueckbau_ok", True)
+                    einzeln = []
         for i in einzeln:
             nr, tok = i + 1, tokens[i]
             try:
@@ -384,7 +394,7 @@ def _bauen(inp, ergebnis):
                 hinw = []
                 feats = fa.folge_anbringen(kante, ops, t, markierung, hinw)
                 ergebnis.warnungen += ["Kante %d: %s" % (nr, h) for h in hinw]
-                ergebnis.ausgefuehrt.append("Kante %d: %d Schritt(e)" % (nr, len(feats)))
+                ergebnis.ausgefuehrt.append("Kante %d: %d Schritt(e)%s" % (nr, len(feats), " – OHNE Gehrung (Ecke stumpf)" if i in ohne_gehrung else ""))
                 ergebnis.geometrie.append(body_name)
                 body = fa.koerper_neu(body_token)
                 if body is None:
@@ -426,7 +436,7 @@ def _ausfuehren(self, args):
     inp = args.command.commandInputs
     r = BuildResult()
     von = fa.zeitleiste_stand()
-    plan = _bauen(inp, r)
+    plan = _bauen(inp, r, base.frage)
     if not r.fehler:
         if fa.zeitleiste_gruppieren(von, "Spengler: %s" % (plan.get("templateName") or "Kantenfolge")):
             r.ausgefuehrt.append("In der Zeitleiste als Gruppe «Spengler: %s» abgelegt – ein Strg+Z nimmt alles zurück." % (plan.get("templateName") or "Kantenfolge"))

@@ -165,7 +165,7 @@ def _pruefen(args):
         args.areInputsValid = False
 
 
-def bauen(p, v, mat, name):
+def bauen(p, v, mat, name, frage=None):
     """Baut das Bauteil in einer NEUEN Komponente. → (Bericht, Hinweise). Bei JEDEM Fehler wird die halbfertige Komponente wieder entfernt (fa.abbruch_mit_rueckbau)."""
     g = p["geometrie"]
     von = fa.zeitleiste_stand()
@@ -183,7 +183,8 @@ def bauen(p, v, mat, name):
             if not ops or seite not in ketten:
                 continue
             markierung = {"vorlageId": v["id"], "vorlageVersion": v.get("version"), "vorlageName": v["name"], "seite": seite, "material": mat, "operationen": ops, "addin": VERSION}
-            feats = fa.kanten_folge_bauen(ketten[seite], ops, dicke, markierung, hinweise)
+            feats = fa.kanten_folge_bauen(ketten[seite], ops, dicke, markierung, hinweise,
+                                          (lambda text: frage("Gehrung nicht möglich", text)) if frage else None)
             bericht.append("%s: %d Feature(s) an %d Kante(n)." % (models_text(seite), len(feats), len(ketten[seite])))
     except Exception as ex:
         logger.ausnahme("Bauteil abgebrochen")
@@ -203,7 +204,7 @@ def _ausfuehren_innen(self, args):
         raise fa.AdapterFehler(fehler)
     name = inp.itemById("name").value.strip() or v["name"]
     g = p["geometrie"]
-    bericht, hinweise = bauen(p, v, mat, name)
+    bericht, hinweise = bauen(p, v, mat, name, base.frage)
     try:
         e = Einstellungen().laden()
         auftrag_logik.material_merken(e, mat["id"])

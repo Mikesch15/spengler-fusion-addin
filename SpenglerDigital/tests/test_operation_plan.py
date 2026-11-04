@@ -30,17 +30,26 @@ class BauplanTest(unittest.TestCase):
             self.assertTrue(p["validation"]["errors"], k)
             self.assertFalse(op.ist_ausfuehrbar(p))
 
-    def test_runde_kanten_werden_versucht_flansch_mit_warnung(self):
+    def test_runde_kanten_werden_vor_dem_modellieren_abgelehnt(self):
+        """Neu (Geometrie-Auftrag 4.11.): Kreis/Bogen sind für Flansch UND Umschlag ungeeignet – die Fusion-API ist nur für gerade Kanten beschrieben."""
         for kurve in ("kreis", "bogen"):
             p = op.erstelle(testvorlage(), {}, test_material(), [kante(kurve=kurve)])   # Vorlage mit Flansch
-            self.assertFalse(p["validation"]["errors"], kurve)
-            self.assertTrue(op.ist_ausfuehrbar(p))
-            self.assertIn("nennt in der Dokumentation nur gerade Kanten", " ".join(p["validation"]["warnings"]))
+            self.assertFalse(op.ist_ausfuehrbar(p))
+            self.assertIn("nur an geraden Kanten", " ".join(p["validation"]["errors"]))
             v = testvorlage()
             v["operations"] = [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
             p = op.erstelle(v, {}, test_material(), [kante(kurve=kurve)])
-            self.assertTrue(op.ist_ausfuehrbar(p))
-            self.assertNotIn("nur gerade Kanten", " ".join(p["validation"]["warnings"]), "Umschlag: keine Warnung")
+            self.assertFalse(op.ist_ausfuehrbar(p))
+            self.assertIn("Umschlag", " ".join(p["validation"]["errors"]))
+
+    def test_umschlag_braucht_erkannte_aussenkante(self):
+        v = testvorlage()
+        v["operations"] = [{"typ": "umschlag", "winkel": 180, "laenge": 7, "radius": None}]
+        p = op.erstelle(v, {}, test_material(), [kante(frei=None)])
+        self.assertFalse(op.ist_ausfuehrbar(p))
+        self.assertIn("freie Aussenkante", " ".join(p["validation"]["errors"]))
+        self.assertTrue(op.ist_ausfuehrbar(op.erstelle(testvorlage(), {}, test_material(), [kante(frei=None)])),
+                        "Flansch zuerst (Umschlag erst an der neuen Flanschkante): unbekannte Aussenkante bleibt erlaubt")
 
     def test_dicken_und_laengenbereich(self):
         v = testvorlage()

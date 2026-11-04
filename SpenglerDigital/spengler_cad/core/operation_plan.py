@@ -18,12 +18,19 @@ def kante_eignung(kante, vorlage, material):
         gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)")
     typ = (vorlage or {}).get("connection", {}).get("edgeType", "gerade")
     kurve = kante.get("kurve")
-    # Ellipse/Spline: nicht zuverlässig → abgelehnt. Kreis/Bogen: erlaubt; für Flansch warnt erstelle(), denn Fusions Flansch-API nennt nur
-    # gerade Kanten (Doku) – es wird versucht und Fusions Antwort gemeldet.
-    if kurve not in ("linie", "kreis", "bogen"):
-        gruende.append("hat den Kurventyp «%s» – möglich sind gerade Kanten sowie Kreise/Bögen" % kurve)
+    arten = {o.get("typ") for o in ((vorlage or {}).get("operations") or [])} or {"flansch"}
+    # Eignung nach Operationstyp. Flansch (EdgeFlangeInput) und Saum (HemFeatureInput) sind laut Autodesk-Doku nur für GERADE Kanten
+    # beschrieben; Kreis/Bogen werden deshalb VOR dem Modellieren abgelehnt (früher: versucht und gewarnt). Ellipse/Spline ohnehin.
+    if kurve != "linie":
+        was = " und ".join(x for x, n in (("Flansch", "flansch"), ("Umschlag", "umschlag")) if n in arten) or "Diese Operation"
+        gruende.append("ist %s – %s kann das Add-in in Fusion nur an geraden Kanten bauen (runde Kanten unterstützt die Fusion-Schnittstelle "
+                       "nicht belegt; runde Ränder mit «Rundblech»)" % ({"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "vom Kurventyp «%s»" % kurve), was))
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
+    ops_ = (vorlage or {}).get("operations") or []
+    if ops_ and ops_[0].get("typ") == "umschlag" and kante.get("frei") is None and kante.get("blech"):
+        # Eigene Prüfung, wenn der Saum an der GEWÄHLTEN Kante sitzt (erster Schritt): Fusion rechnet ihn nur an freien Aussenkanten (Live-Tests: SM_MODELING_ERROR sonst) – unklare Kanten nicht versuchen.
+        gruende.append("ist nicht sicher als freie Aussenkante erkannt – ein Umschlag braucht eine freie Aussenkante des Blechs")
     if kante.get("flaechen", 2) != 2:
         gruende.append("grenzt an %s Flächen (erwartet 2) – keine eindeutige Blechkante" % kante.get("flaechen"))
     if kante.get("frei") is False:
@@ -57,12 +64,6 @@ def erstelle(vorlage, eingaben, material, kanten):
                       "laenge": k.get("laenge")})
     plan = neuer_bauplan(vorlage, eingaben or {}, material, ziele)
     err, warn = plan["validation"]["errors"], plan["validation"]["warnings"]
-    ops = (vorlage or {}).get("operations") or []
-    if any(o.get("typ") != "umschlag" for o in ops):
-        for k in kanten:
-            if k.get("kurve") in ("kreis", "bogen"):
-                warn.append("%s ist rund: Fusions Flansch-Werkzeug nennt in der Dokumentation nur gerade Kanten – es wird versucht, "
-                            "Fusions Antwort wird gemeldet (bei Ablehnung wird nichts gebaut)." % k.get("text", "Kante"))
     if not kanten:
         err.append("Keine Kante gewählt.")
     if not material:
