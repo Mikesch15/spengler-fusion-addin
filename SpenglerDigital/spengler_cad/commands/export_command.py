@@ -18,7 +18,7 @@ import adsk.fusion
 
 from .. import VERSION
 from ..diagnostics import logger
-from ..core import app_profil, auftrag
+from ..core import ablage, app_profil, auftrag
 from ..core import auftrag as auftrag_logik
 from ..geometry import fusion_adapter as fa
 from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
@@ -36,7 +36,11 @@ Z = {}
 def _exportordner(e, angaben=None):
     """Exportordner: mit eingestelltem lokalen Auftragsordner <Basis>/[Jahr]/<Nummer Objekt>/Export, sonst der allgemeine Exportordner."""
     o = None
-    if angaben:
+    if angaben and angaben.get("ablage"):       # Ablage: <Basis>/<Ablagename>/Export bzw. <Exportordner>/<Ablagename>
+        a = auftrag.pruefe_einstellung(e.get("auftrag"))
+        o = os.path.join(a["lokalBasis"], ablage.exportname(angaben["ablage"]), a["rollen"]["export"]) if a["lokalBasis"] else os.path.join(
+            (e.get("export") or {}).get("folder") or paths.unterordner("export"), ablage.exportname(angaben["ablage"]))
+    elif angaben:
         try:
             o = auftrag.lokaler_exportpfad(e.get("auftrag"), angaben.get("auftrag"), angaben.get("objekt"), angaben.get("jahr") or e["order"].get("jahr"))
         except auftrag.AuftragsFehler:
@@ -276,7 +280,8 @@ def _zus(self, args):
         logger.ausnahme("Auftragsangaben nicht gespeichert")
     e["nesting"].update({"kerf": units.cm_zu_mm(inp.itemById("fuge").value), "margin": units.cm_zu_mm(inp.itemById("rand").value),
                          "rotationAllowed": inp.itemById("drehen").value})
-    angaben = {"auftrag": auftrag_nr, "objekt": objekt, "jahr": auftrag_angaben(e).get("jahr")}
+    angaben = {"auftrag": auftrag_nr, "objekt": objekt, "jahr": auftrag_angaben(e).get("jahr"),
+               "ablage": None if auftrag_nr else auftrag_angaben(e).get("ablage")}
     ordner = _exportordner(e, angaben)
     mit_auftrag = bool((e.get("auftrag") or {}).get("teilnummerMitAuftrag", True))
     warn = pruefung.pruefe_teile(teile, e.get("pruefung"))
@@ -465,6 +470,12 @@ def auftrag_angaben(e):
         z = None
     if z:
         return {"auftrag": z[0], "objekt": z[1], "jahr": z[2], "quelle": "Fusion-Ordner"}
+    try:        # Ablage (Ordner ohne Kundenauftrag): Ordner des Dokuments oder aktiv gesetzt
+        ab = ablage.kontext(e.get("ablagen"), fa.dokument_ordnerpfad())
+    except Exception:
+        ab = None
+    if ab and (ab["quelle"] == "Fusion-Ordner" or not e["order"].get("auftrag")):
+        return {"auftrag": "", "objekt": ab["name"], "jahr": None, "quelle": "Ablage", "ablage": ab["name"]}
     return {"auftrag": e["order"].get("auftrag", ""), "objekt": e["order"].get("objekt", ""), "jahr": e["order"].get("jahr"), "quelle": "zuletzt verwendet"}
 
 

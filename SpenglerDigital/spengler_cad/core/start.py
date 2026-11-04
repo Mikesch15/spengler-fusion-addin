@@ -16,6 +16,8 @@ BRAUCHT_MATERIAL = {"spenglerKantenBearbeiten", "spenglerMaterialZuschnitt", "sp
 
 def ablauf(z):
     """Schrittleiste: [(Name, True/False/None)] – None = lässt sich nicht automatisch feststellen."""
+    if z.get("ablage") and not z.get("auftrag"):
+        return [("Ablage", True), ("Material", bool(z.get("material_gewaehlt"))), ("Kanten", None), ("Prüfen & Zuschnitt", None)]
     return [("Auftrag", bool(z.get("auftrag")) and bool(z.get("dokument_gespeichert"))), ("Material", bool(z.get("material_gewaehlt"))), ("Kanten", None),
             ("Prüfen & Zuschnitt", None), ("App", True if z.get("projekt_in_app") else (False if z.get("projekt_in_app") is False else None))]
 
@@ -43,8 +45,10 @@ def bewerte(z):
             z_(False, "Projekt in der App: nicht gefunden – «Aufträge abgleichen» legt es an")
         z_(bool(z.get("dokument_gespeichert")), "Dokument: im Auftragsordner gespeichert" if z.get("dokument_gespeichert")
            else "Dokument: noch nicht im Auftragsordner gespeichert (Auftrag wählen → Haken «Dokument speichern»)")
+    elif z.get("ablage"):
+        z_(True, "Aktive Ablage: %s (kein Kundenauftrag – Exporte im eigenen Ordner, nichts geht an die App)" % z["ablage"])
     else:
-        z_(False, "Aktiver Auftrag: keiner – bitte «Auftrag wählen» oder «Neuer Auftrag»")
+        z_(False, "Aktiver Auftrag: keiner – bitte «Auftrag wählen», «Neuer Auftrag» oder «Andere Ablage»")
     info = z.get("projekt_info")
     if info:
         z_(None, "Projekt: " + " · ".join(x for x in (info.get("kunde"), info.get("status"), ("Nächster Termin: " + info["termin"]) if info.get("termin") else "",
@@ -60,7 +64,7 @@ def bewerte(z):
     # nächster sinnvoller Schritt
     if z.get("materialien", 0) == 0 or z.get("vorlagen", 0) == 0:
         n = "einstellungen"
-    elif not z.get("auftrag"):
+    elif not z.get("auftrag") and not z.get("ablage"):
         n = "auftrag_wahl"
     elif z.get("projekt_in_app") is False:
         n = "abgleich"
@@ -72,8 +76,8 @@ def bewerte(z):
 def voraussetzungen(befehl_id, z, auftrag_erforderlich=True):
     """→ (Probleme [Text], Lösungsbefehl-ID oder None). Leere Liste = Befehl darf laufen."""
     probleme, loesung = [], None
-    if auftrag_erforderlich and befehl_id in BRAUCHT_AUFTRAG and not z.get("auftrag"):
-        probleme.append("Es ist kein Auftrag aktiv. «%s» arbeitet immer für einen Auftrag (Teilenummern, Exportordner, App)." % BRAUCHT_AUFTRAG[befehl_id])
+    if auftrag_erforderlich and befehl_id in BRAUCHT_AUFTRAG and not z.get("auftrag") and not z.get("ablage"):
+        probleme.append("Es ist weder ein Auftrag noch eine Ablage aktiv. «%s» arbeitet immer für einen Auftrag (Teilenummern, Exportordner, App) – oder in einer «Anderen Ablage» für Modelle ohne Kundenauftrag." % BRAUCHT_AUFTRAG[befehl_id])
         loesung = "spenglerAuftragWaehlen"
     if befehl_id in BRAUCHT_MATERIAL and z.get("materialien", 0) == 0:
         probleme.append("Es gibt noch kein Materialprofil. Bitte zuerst unter «Vorlagen & Einstellungen → Materialien» eines anlegen.")

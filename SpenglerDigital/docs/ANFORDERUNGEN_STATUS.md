@@ -56,6 +56,7 @@ Konto/Abgleich und Updates sind in Fusion noch NICHT geprüft.
 | Profil von Hand skizzieren (Palette, Zeichenfeld mit Einrasten, Tabelle, Übernahme als Kantenvorlage) | TEIL | Logik + Browsertest (Maus) AUTO; Stift/Finger in der Fusion-Palette nicht live |
 | Profil aus der App an das CAD senden (App v3.425, Tabelle cad_profil_auftraege; Add-in: Liste in «Blech aus Massaufnahme», «gebaut») | NEIN | Add-in-Seite getestet gegen Test-Datenbank; App-Prüfstand AUTO; nicht live |
 | Projektkarte im CAD (Palette «Projekt», nur lesen), Fotos/Skizzen ansehen und als Referenzbild einfügen, «Neu»-Meldung, Werkstattstand der CAD-Teile | TEIL | Auswertung, Abfragen (Test-Datenbank), Palette (Browsertest), Start-Übersicht AUTO; Canvas-Einfügen (Live-Test-Schritt) und echte App-Daten nicht live |
+| Ablagen: Modelle ohne Kundenauftrag in frei gewähltem Fusion-Ordner, Befehle ohne Auftrag, eigener Exportordner | TEIL | Logik, Start, Kontext, Exportordner AUTO (Attrappe); Ordner anlegen/Dokument speichern in Fusion nicht live |
 | Eigene Gruppe in Fusion | LIVE | Befehle in Fusion erreichbar (Hilfe → Fähigkeiten/Selbsttest benutzt); Anordnung der 3 Gruppen nicht ausdrücklich bestätigt |
 | A Kanten bearbeiten: Einzel-/Mehrfachauswahl, Vorlage, Parameter, Vorschau, ungeeignete Kanten, Ergebnisprüfung | TEIL | Bauplan/Eignung AUTO (test_operation_plan), Ablauf/Rückbau als Logik-Test; in Fusion nicht live |
 | B 3D-Details anwenden | TEIL | siehe Kap. 4 |

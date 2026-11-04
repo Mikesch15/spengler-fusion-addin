@@ -200,6 +200,9 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Im CAD dasselbe Teil nochmals senden | Kein doppeltes Teil in der App (wird überschrieben) |
 | ☐ | In der App eine Massaufnahme «Freies Profil» im Testauftrag anlegen; im CAD **Vorlage aus App-Massaufnahme** | Liste der Massaufnahmen; Vorlage mit den Biegungen entsteht (erster Schenkel entfällt) |
 | ☐ | In der App an der Massaufnahme «Freies Profil» des Testprojekts **«An CAD senden»**, Länge 1500, 2 Stück | Bestätigung; im Projekt-Cockpit Box «An das CAD gesendet» mit «wartet auf das CAD» |
+| ☐ | **Andere Ablage** → «– neue Ablage anlegen –», Name «Test-Ablage», Ordner `Test/Ablage`, Haken «Dokument speichern» und «aktiv» | Ordner `Test/Ablage` im Fusion-Projekt, Dokument liegt dort; Meldung «aktive Ablage»; Start zeigt «Aktive Ablage: Test-Ablage» |
+| ☐ | Bei aktiver Ablage **Kanten bearbeiten** und **Stückliste & Zuschnitt** (ohne Auftrag) | Befehle öffnen ohne Sperre; Export im Ordner `…/Test-Ablage/…`; «App: keine Auftragsnummer – nichts gesendet» |
+| ☐ | «Auftrag wählen» für einen Testauftrag | Die Ablage ist nicht mehr aktiv (Start zeigt den Auftrag) |
 | ☐ | Palette → Register **Projekt**, Testprojekt wählen | Kopf (Kunde, Status, Hinweis, nächster Termin), Massaufnahmen mit Werkstattstand, «CAD und Werkstatt», Termine, Rapporte, Dateien, Offerten – **Bildschirmfoto** |
 | ☐ | In der Projektkarte bei einer Massaufnahme mit Foto «📷 Fotos/Skizzen», Bild antippen, **In Fusion einfügen** | Bild erscheint, antippen vergrössert; im Fusion-Dokument gibt es ein Referenzbild (Canvas) – Lage/Grösse einstellbar |
 | ☐ | In der App eine Massaufnahme weiterschalten (rüsten/montieren) oder eine neue anlegen, dann im CAD **Start** | Zeile «🔔 Neu aus der App: …» und «Projekt: Kunde · Status …»; in der Projektkarte «Neu seit dem letzten Mal» |

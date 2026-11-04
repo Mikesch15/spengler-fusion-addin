@@ -201,6 +201,7 @@ def standard_einstellungen():
                         "zuschlagProzent": 0.0},       # Zeitannahmen: eigene Schätzwerte, in den Einstellungen anpassen; Stundensatz aus der App
         "auftragErforderlich": True,   # Kanten bearbeiten, Abwicklung, Stückliste, Rundblech öffnen nur mit aktivem Auftrag
         "pruefung": {"minSchenkel": 10.0, "minRadiusFaktor": 1.0},   # Warnschwellen vor dem Export (Schenkel in mm, Radius × Blechdicke)
+        "ablagen": {"liste": [], "aktiv": ""},                  # freie Ordner für Modelle ohne Kundenauftrag (core/ablage.py)
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",
         "cloud": {"syncOnStart": True, "updateCheckOnStart": True},   # Spengler-Digital-App (nur wenn angemeldet)

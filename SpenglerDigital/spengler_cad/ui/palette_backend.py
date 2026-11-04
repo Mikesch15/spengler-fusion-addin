@@ -325,6 +325,8 @@ class Backend(object):
         e = s.laden()
         alt = e.get("order") or {}
         e["order"] = {"auftrag": str(d["nummer"]), "objekt": d.get("objekt") or "", "jahr": d.get("jahr")}
+        if isinstance(e.get("ablagen"), dict):
+            e["ablagen"]["aktiv"] = ""
         if alt.get("auftrag") == str(d["nummer"]) and alt.get("materialId"):
             e["order"]["materialId"] = alt["materialId"]
         s.speichern(e)

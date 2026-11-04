@@ -109,6 +109,8 @@ def _merken(e, nummer, objekt, jahr):
     try:
         alt = e.get("order") or {}
         e["order"] = {"objekt": objekt, "auftrag": nummer, "jahr": jahr}
+        if isinstance(e.get("ablagen"), dict):
+            e["ablagen"]["aktiv"] = ""                  # ein Auftrag ersetzt eine aktive Ablage
         if alt.get("auftrag") == nummer and alt.get("materialId"):
             e["order"]["materialId"] = alt["materialId"]
         Einstellungen().speichern(e)

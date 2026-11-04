@@ -1871,6 +1871,47 @@ def auftraege_lesen(wurzel_name, tiefe=2):
     return out
 
 
+def ordner_pfad(pfad_namen, anlegen=True):
+    """Ordner «a/b/c» im aktiven Fusion-Projekt (ab der Wurzel); fehlende Ebenen werden angelegt. → (Ordner, [neu angelegte Namen]). Nicht live geprüft."""
+    projekt = adsk.core.Application.get().data.activeProject
+    if projekt is None:
+        raise AdapterFehler("Kein aktives Projekt in Fusion. Bitte zuerst im Datenfenster das Projekt öffnen.")
+    ordner, neu = projekt.rootFolder, []
+    for name in pfad_namen:
+        sub = _unterordner(ordner, name)
+        if sub is None:
+            if not anlegen:
+                raise AdapterFehler("Der Ordner «%s» wurde nicht gefunden." % "/".join(pfad_namen))
+            sub = ordner.dataFolders.add(name)
+            neu.append(name)
+        ordner = sub
+    return ordner, neu
+
+
+def ordner_liste(tiefe=2):
+    """Vorhandene Ordner des aktiven Projekts (bis `tiefe` Ebenen) als Namenslisten – zur Auswahl. Nicht live geprüft."""
+    projekt = adsk.core.Application.get().data.activeProject
+    if projekt is None:
+        return []
+    alle = []
+    _ordner_rekursiv(projekt.rootFolder, tiefe - 1, [], alle)
+    return sorted([pfad for _, pfad in alle], key=lambda p: [x.lower() for x in p])
+
+
+def dokument_in_ordner_speichern(pfad_namen):
+    """Aktives Dokument im Ordner «a/b/c» ablegen (Ordner werden bei Bedarf angelegt). Ungespeichert: saveAs; schon dort: nichts; sonst eine KOPIE. → Text. Nicht live geprüft."""
+    ziel, neu = ordner_pfad(pfad_namen, True)
+    text = ("Ordner angelegt: %s. " % "/".join(neu)) if neu else ""
+    doc = adsk.core.Application.get().activeDocument
+    datei = doc.dataFile
+    if datei is not None and datei.parentFolder is not None and datei.parentFolder.id == ziel.id:
+        return text + "Das Dokument liegt schon im Ordner «%s»." % "/".join(pfad_namen)
+    if not doc.saveAs(doc.name, ziel, "", ""):
+        raise AdapterFehler("Fusion hat das Dokument nicht gespeichert.")
+    return text + (("Das Dokument wurde im Ordner «%s» gespeichert." % "/".join(pfad_namen)) if datei is None else
+                   "Eine Kopie wurde im Ordner «%s» gespeichert (die bisherige Datei bleibt, wo sie war)." % "/".join(pfad_namen))
+
+
 def dokument_im_auftrag_speichern(wurzel_name, auftragsname, unterordner_name, tiefe=2):
     """Aktives Dokument im Unterordner (z. B. «Modelle») des Auftrags speichern. Ungespeichert: saveAs. Schon dort: nichts. Sonst eine KOPIE
     (die offene Datei lässt sich nicht verschieben). → Text. NICHT live geprüft."""

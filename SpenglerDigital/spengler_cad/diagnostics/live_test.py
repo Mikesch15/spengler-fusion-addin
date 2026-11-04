@@ -256,6 +256,12 @@ def t_bildschirmfoto(ctx):
     return "Bildschirmfoto %d Byte" % os.path.getsize(pfad)
 
 
+def t_ordnerliste(ctx):
+    """Nur lesen: Ordner des aktiven Fusion-Projekts auflisten (Auswahl in «Andere Ablage»). Legt nichts an."""
+    liste = fa.ordner_liste(2)
+    return "%d Ordner bis 2 Ebenen im aktiven Projekt%s" % (len(liste), (", z. B. " + " / ".join(liste[0])) if liste else "")
+
+
 def t_ordnerpfad(ctx):
     pfad = fa.dokument_ordnerpfad()
     n = fa.dokument_name()
@@ -325,6 +331,7 @@ SCHRITTE = [
     ("Referenzbild (Canvas) einfügen", t_referenzbild, False),
     ("Bildschirmfoto der Ansicht", t_bildschirmfoto, False),
     ("Ordnerpfad des Dokuments lesen", t_ordnerpfad, False),
+    ("Ordner des aktiven Projekts auflisten (Ablagen)", t_ordnerliste, False),
 ]
 
 

@@ -33,7 +33,7 @@ class StartTest(unittest.TestCase):
     def test_voraussetzungen(self):
         p, l = start.voraussetzungen("spenglerKantenBearbeiten", zustand(auftrag=""))
         self.assertEqual(l, "spenglerAuftragWaehlen")
-        self.assertIn("kein Auftrag aktiv", p[0])
+        self.assertIn("weder ein Auftrag noch eine Ablage aktiv", p[0])
         self.assertEqual(start.voraussetzungen("spenglerKantenBearbeiten", zustand())[0], [])
         self.assertEqual(start.voraussetzungen("spenglerKantenBearbeiten", zustand(auftrag=""), auftrag_erforderlich=False)[0], [], "abschaltbar")
         p, l = start.voraussetzungen("spenglerKantenBearbeiten", zustand(materialien=0))
