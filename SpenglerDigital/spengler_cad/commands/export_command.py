@@ -21,7 +21,7 @@ from ..diagnostics import logger
 from ..core import ablage, app_profil, auftrag
 from ..core import auftrag as auftrag_logik
 from ..geometry import fusion_adapter as fa
-from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
+from ..manufacturing import bend_list, bestellung, kalkulation, mappe, dxf_lesen, dxf_pruefung, dxf_writer, material_calculator, nesting, parts_list, pruefung, workshop_sheet
 from ..storage import json_store, paths
 from ..storage.material_library import MaterialBibliothek
 from ..storage.settings_service import Einstellungen
@@ -102,6 +102,15 @@ def abw_erstellt(args):
     base.handler(adsk.core.CommandEventHandler, cmd.execute, abw_ausfuehren)
 
 
+def dxf_kontrolle(dxf_pfad, masse):
+    """Gegenprobe der exportierten DXF (Masse, Einheit, Kontur) – ein fehlerhafter Export wird NICHT als Erfolg gemeldet. → Text für die Berichtszeile («✓» bzw. «✓ ⚠ Hinweis»);
+    schwere Probleme (keine Elemente, Masse weichen ab, Einheit nicht mm) werfen AdapterFehler, die Datei bleibt zur Kontrolle liegen."""
+    pr = dxf_pruefung.pruefe_datei(dxf_pfad, masse.get("breite"), masse.get("laenge"))
+    if not pr["ok"]:
+        raise fa.AdapterFehler("DXF fehlerhaft: %s (Datei zur Kontrolle: %s)" % ("; ".join(pr["probleme"]), dxf_pfad))
+    return "✓" + ((" ⚠ " + "; ".join(pr["hinweise"])) if pr["hinweise"] else "")
+
+
 @base.sicher("Abwicklung & DXF")
 def _abw(self, args):
     inp = args.command.commandInputs
@@ -137,7 +146,7 @@ def _abw(self, args):
             dxf_pfad = None
             if inp.itemById("dxf").value:
                 dxf_pfad = fa.dxf_abwicklung(fp, os.path.join(ordner, basis + ".dxf"))
-                zeile += ", DXF ✓"
+                zeile += ", DXF " + dxf_kontrolle(dxf_pfad, masse)
                 if inp.itemById("beschriften").value:
                     try:
                         if dxf_lesen.beschriften(dxf_pfad, nr_text, (e.get("export") or {}).get("layerText") or "TEXT"):
