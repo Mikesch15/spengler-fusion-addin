@@ -291,6 +291,50 @@ class Cloud(object):
         self._anfrage("PATCH", "/rest/v1/cad_profil_auftraege?id=eq.%s" % int(auftrag_id),
                       {"status": "gebaut", "gebaut_am": time.strftime("%Y-%m-%dT%H:%M:%SZ", time.gmtime())}, kopf={"Prefer": "return=minimal"})
 
+    # ------------------------------------------------------------------ Projektkarte (nur lesen)
+    _KARTE = {
+        "massaufnahmen": "/rest/v1/measurements?select=id,type,title,date,workflow_status,photo_path,photo_paths,sketch_path,sketch_paths,archived,created_at,updated_at,freigegeben_am,geruestet_am,montiert_am,montage_am&project_id=eq.{pid}&order=id.desc&limit=300",
+        "rapporte": "/rest/v1/reports?select=id,date,work_entries,material_entries,photo_paths,created_at&project_id=eq.{pid}&order=date.desc&limit=100",
+        "termine": "/rest/v1/termine?select=titel,start_datum,ende_datum,start_zeit,ende_zeit,ort,notiz,mitarbeiter,created_at&project_id=eq.{pid}&order=start_datum.asc&limit=100",
+        "dateien": "/rest/v1/project_files?select=id,name,file_path,size_bytes,mime_type,created_at,created_by&project_id=eq.{pid}&order=created_at.desc&limit=200",
+        "offerten": "/rest/v1/offerten?select=id,offert_nr,title,date,gueltig_bis,kunde_name,positionen&project_id=eq.{pid}&order=date.desc&limit=50",
+        "leistungen": "/rest/v1/leistungen?select=bezeichnung,status,menge,einheit,ausgefuehrte_menge&project_id=eq.{pid}&limit=200",
+        "teile": "/rest/v1/cad_teile?select=teil_nr,teil_label,name,stueck,material_name,measurement_id,status,geaendert_am&project_id=eq.{pid}&order=teil_nr&limit=300",
+        "auftraege": "/rest/v1/cad_profil_auftraege?select=id,titel,laenge_mm,stueck,status,measurement_id,gebaut_am,created_at&project_id=eq.{pid}&order=created_at.desc&limit=100",
+    }
+
+    def projekt_roh(self, nummer, personen=True):
+        """Alles zum Projekt der Auftragsnummer, nur lesen → ({'projekt', 'massaufnahmen', 'rapporte', 'termine', 'dateien', 'offerten', 'leistungen', 'teile', 'auftraege', 'personen'}, [Hinweise]) oder
+        (None, []), wenn es das Projekt nicht gibt. Die Abfragen laufen gleichzeitig; eine, die scheitert (fehlendes Recht, Tabelle fehlt), ergibt eine leere Liste und einen Hinweis.
+        Offline: CloudFehler."""
+        from concurrent.futures import ThreadPoolExecutor
+        z = self._json("GET", "/rest/v1/projects?select=id,name,order_no,customer,object,status,hinweis,zugeteilt_an,created_at,archived&order_no=eq.%s&limit=1" % urllib.parse.quote(str(nummer))) or []
+        if not z:
+            return None, []
+        pid = z[0]["id"]
+        auftraege = dict(self._KARTE)
+        if personen:
+            auftraege["personen"] = "/rest/v1/profiles?select=id,first_name,last_name&limit=500"
+        hinweise = []
+
+        def holen(item):
+            name, pfad = item
+            try:
+                return name, self._json("GET", pfad.format(pid=pid)) or []
+            except CloudFehler as ex:
+                if ex.offline:
+                    raise
+                hinweise.append("%s: nicht lesbar (%s)" % (name, ex))
+                return name, []
+        with ThreadPoolExecutor(max_workers=8) as pool:
+            roh = dict(pool.map(holen, auftraege.items()))
+        roh["projekt"] = z[0]
+        return roh, hinweise
+
+    def foto_laden(self, pfad):
+        """Foto/Skizze/Datei einer Massaufnahme bzw. eines Projekts aus dem Speicher der App (nur lesen) → Bytes. pfad wie in der Datenbank (measurements/<Projekt>/<Aufnahme>/photo/<Datei>)."""
+        return self._anfrage("GET", "/storage/v1/object/authenticated/measurements/%s" % urllib.parse.quote(str(pfad), safe="/"))[1]
+
     def projekte_lesen(self):
         """Projekte der App (nur lesen) → [{id,name,order_no,object,customer,status,archived,created_at}]."""
         return self._json("GET", "/rest/v1/projects?select=id,name,order_no,object,customer,status,archived,created_at&order=order_no.desc&limit=1000") or []

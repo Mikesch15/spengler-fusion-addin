@@ -1179,6 +1179,22 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                             rueckbau_ok=zurueck)
 
 
+def referenzbild_einfuegen(dateipfad, name="Referenzbild"):
+    """Bild (Foto/Skizze aus der App) als Referenzbild (Canvas) auf die XY-Ebene des aktiven Dokuments legen; Grösse und Lage stellt der Benutzer in Fusion ein.
+    NICHT live geprüft (Canvases.createInput/add)."""
+    comp = design().rootComponent
+    cv = getattr(comp, "canvases", None)
+    if cv is None or not hasattr(cv, "createInput"):
+        raise AdapterFehler("Diese Fusion-Version kann keine Referenzbilder (Canvas) per Add-in einfügen. Das Bild wurde gespeichert: %s" % dateipfad)
+    eingabe = cv.createInput(dateipfad, comp.xYConstructionPlane)
+    bild = cv.add(eingabe)
+    try:
+        bild.name = name
+    except Exception:
+        pass
+    return bild
+
+
 def neue_komponente(name):
     """Leere neue Komponente im aktiven Design. Nicht live geprüft."""
     occ = design().rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create())

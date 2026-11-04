@@ -352,3 +352,57 @@ class LiveTestQuelltext(unittest.TestCase):
         q = open(os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "spengler_cad", "diagnostics", "live_test.py"), encoding="utf-8").read()
         code = [z for z in q.splitlines() if not z.strip().startswith(("#", '"""'))]
         self.assertFalse([z for z in code if "fa._kantenlaenge_mm(" in z and "def " not in z and "Live 4.11" not in z], "Textfunktion als Zahl benutzt")
+
+
+class ProjektkarteBackend(unittest.TestCase):
+    def test_karte_fotos_datei(self):
+        import json
+        import os
+        import shutil
+        import tempfile
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud
+        from spengler_cad.ui.palette_backend import Backend
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        wurzel = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, wurzel, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        os.environ["SPENGLER_CAD_CLOUD_URL"] = url
+        self.addCleanup(os.environ.pop, "SPENGLER_CAD_CLOUD_URL", None)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "S", "object": "Sonneggweg 9", "customer": "K", "status": "offen", "archived": False, "zugeteilt_an": []}]
+        z.measurements = [{"company_id": "firma-a", "id": 41, "project_id": 7, "type": "freies_profil", "title": "Stirn", "workflow_status": "geruestet", "geruestet_am": "2026-11-03T10:00:00+00:00",
+                           "created_at": "2026-11-02T10:00:00Z", "photo_paths": ["measurements/7/41/photo/a.jpg"]}]
+        z.projektdateien = [{"project_id": 7, "id": 3, "name": "Plan.pdf", "file_path": "project-files/7/x.pdf", "size_bytes": 2048, "created_at": "2026-11-03T09:00:00Z", "created_by": "u"}]
+        z.profil_auftraege = [{"company_id": "firma-a", "id": 1, "project_id": 7, "titel": "Stirn", "laenge_mm": 3200, "stueck": 2, "status": "offen", "daten": {}, "measurement_id": 41, "created_at": "2026-11-03T08:00:00Z"}]
+        z.speicher["measurements/7/41/photo/a.jpg"] = b"\xff\xd8JPEG"
+        z.speicher["project-files/7/x.pdf"] = b"%PDF-1.4"
+        c = Cloud(wurzel, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        b = Backend(wurzel)
+        r = json.loads(b.behandle("projekt_liste", "{}"))
+        self.assertTrue(r["ok"], r)
+        self.assertEqual(r["daten"]["projekte"][0]["nummer"], "18162")
+        k = json.loads(b.behandle("projekt_karte", json.dumps({"nummer": "18162"})))
+        self.assertTrue(k["ok"], k)
+        d = k["daten"]
+        self.assertEqual(d["kopf"]["objekt"], "Sonneggweg 9")
+        self.assertEqual(d["massaufnahmen"][0]["fotos"], 1)
+        self.assertEqual(d["cad"]["auftraege"][0]["werkstatt"], "Gerüstet (gerüstet 3.11.2026)")
+        self.assertEqual(d["neu"]["offene_auftraege"], 1)
+        self.assertNotIn("Massaufnahme", d["neu"]["text"], "beim ersten Ansehen wird nichts ausser den wartenden Aufträgen «neu» gemeldet")
+        k2 = json.loads(b.behandle("projekt_karte", json.dumps({"nummer": "18162"})))["daten"]
+        self.assertEqual((k2["neu"]["massaufnahmen"], k2["neu"]["werkstatt"]), (0, 0), "nach dem ersten Ansehen ist nichts mehr neu")
+        self.assertFalse(json.loads(b.behandle("projekt_karte", json.dumps({"nummer": "00000"})))["ok"])
+        f = json.loads(b.behandle("projekt_fotos", json.dumps({"pfade": ["measurements/7/41/photo/a.jpg", "measurements/7/41/photo/fehlt.jpg"]})))["daten"]
+        self.assertTrue(f["bilder"][0]["url"].startswith("data:image/jpeg;base64,"))
+        self.assertEqual(len(f["fehler"]), 1)
+        s = json.loads(b.behandle("projekt_datei", json.dumps({"nummer": "18162", "pfad": "project-files/7/x.pdf", "name": "Plan.pdf", "oeffnen": False})))["daten"]
+        self.assertEqual(open(s["pfad"], "rb").read(), b"%PDF-1.4")
+        self.assertIn("App-Dateien", s["pfad"])
+        gemacht = []
+        b._referenzbild = lambda pfad, titel: gemacht.append((os.path.basename(pfad), titel))
+        json.loads(b.behandle("projekt_foto_fusion", json.dumps({"nummer": "18162", "pfad": "measurements/7/41/photo/a.jpg", "titel": "Stirn"})))
+        self.assertEqual(gemacht, [("a.jpg", "Stirn")])

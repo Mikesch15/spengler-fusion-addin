@@ -375,3 +375,60 @@ class ProfilAuftraegeTest(unittest.TestCase):
         self.assertIn("3200 mm × 4 Stück", e[0]["text"])
         self.assertIsNone(e[1]["laenge"])
         self.assertEqual(g.eintraege(None, None), [])
+
+
+class ProjektkarteCloudTest(unittest.TestCase):
+    def _cloud(self):
+        import fake_supabase
+        from spengler_cad.storage.cloud_client import Cloud
+        z = fake_supabase.Zustand()
+        srv, url = fake_supabase.server(z)
+        tmp = tempfile.mkdtemp()
+        self.addCleanup(shutil.rmtree, tmp, True)
+        self.addCleanup(srv.server_close)
+        self.addCleanup(srv.shutdown)
+        z.benutzer_anlegen("max@nfgryuzkpwjfmdlmevuy.supabase.co", "pw", "employee", "firma-a")
+        z.projects = [{"company_id": "firma-a", "id": 7, "order_no": "18162", "name": "Sonneggweg", "object": "Sonneggweg 9, Bern", "customer": "Muster AG", "status": "in_arbeit", "archived": False,
+                       "hinweis": "Schlüssel beim Hauswart", "zugeteilt_an": ["u1"], "created_at": "2026-10-01T10:00:00Z"},
+                      {"company_id": "firma-a", "id": 8, "order_no": "18200", "name": "Anderes", "object": "x", "status": "offen", "archived": False}]
+        z.measurements = [{"company_id": "firma-a", "id": 41, "project_id": 7, "type": "freies_profil", "title": "Stirn", "workflow_status": "geruestet", "photo_paths": ["measurements/7/41/photo/a.jpg"]},
+                          {"company_id": "firma-a", "id": 99, "project_id": 8, "type": "kehle", "title": "fremd"}]
+        z.tab = {"reports": [{"company_id": "firma-a", "project_id": 7, "id": 1, "date": "2026-10-19", "work_entries": [{"hours": 2.5, "employee": "Mike"}], "material_entries": []}],
+                 "termine": [{"company_id": "firma-a", "project_id": 7, "titel": "Montage", "start_datum": "2026-11-10"}],
+                 "offerten": [], "leistungen": [], "profiles": [{"id": "u1", "first_name": "Mike", "last_name": "Ledermann"}]}
+        z.projektdateien = [{"project_id": 7, "id": 3, "name": "Plan.pdf", "file_path": "project-files/7/x.pdf", "size_bytes": 2048}]
+        z.teile = [{"company_id": "firma-a", "project_id": 7, "auftrag": "18162", "dokument": "d", "teil_nr": 1, "teil_label": "18162-01", "name": "Ortgang", "measurement_id": 41}]
+        z.speicher["measurements/7/41/photo/a.jpg"] = b"\xff\xd8JPEG"
+        c = Cloud(tmp, url=url, timeout=5)
+        c.anmelden("max", "pw")
+        return c, z
+
+    def test_roh_nur_dieses_projekt(self):
+        c, z = self._cloud()
+        roh, hinweise = c.projekt_roh("18162")
+        self.assertEqual(hinweise, [])
+        self.assertEqual(roh["projekt"]["customer"], "Muster AG")
+        self.assertEqual([m["id"] for m in roh["massaufnahmen"]], [41])
+        self.assertEqual(roh["rapporte"][0]["id"], 1)
+        self.assertEqual(roh["dateien"][0]["name"], "Plan.pdf")
+        self.assertEqual(roh["teile"][0]["teil_label"], "18162-01")
+        self.assertEqual(roh["personen"][0]["first_name"], "Mike")
+        self.assertEqual(c.projekt_roh("99999"), (None, []))
+
+    def test_foto_laden(self):
+        c, z = self._cloud()
+        self.assertEqual(c.foto_laden("measurements/7/41/photo/a.jpg"), b"\xff\xd8JPEG")
+        from spengler_cad.storage.cloud_client import CloudFehler
+        with self.assertRaises(CloudFehler):
+            c.foto_laden("measurements/7/41/photo/gibtsnicht.jpg")
+
+    def test_karte_aus_roh(self):
+        from spengler_cad.core import projektkarte
+        c, z = self._cloud()
+        roh, _ = c.projekt_roh("18162")
+        k = projektkarte.karte(roh, projektkarte.namen(roh["personen"]), "2026-11-04")
+        self.assertEqual(k["kopf"]["zugeteilt"], ["Mike Ledermann"])
+        self.assertEqual(k["massaufnahmen"][0]["status"], "Gerüstet")
+        self.assertEqual(k["massaufnahmen"][0]["fotos"], 1)
+        self.assertEqual(k["cad"]["teile"][0]["werkstatt"], "Gerüstet")
+        self.assertEqual(k["naechster_termin"]["titel"], "Montage")

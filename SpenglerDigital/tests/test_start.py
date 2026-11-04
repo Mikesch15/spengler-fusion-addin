@@ -47,3 +47,23 @@ class StartTest(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ProjektInfoTest(DatenTest):
+    def test_zeilen_mit_projektinfo_und_neu(self):
+        e = start.bewerte(zustand(projekt_info={"kunde": "Weyermann AG", "status": "In Arbeit", "hinweis": "Schlüssel beim Hauswart", "termin": "Montage, 10.11.2026", "aktiv": 2},
+                                  app_neu={"text": "1 Auftrag aus der App wartet"}))
+        texte = " | ".join(z["text"] for z in e["zeilen"])
+        self.assertIn("Projekt: Weyermann AG · In Arbeit · Nächster Termin: Montage, 10.11.2026 · 2 aktive Massaufnahmen", texte)
+        self.assertIn("Hinweis im Projekt: Schlüssel beim Hauswart", texte)
+        self.assertIn("🔔 Neu aus der App: 1 Auftrag aus der App wartet", texte)
+        e2 = start.bewerte(zustand())
+        self.assertNotIn("Neu aus der App", " | ".join(z["text"] for z in e2["zeilen"]))
+
+    def test_projekt_info_aus_roh(self):
+        from spengler_cad.commands import zustand as zu
+        roh = {"projekt": {"order_no": "18162", "customer": "K", "status": "offen", "hinweis": "h"}, "termine": [{"titel": "Montage", "start_datum": "2999-01-01"}],
+               "massaufnahmen": [{"id": 1, "workflow_status": "freigegeben"}, {"id": 2, "workflow_status": "abgeschlossen"}], "teile": [], "auftraege": [{"status": "offen"}]}
+        i = zu._projekt_info("18162", roh)
+        self.assertEqual((i["projekt_info"]["kunde"], i["projekt_info"]["aktiv"], i["projekt_info"]["termin"]), ("K", 1, "Montage, 1.1.2999"))
+        self.assertEqual(i["app_neu"]["offene_auftraege"], 1)

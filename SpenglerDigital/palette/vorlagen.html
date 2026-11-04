@@ -67,6 +67,7 @@ td,th,.tpunkt{border-color:#2b343e}
   <label style="min-width:0"><input type="checkbox" id="experte"> Expertenmodus</label></header>
 <nav>
   <button data-tab="vorlagen" class="aktiv">Kantenvorlagen</button>
+  <button data-tab="projekt">Projekt</button>
   <button data-tab="skizze">Skizze</button>
   <button data-tab="bauteile">Bauteile</button>
   <button data-tab="auftraege">Aufträge</button>
@@ -209,6 +210,13 @@ td,th,.tpunkt{border-color:#2b343e}
     <button id="bAusDatei">Aus Datei wiederherstellen…</button><button id="bProto">Protokoll öffnen</button><button class="hilfe" data-hilfe="einstellungen">?</button></div>
   <table><thead><tr><th>Vorhandene Sicherungen</th><th></th></tr></thead><tbody id="bListe"></tbody></table>
   <table><thead><tr><th>Papierkorb</th><th></th></tr></thead><tbody id="pkListe"></tbody></table>
+</section>
+<section id="projekt">
+  <div class="zeile"><label style="min-width:0">Projekt</label><select id="pkWahl" style="min-width:260px"></select><button class="haupt" id="pkLaden">Anzeigen</button>
+    <span class="klein" id="pkStand"></span></div>
+  <div class="klein">Alles zum Projekt aus der App (nur lesen): Kunde, Massaufnahmen mit Werkstattstand, CAD-Teile, Rapporte, Termine, Dateien, Offerten, Leistungen. Fotos und Skizzen der Massaufnahmen lassen sich ansehen und als Referenzbild in Fusion einfügen.</div>
+  <div id="pkNeu"></div>
+  <div id="pkKarte"></div>
 </section>
 <section id="skizze">
   <div class="klein">Profil von Hand skizzieren (Stift, Finger oder Maus): der <b>erste Strich</b> ist das bestehende Blech, jeder weitere Strich wird ein <b>Flansch</b> (Drehung nach links = +, nach rechts = −); eine Drehung von etwa 180° wird ein <b>Umschlag</b>. Auf dem Zeichenfeld ziehen bzw. klicken: Länge und Winkel rasten ein. Masse lassen sich in der Tabelle genau eintippen.</div>

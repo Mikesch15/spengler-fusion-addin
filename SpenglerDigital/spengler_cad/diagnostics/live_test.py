@@ -291,6 +291,17 @@ def t_bauteil_ring(ctx):
     return _bauteil(ctx, "300 L90 200 L90 300 L90 200 L90", True, {"verlauf": "90 20", "gegen": "90 15"}, "Ring mit Flansch an beiden Kanten", breite="60")
 
 
+def t_referenzbild(ctx):
+    """Referenzbild (Canvas) einfügen – so wie «In Fusion einfügen» in der Projektkarte (Foto/Skizze der Massaufnahme)."""
+    import base64
+    png = base64.b64decode("iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mP8z8BQDwAEhQGAhKmMIQAAAABJRU5ErkJggg==")
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "referenz.png")
+    with open(pfad, "wb") as f:
+        f.write(png)
+    fa.referenzbild_einfuegen(pfad, "Live-Test Referenzbild")
+    return "Referenzbild eingefügt (%d Canvas im Dokument)" % ctx.root.canvases.count
+
+
 class _Warnung(Exception):
     """Schritt lief, aber das Ergebnis ist auffällig."""
 
@@ -311,6 +322,7 @@ SCHRITTE = [
     ("Abwicklung und DXF", t_abwicklung, True),
     ("Bauteil: L-förmiger Grundrissverlauf", t_bauteil_l, False),
     ("Bauteil: geschlossener Ring", t_bauteil_ring, False),
+    ("Referenzbild (Canvas) einfügen", t_referenzbild, False),
     ("Bildschirmfoto der Ansicht", t_bildschirmfoto, False),
     ("Ordnerpfad des Dokuments lesen", t_ordnerpfad, False),
 ]

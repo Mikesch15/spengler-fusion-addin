@@ -45,6 +45,15 @@ def bewerte(z):
            else "Dokument: noch nicht im Auftragsordner gespeichert (Auftrag wählen → Haken «Dokument speichern»)")
     else:
         z_(False, "Aktiver Auftrag: keiner – bitte «Auftrag wählen» oder «Neuer Auftrag»")
+    info = z.get("projekt_info")
+    if info:
+        z_(None, "Projekt: " + " · ".join(x for x in (info.get("kunde"), info.get("status"), ("Nächster Termin: " + info["termin"]) if info.get("termin") else "",
+                                                       ("%d aktive Massaufnahme%s" % (info["aktiv"], "" if info["aktiv"] == 1 else "n")) if info.get("aktiv") else "") if x))
+        if info.get("hinweis"):
+            z_(None, "Hinweis im Projekt: " + info["hinweis"][:160])
+    neu = z.get("app_neu") or {}
+    if neu.get("text"):
+        z_(None, "🔔 Neu aus der App: " + neu["text"] + " (Details: Palette → Register «Projekt»)")
     fehlt = z.get("fehlende_funktionen") or []
     if fehlt:
         z_(None, "Diese Fusion-Version kann nicht alles: " + "; ".join(fehlt[:3]) + (" …" if len(fehlt) > 3 else ""))

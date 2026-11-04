@@ -10,6 +10,20 @@ from ..storage.settings_service import Einstellungen
 from ..storage.template_repository import VorlagenRepository
 
 
+def _projekt_info(auftrag, roh):
+    """Kurzinfo zum Projekt für die Start-Übersicht + was seit dem letzten Ansehen in der Palette (Register Projekt) neu ist. Verändert nichts."""
+    from ..core import projektkarte
+    try:
+        gesehen = json.load(open(os.path.join(paths.daten_ordner(), "projekt_gesehen.json"), encoding="utf-8")).get(str(auftrag), "")
+    except Exception:
+        gesehen = ""
+    k = projektkarte.kopf(roh.get("projekt"))
+    t = projektkarte.naechster_termin(roh.get("termine"))
+    teile = [x for x in projektkarte.massaufnahmen(roh.get("massaufnahmen"), roh.get("teile"), roh.get("auftraege")) if not x["archiviert"] and x["status_key"] != "abgeschlossen"]
+    return {"projekt_info": {"kunde": k["kunde"], "status": k["status"], "hinweis": k["hinweis"], "termin": ("%s, %s" % (t["titel"], t["wann"])) if t else "", "aktiv": len(teile)},
+            "app_neu": projektkarte.neu_seit(roh, gesehen)}
+
+
 def lesen(mit_app=True):
     """→ Zustand für core.start. mit_app=False fragt die App nicht (schnell, für die Prüfung beim Befehlsstart). Jeder Fehler ergibt «unbekannt», nie eine Ausnahme."""
     from . import export_command
@@ -40,7 +54,10 @@ def lesen(mit_app=True):
             c = Cloud(timeout=5)
             z["angemeldet"] = bool(c.angemeldet)
             if c.angemeldet and z["auftrag"]:
-                z["projekt_in_app"] = bool(c.projekt_zu_auftrag(z["auftrag"]))
+                roh, _ = c.projekt_roh(z["auftrag"], personen=False)
+                z["projekt_in_app"] = roh is not None
+                if roh is not None:
+                    z.update(_projekt_info(z["auftrag"], roh))
         except Exception:
             logger.warnung("Zustand: App nicht erreichbar")
     return z

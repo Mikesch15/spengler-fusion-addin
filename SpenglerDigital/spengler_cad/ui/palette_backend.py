@@ -7,7 +7,7 @@ import json
 import os
 
 from .. import VERSION
-from ..core import bauteil, grundriss, lernen, models, operation_plan, short_syntax, skizze, template_engine
+from ..core import bauteil, grundriss, lernen, models, operation_plan, projektkarte, short_syntax, skizze, template_engine
 from ..core.bend_geometry import ProfilFehler, zugabe_abwicklung
 from ..manufacturing import drawing
 from ..storage import backup_service, paths
@@ -220,6 +220,94 @@ class Backend(object):
             hinweise.append("Nicht angemeldet – nur Ordner in Fusion (Register Konto).")
         rows = uebersicht.zeilen(projekte, ordner, status, teile, (e.get("order") or {}).get("auftrag", ""))
         return {"zeilen": rows, "summe": uebersicht.zusammenfassung(rows), "hinweise": hinweise, "status": auftrag.STATUS}
+
+    # ------------------------------------------------------------------ Projektkarte (alles zum Projekt, nur lesen)
+    def _gesehen_datei(self):
+        return os.path.join(self.wurzel or paths.daten_ordner(), "projekt_gesehen.json")
+
+    def a_projekt_liste(self, d):
+        """Projekte der App zum Auswählen + der aktive Auftrag (zuerst angezeigt)."""
+        e = Einstellungen(self.wurzel).laden()
+        c = self._cloud()
+        if not c.angemeldet:
+            raise ValueError("Für die Projektkarte zuerst anmelden (Register Konto).")
+        zeilen = [p for p in c.projekte_lesen() if not p.get("archived") and p.get("order_no")]
+        return {"aktiv": (e.get("order") or {}).get("auftrag", ""),
+                "projekte": [{"nummer": str(p["order_no"]), "objekt": p.get("object") or p.get("name") or "", "kunde": p.get("customer") or ""} for p in zeilen]}
+
+    def a_projekt_karte(self, d):
+        """Alles zum Projekt der Auftragsnummer: Kopf, Massaufnahmen mit Werkstattstand, CAD-Teile, Rapporte, Termine, Dateien, Offerten, Leistungen – und was seit dem letzten Besuch neu ist."""
+        from ..storage import json_store
+        nummer = str(d.get("nummer") or "").strip()
+        if not nummer:
+            raise ValueError("Bitte ein Projekt wählen.")
+        c = self._cloud()
+        if not c.angemeldet:
+            raise ValueError("Für die Projektkarte zuerst anmelden (Register Konto).")
+        roh, hinweise = c.projekt_roh(nummer)
+        if roh is None:
+            raise ValueError("Zur Auftragsnummer %s gibt es in der App kein Projekt." % nummer)
+        gesehen = json_store.lesen(self._gesehen_datei(), {}) or {}
+        karte = projektkarte.karte(roh, projektkarte.namen(roh.get("personen")))
+        karte["neu"] = projektkarte.neu_seit(roh, gesehen.get(nummer, ""))
+        karte["hinweise"] = hinweise
+        if d.get("als_gesehen", True):
+            import datetime
+            gesehen[nummer] = datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")
+            json_store.schreiben(self._gesehen_datei(), gesehen)
+        return karte
+
+    def a_projekt_fotos(self, d):
+        """Fotos/Skizzen einer Massaufnahme als Bilddaten (data-URL) für die Anzeige; höchstens 8, grosse Dateien werden übersprungen."""
+        import base64
+        c = self._cloud()
+        out, fehler = [], []
+        for pfad in (d.get("pfade") or [])[:8]:
+            try:
+                inhalt = c.foto_laden(pfad)
+            except Exception as ex:
+                fehler.append("%s: %s" % (os.path.basename(pfad), ex))
+                continue
+            if len(inhalt) > 3 * 1024 * 1024:
+                fehler.append("%s: zu gross für die Anzeige (%.1f MB) – bitte «In Fusion einfügen» oder «Speichern» nutzen" % (os.path.basename(pfad), len(inhalt) / 1048576))
+                continue
+            ext = os.path.splitext(pfad)[1].lower()
+            mime = {".png": "image/png", ".webp": "image/webp", ".gif": "image/gif"}.get(ext, "image/jpeg")
+            out.append({"pfad": pfad, "url": "data:%s;base64,%s" % (mime, base64.b64encode(inhalt).decode("ascii"))})
+        return {"bilder": out, "fehler": fehler}
+
+    def _app_datei_speichern(self, nummer, pfad, name=None):
+        """Datei aus der App in den Exportordner (Unterordner «App-Dateien/<Auftrag>») laden → lokaler Pfad."""
+        from ..storage import json_store
+        e = Einstellungen(self.wurzel).laden()
+        ordner = os.path.join((e.get("export") or {}).get("folder") or paths.unterordner("export"), "App-Dateien", json_store.dateiname_sicher(nummer or "projekt"))
+        os.makedirs(ordner, exist_ok=True)
+        ziel = os.path.join(ordner, json_store.dateiname_sicher(name or os.path.basename(pfad)))
+        with open(ziel, "wb") as f:
+            f.write(self._cloud().foto_laden(pfad))
+        return ziel
+
+    def a_projekt_datei(self, d):
+        """Datei oder Foto der App speichern (und, unter Windows, öffnen) → Pfad."""
+        ziel = self._app_datei_speichern(d.get("nummer"), d["pfad"], d.get("name"))
+        geoeffnet = False
+        if d.get("oeffnen", True) and hasattr(os, "startfile"):
+            try:
+                os.startfile(ziel)
+                geoeffnet = True
+            except Exception:
+                pass
+        return {"pfad": ziel, "geoeffnet": geoeffnet}
+
+    def _referenzbild(self, pfad, titel):
+        from ..geometry import fusion_adapter as fa
+        return fa.referenzbild_einfuegen(pfad, titel)
+
+    def a_projekt_foto_fusion(self, d):
+        """Foto/Skizze der Massaufnahme als Referenzbild (Canvas) in das aktive Fusion-Dokument einfügen. Nicht live geprüft."""
+        ziel = self._app_datei_speichern(d.get("nummer"), d["pfad"], d.get("name"))
+        self._referenzbild(ziel, d.get("titel") or "Referenzbild")
+        return {"pfad": ziel}
 
     def a_auftrag_status(self, d):
         from ..core import auftrag

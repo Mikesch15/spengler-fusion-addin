@@ -27,6 +27,7 @@ class Zustand(object):
         self.speicher = {}     # Storage-Bucket measurements: Pfad → Bytes
         self.measurements = [] # measurements (App, nur lesen)
         self.profil_auftraege = []   # cad_profil_auftraege (App schreibt, Add-in liest und setzt «gebaut»)
+        self.tab = {}                # weitere App-Tabellen (nur lesen): reports, termine, project_files, offerten, leistungen, profiles – je Zeile company_id/project_id
         self.projects = []     # projects (App, nur lesen)
         self.versionen = []
         self.dateien = {}      # pfad → bytes
@@ -127,6 +128,8 @@ def server(z):
             if pfad == "/auth/v1/logout":
                 return self._antwort(204)
             f = _filter(q)
+            if pfad == "/rest/v1/profiles" and "id" not in f:        # alle Profile der Firma (Namen für die Projektkarte)
+                return self._antwort(200, [r for r in z.tab.get("profiles", [])])
             if pfad == "/rest/v1/profiles":
                 b = z.wer(f["id"][3:])
                 return self._antwort(200, [{"first_name": b["vorname"], "last_name": "Muster", "role": b["rolle"], "company_id": b["firma"]}])
@@ -199,8 +202,20 @@ def server(z):
                         z.aenderungen.append(dict(d))
                     return self._antwort(201)
                 return self._antwort(405, {"message": "nicht erlaubt"})
+            if pfad.startswith("/rest/v1/") and pfad[9:] in ("reports", "termine", "offerten", "leistungen") and m == "GET":
+                zeilen = [r for r in z.tab.get(pfad[9:], []) if r.get("company_id") in (None, me["firma"])]
+                if "project_id" in f:
+                    zeilen = [r for r in zeilen if str(r.get("project_id")) == f["project_id"][3:]]
+                return self._antwort(200, zeilen)
+            if pfad.startswith("/storage/v1/object/authenticated/measurements/") and m == "GET":
+                name = urllib.parse.unquote(pfad[len("/storage/v1/object/authenticated/measurements/"):])
+                if name not in z.speicher:
+                    return self._antwort(404, {"message": "Object not found"})
+                return self._antwort(200, roh=z.speicher[name])
             if pfad == "/rest/v1/cad_teile":
                 eigene = [r for r in z.teile if r["company_id"] == me["firma"]]
+                if m == "GET" and "project_id" in f:
+                    return self._antwort(200, [r for r in eigene if str(r.get("project_id")) == f["project_id"][3:]])
                 if m == "GET":
                     return self._antwort(200, [r for r in eigene if r["auftrag"] == f.get("auftrag", "eq.")[3:]])
                 if m == "POST":
@@ -247,7 +262,7 @@ def server(z):
                 eigene_pid = {p["id"] for p in z.projects if p["company_id"] == me["firma"]}
                 if m == "GET":
                     return self._antwort(200, [r for r in z.projektdateien if r["project_id"] in eigene_pid and
-                                               str(r["project_id"]) == f.get("project_id", "eq.")[3:] and r["name"] == urllib.parse.unquote(f.get("name", "eq.")[3:])])
+                                               str(r["project_id"]) == f.get("project_id", "eq.")[3:] and ("name" not in f or r["name"] == urllib.parse.unquote(f["name"][3:]))])
                 if m == "POST":
                     for d in json.loads(body):
                         if d["project_id"] not in eigene_pid:

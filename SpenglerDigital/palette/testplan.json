@@ -666,91 +666,111 @@
     },
     {
      "id": "9.40",
+     "text": "Palette → Register Projekt, Testprojekt wählen",
+     "erwartet": "Kopf (Kunde, Status, Hinweis, nächster Termin), Massaufnahmen mit Werkstattstand, «CAD und Werkstatt», Termine, Rapporte, Dateien, Offerten – Bildschirmfoto"
+    },
+    {
+     "id": "9.41",
+     "text": "In der Projektkarte bei einer Massaufnahme mit Foto «📷 Fotos/Skizzen», Bild antippen, In Fusion einfügen",
+     "erwartet": "Bild erscheint, antippen vergrössert; im Fusion-Dokument gibt es ein Referenzbild (Canvas) – Lage/Grösse einstellbar"
+    },
+    {
+     "id": "9.42",
+     "text": "In der App eine Massaufnahme weiterschalten (rüsten/montieren) oder eine neue anlegen, dann im CAD Start",
+     "erwartet": "Zeile «🔔 Neu aus der App: …» und «Projekt: Kunde · Status …»; in der Projektkarte «Neu seit dem letzten Mal»"
+    },
+    {
+     "id": "9.43",
+     "text": "Dateien: «Öffnen» bei einem Plan in der Projektkarte",
+     "erwartet": "Datei liegt unter Exportordner/App-Dateien/<Auftrag> und öffnet sich"
+    },
+    {
+     "id": "9.44",
      "text": "Im CAD Blech aus Massaufnahme",
      "erwartet": "Ganz oben «📤 aus der App: … – 1500 mm × 2 Stück», Länge 1500 vorbelegt; nach OK Blech gebaut, Meldung «In der App als gebaut vermerkt», in der App «✔ im CAD gebaut»"
     },
     {
-     "id": "9.41",
+     "id": "9.45",
      "text": "Im CAD Blech aus Massaufnahme (Testauftrag mit Massaufnahme) (Konstruieren), Massaufnahme «Freies Profil» wählen, Länge prüfen, OK",
      "erwartet": "Neue Komponente mit Grundblech (Breite = erster Schenkel) und den Kanten der App; Zeitleisten-Gruppe «Spengler: …»; Hinweis bei abweichender Blechregel – Bildschirmfoto"
     },
     {
-     "id": "9.42",
+     "id": "9.46",
      "text": "Palette → Register Skizze: mit Stift/Finger/Maus ein Winkelprofil zeichnen (Blech, 90° hoch, 90° zurück), dann in der Tabelle einen Wert ändern",
      "erwartet": "Längen/Winkel rasten ein, Tabelle und Kurzschrift stimmen, Zuschnittbreite erscheint mit Material; Stift/Finger funktionieren (Tablet) – Bildschirmfoto"
     },
     {
-     "id": "9.43",
+     "id": "9.47",
      "text": "Skizze benennen, «Als Kantenvorlage übernehmen», speichern",
      "erwartet": "Vorlage erscheint unter Kantenvorlagen; auf eine Kante angewendet entsteht das gezeichnete Profil"
     },
     {
-     "id": "9.44",
+     "id": "9.48",
      "text": "Palette → Register Bauteile → «Neues Bauteil erstellen»: Name, Verlauf *Grundrissverlauf*, Beispiel 3000 L90 2000 L90 3000 L90 2000 L90, Haken «Ring», Breite Mauer+2*Ue, Kante am Verlauf 90 Tropf U+ 8, «Parameter erkennen», Standardwerte 300 / 35 / 40, Speichern",
      "erwartet": "Vorschau zeigt Ring (blaue Kante am Verlauf, orange Gegenkante) und den Querschnitt; Bauteil steht in der Liste"
     },
     {
-     "id": "9.45",
+     "id": "9.49",
      "text": "Bauteil erstellen (Konstruieren), dieses Bauteil, Haken «Geschlossener Ring»",
      "erwartet": "Ampel grün «Bereit: Breite 380 mm, 4 Strecken (Ring) …»; nach OK Blech als Rahmen mit Flansch und Umschlag an der Verlaufskante, Ecken auf Gehrung – Bildschirmfoto der Ecken"
     },
     {
-     "id": "9.46",
+     "id": "9.50",
      "text": "Dasselbe mit offenem Verlauf 3000 L90 2000 (Haken «Ring» aus) und Seite «rechts»",
      "erwartet": "Winkelförmiges Blech; Kantenfolge an beiden Strecken der Verlaufskante gemeinsam, Gehrung an der Ecke"
     },
     {
-     "id": "9.47",
+     "id": "9.51",
      "text": "Bauteil mit Verlauf *gerade* und Länge 2000",
      "erwartet": "Ebenes Streifenblech mit den Kantenfolgen"
     },
     {
-     "id": "9.48",
+     "id": "9.52",
      "text": "Aufträge abgleichen",
      "erwartet": "Dialog: Projekte der App ohne Ordner und Ordner ohne Projekt, Zahl «in beiden», Abweichungen"
     },
     {
-     "id": "9.49",
+     "id": "9.53",
      "text": "Nur einen Eintrag aus «App → Ordner» angehakt lassen, OK",
      "erwartet": "Ordner Stamm/Jahr/Nummer Objekt mit Unterordnern entsteht in Fusion"
     },
     {
-     "id": "9.50",
+     "id": "9.54",
      "text": "Einen Testordner 99998 Abgleich Test, Bern in Fusion anlegen, abgleichen, nur diesen anhaken",
      "erwartet": "Projekt «99998» erscheint in der App (Titel = Objekt)"
     },
     {
-     "id": "9.51",
+     "id": "9.55",
      "text": "Nochmals abgleichen",
      "erwartet": "Beide Einträge sind jetzt «in beiden»"
     },
     {
-     "id": "9.52",
+     "id": "9.56",
      "text": "Neuer Auftrag mit Haken «Auch als Projekt in der App anlegen», Nummer 99997",
      "erwartet": "Meldung «App: Projekt 99997 … angelegt»; gleiche Nummer nochmals → «gibt es schon»"
     },
     {
-     "id": "9.53",
+     "id": "9.57",
      "text": "Palette → Register Aufträge",
      "erwartet": "Alle Aufträge mit Ordner ✓/–, App ✓/–, Fertigung, Teile «gefertigt/gesamt», Hinweise; Suche und Filter funktionieren"
     },
     {
-     "id": "9.54",
+     "id": "9.58",
      "text": "In der Liste einen Fertigungsstatus ändern, dann «Aktiv» bei einem Auftrag",
      "erwartet": "Status steht in der App/Auftrag wählen; Zeile wird als aktiv markiert (●)"
     },
     {
-     "id": "9.55",
+     "id": "9.59",
      "text": "Testprojekte in der App wieder löschen/archivieren",
      "erwartet": ""
     },
     {
-     "id": "9.56",
+     "id": "9.60",
      "text": "Stückliste & Zuschnitt mit «Dateien am Projekt in der App ablegen»; in der App Projekt → Cockpit → Dateien",
      "erwartet": "«CAD – Stückliste …», «CAD – Auftragsmappe …» usw. sind da und lassen sich öffnen; Meldung «App-Dateien am Projekt: n neu»"
     },
     {
-     "id": "9.57",
+     "id": "9.61",
      "text": "Dasselbe nochmals ausführen",
      "erwartet": "Meldung «… ersetzt», keine doppelten Dateien in der Liste"
     }

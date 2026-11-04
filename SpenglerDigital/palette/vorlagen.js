@@ -458,6 +458,73 @@ $("eProfil").onclick = async () => {
   if (r) await tun(() => senden("datei_oeffnen", { pfad: r.pfad }), "Profilzeichnung geöffnet (Datei: " + r.pfad + ").");
 };
 
+// ------------------------------------------------------------------ Projektkarte (alles zum Projekt, nur lesen)
+let PK = null;
+async function pkListeLaden() {
+  const r = await tun(() => senden("projekt_liste"));
+  if (!r) return;
+  const alt = $("pkWahl").value;
+  $("pkWahl").innerHTML = r.projekte.map((p) => `<option value="${esc(p.nummer)}">${esc(p.nummer)} ${esc(p.objekt)}${p.kunde ? " – " + esc(p.kunde) : ""}</option>`).join("");
+  $("pkWahl").value = [alt, r.aktiv].find((n) => n && r.projekte.some((p) => p.nummer === n)) || (r.projekte[0] || {}).nummer || "";
+}
+const pkZeile = (...teile) => teile.filter((x) => x !== undefined && x !== null && x !== "").join(" · ");
+function pkAbschnitt(titel, anzahl, inhalt, offen) {
+  return `<details class="tblock" ${offen ? "open" : ""}><summary>${esc(titel)} <span class="klein">(${anzahl})</span></summary><div style="padding:6px 10px">${inhalt || '<span class="klein">Nichts vorhanden.</span>'}</div></details>`;
+}
+function pkZeigen(k) {
+  PK = k;
+  const h = k.kopf;
+  $("pkNeu").innerHTML = k.neu && k.neu.text ? `<div class="meldung info">🔔 Neu seit dem letzten Mal: ${esc(k.neu.text)}</div>` : "";
+  const kopf = `<fieldset><legend>${esc(h.nummer)} ${esc(h.objekt)}</legend>
+    <div>${pkZeile("Kunde: <b>" + esc(h.kunde || "–") + "</b>", "Status: <b>" + esc(h.status) + "</b>", h.archiviert ? "archiviert" : "")}</div>
+    ${h.zugeteilt.length ? `<div class="klein">Zugeteilt: ${esc(h.zugeteilt.join(", "))}</div>` : ""}
+    ${h.hinweis ? `<div class="meldung info">${esc(h.hinweis)}</div>` : ""}
+    ${k.naechster_termin ? `<div>Nächster Termin: <b>${esc(k.naechster_termin.titel)}</b>, ${esc(k.naechster_termin.wann)}${k.naechster_termin.ort ? ", " + esc(k.naechster_termin.ort) : ""}</div>` : ""}
+    <div class="klein">${k.zaehler.massaufnahmen} Massaufnahmen, davon ${k.zaehler.aktiv} aktiv</div></fieldset>`;
+  const ma = k.massaufnahmen.map((m) => `<div class="zeile" style="border-bottom:1px solid var(--rand);padding:4px 0"><div style="flex:1;min-width:200px">
+      <b>${esc(m.art)}</b> ${esc(m.titel)}<div class="klein">${esc(pkZeile(m.zeichen + " " + m.status, m.datum, ...m.stufen, m.montage ? "Montage " + m.montage : "", m.cad_teile ? m.cad_teile + " CAD-Teil(e)" : "", m.cad_auftraege ? m.cad_auftraege + " an das CAD gesendet" : "", m.archiviert ? "archiviert" : ""))}</div></div>
+      ${m.pfade.length ? `<button data-pkfotos="${esc(m.id)}">📷 Fotos/Skizzen (${m.pfade.length})</button>` : ""}</div><div id="pkF${esc(m.id)}"></div>`).join("");
+  const cad = k.cad.teile.map((t) => `<div class="zeile"><b>${esc(t.label)}</b> ${esc(t.name)} <span class="klein">${esc(pkZeile(t.stueck + " Stück", t.material, t.app, t.werkstatt ? "Werkstatt: " + t.werkstatt : ""))}</span></div>`).join("")
+    + k.cad.auftraege.map((a) => `<div class="zeile">📤 <b>${esc(a.titel)}</b> <span class="klein">${esc(pkZeile(a.laenge + " mm", a.stueck + " Stück", a.status, a.gebaut, a.werkstatt ? "Werkstatt: " + a.werkstatt : ""))}</span></div>`).join("");
+  const rap = k.rapporte.map((r) => `<div class="zeile"><b>${esc(r.datum)}</b> <span class="klein">${esc(pkZeile(r.stunden + " h", r.personen.join(", "), r.material ? r.material + " Material" : "", r.arbeiten.join("; ")))}</span></div>`).join("");
+  const ter = k.termine.map((t) => `<div class="zeile"><b>${esc(t.titel)}</b> <span class="klein">${esc(pkZeile(t.wann, t.ort, t.mitarbeiter.join(", ")))}</span></div>`).join("");
+  const dat = k.dateien.map((f) => `<div class="zeile"><span style="flex:1">${esc(f.name)} <span class="klein">${esc(pkZeile(f.groesse, f.datum))}</span></span><button data-pkdatei="${esc(f.pfad)}" data-pkname="${esc(f.name)}">Öffnen</button></div>`).join("");
+  const off = k.offerten.map((o) => `<div class="zeile"><b>${esc(o.nr)}</b> ${esc(o.titel)} <span class="klein">${esc(pkZeile(o.datum, o.gueltig_bis ? "gültig bis " + o.gueltig_bis : "", o.positionen + " Positionen", o.pdf))}</span></div>`).join("");
+  const lei = k.leistungen.map((l) => `<div class="zeile">${esc(l.bezeichnung)} <span class="klein">${esc(pkZeile(l.status, l.menge != null ? l.menge + " " + l.einheit : "", l.ausgefuehrt != null ? "ausgeführt " + l.ausgefuehrt : ""))}</span></div>`).join("");
+  $("pkKarte").innerHTML = kopf + pkAbschnitt("Massaufnahmen", k.massaufnahmen.length, ma, true) + pkAbschnitt("CAD und Werkstatt", k.cad.teile.length + k.cad.auftraege.length, cad, true)
+    + pkAbschnitt("Termine", k.termine.length, ter, true) + pkAbschnitt("Rapporte", k.rapporte.length, rap) + pkAbschnitt("Dateien", k.dateien.length, dat)
+    + pkAbschnitt("Offerten", k.offerten.length, off) + pkAbschnitt("Leistungen", k.leistungen.length, lei)
+    + (k.hinweise.length ? `<div class="klein">${esc(k.hinweise.join(" · "))}</div>` : "");
+  $("pkStand").textContent = "Stand " + new Date().toLocaleTimeString().slice(0, 5);
+}
+async function pkLaden() {
+  const nr = $("pkWahl").value;
+  if (!nr) return;
+  const k = await tun(() => senden("projekt_karte", { nummer: nr }));
+  if (k) pkZeigen(k);
+}
+async function pkFotos(mid) {
+  const m = PK.massaufnahmen.find((x) => String(x.id) === String(mid));
+  const box = $("pkF" + mid);
+  if (!m || !box) return;
+  box.innerHTML = '<span class="klein">Lädt…</span>';
+  const r = await tun(() => senden("projekt_fotos", { pfade: m.pfade }));
+  if (!r) { box.innerHTML = ""; return; }
+  box.innerHTML = '<div class="zeile">' + r.bilder.map((b, i) => `<div style="text-align:center"><img src="${b.url}" data-pkgross="1" style="max-width:150px;max-height:120px;border:1px solid var(--rand);border-radius:6px;cursor:zoom-in"><div>
+    <button data-pkfusion="${esc(b.pfad)}" data-pktitel="${esc(m.art + " " + m.titel)}" title="als Referenzbild in das aktive Fusion-Dokument legen">In Fusion einfügen</button>
+    <button data-pkdatei="${esc(b.pfad)}" data-pkname="">Speichern</button></div></div>`).join("") + "</div>" + (r.fehler.length ? `<div class="klein">${esc(r.fehler.join(" · "))}</div>` : "");
+}
+$("pkLaden").onclick = pkLaden;
+$("pkWahl").onchange = pkLaden;
+$("pkKarte").addEventListener("click", async (ev) => {
+  const t = ev.target;
+  if (t.dataset.pkfotos) return pkFotos(t.dataset.pkfotos);
+  if (t.dataset.pkgross) { const o = document.createElement("div"); o.style.cssText = "position:fixed;inset:0;background:rgba(0,0,0,.85);z-index:99;display:flex;align-items:center;justify-content:center;cursor:zoom-out"; o.innerHTML = `<img src="${t.src}" style="max-width:96%;max-height:96%">`; o.onclick = () => o.remove(); document.body.appendChild(o); return; }
+  if (t.dataset.pkfusion) { const r = await tun(() => senden("projekt_foto_fusion", { nummer: $("pkWahl").value, pfad: t.dataset.pkfusion, titel: t.dataset.pktitel }), "Als Referenzbild in Fusion eingefügt (Lage und Grösse in Fusion einstellen)."); return; }
+  if (t.dataset.pkdatei) { const r = await tun(() => senden("projekt_datei", { nummer: $("pkWahl").value, pfad: t.dataset.pkdatei, name: t.dataset.pkname || undefined })); if (r) meldung(`Gespeichert: ${r.pfad}${r.geoeffnet ? " (geöffnet)" : ""}`, "ok"); }
+});
+document.querySelector('nav button[data-tab="projekt"]').addEventListener("click", async () => { if (!$("pkWahl").options.length) await pkListeLaden(); if (!PK && $("pkWahl").value) pkLaden(); });
+
 // ------------------------------------------------------------------ Skizze (Profil von Hand zeichnen)
 const SK = { rohe: [], ursprung: [0, 0], schenkel: [], start: 0, hover: null, lauf: 0 };
 const SK_PX = 20;                                           // Pixel je Kästchen
