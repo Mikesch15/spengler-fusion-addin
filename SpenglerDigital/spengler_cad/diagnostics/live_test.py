@@ -558,6 +558,9 @@ SCHRITTE = [
     ("Ordnerpfad des Dokuments lesen", t_ordnerpfad, False),
     ("Ordner des aktiven Projekts auflisten (Ablagen)", t_ordnerliste, False),
 ]
+# Gekrümmte Geometrie und Doppelfalz (Nachtauftrag Phase 8) – eigenes Modul, hier angehängt
+from . import live_test_gekruemmt as _gekruemmt  # noqa: E402
+SCHRITTE.extend(_gekruemmt.SCHRITTE)
 
 
 def _alles_schliessen(dokumente):

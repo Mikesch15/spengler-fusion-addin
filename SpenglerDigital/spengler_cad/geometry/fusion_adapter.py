@@ -2207,7 +2207,7 @@ def dxf_abwicklung(fp, dateipfad):
 
 
 # ------------------------------------------------------------------ Rundblech als Drehkörper
-def drehkoerper(comp, kontur_mm, name):
+def drehkoerper(comp, kontur_mm, name, winkel_grad=360.0):
     """Geschlossene Querschnittskontur (r, z in mm) um die Z-Achse drehen → neuer Körper (KEIN Blechkörper).
     Ohne Einschnitte; Abwicklung/Umformung beurteilt forming/forming.py."""
     sk = comp.sketches.add(comp.xZConstructionPlane)
@@ -2231,7 +2231,7 @@ def drehkoerper(comp, kontur_mm, name):
     prof = max(list(sk.profiles), key=lambda p: p.areaProperties().area)
     rv = comp.features.revolveFeatures
     inp = rv.createInput(prof, comp.zConstructionAxis, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-    inp.setAngleExtent(False, adsk.core.ValueInput.createByString("360 deg"))
+    inp.setAngleExtent(False, adsk.core.ValueInput.createByString("%g deg" % winkel_grad))     # < 360: Teilzylinder/-kegel mit geraden Mantelkanten
     feat = rv.add(inp)
     if not feat or feat.bodies.count < 1:
         raise AdapterFehler("Fusion hat den Drehkörper nicht erzeugt.")
@@ -2297,6 +2297,11 @@ def abwicklung_koerper(comp, zuschnitt, dicke_mm, name):
 
 
 # ------------------------------------------------------------------ 3D-Detailvorlagen
+def occurrence_von(comp):
+    """Öffentlich: Occurrence einer Komponente (None = Root)."""
+    return _occurrence_von(comp)
+
+
 def quader_komponente(parent, name, x_mm, y_mm, z_mm, parameter=None):
     """Neue Komponente mit einem Quader (Ursprung in der Ecke; Höhe optional über einen neuen Benutzerparameter) – für Testdetails/Live-Test.
     Nicht live geprüft."""
