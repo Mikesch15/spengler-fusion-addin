@@ -2045,6 +2045,40 @@ def koerper_pruefen(body):
 
 
 # ------------------------------------------------------------------ Abwicklung / DXF
+def _gauss_max(face, n=3):
+    """Grösste |Gausssche Krümmung| (1/mm²) auf einem n×n-Raster des Parameterbereichs – Stichprobe für Freiformflächen. None = nicht messbar.
+    Nicht live geprüft (SurfaceEvaluator.parametricRange/getCurvature)."""
+    try:
+        ev = face.evaluator
+        rng = ev.parametricRange()
+        u0, v0, u1, v1 = rng.minPoint.x, rng.minPoint.y, rng.maxPoint.x, rng.maxPoint.y
+        gmax = 0.0
+        for i in range(n):
+            for j in range(n):
+                p = adsk.core.Point2D.create(u0 + (u1 - u0) * (i + 0.5) / n, v0 + (v1 - v0) * (j + 0.5) / n)
+                ok, _r, k1, k2 = ev.getCurvature(p)
+                if ok:
+                    gmax = max(gmax, abs(k1 * k2) / 100.0)      # 1/cm² → 1/mm²
+        return gmax
+    except Exception:
+        return None
+
+
+def abwickelbarkeit_koerper(body):
+    """Exakt / angenähert / nicht abwickelbar nach den Flächentypen des Körpers (core/geometrie_referenz.abwickelbarkeit). → (art, Begründung)."""
+    from ..core import geometrie_referenz as gr
+    typen, gmax = [], None
+    for f in body.faces:
+        t = flaechentyp(f)
+        typen.append(t)
+        if t == "freiform":
+            g = _gauss_max(f)
+            gmax = g if gmax is None or (g is not None and g > gmax) else gmax
+    if "unbekannt" in typen and set(typen) <= {"unbekannt"}:
+        return "exakt", "Flächentypen nicht lesbar – Fusion entscheidet"       # Attrappen/alte Versionen: wie bisher Fusion entscheiden lassen
+    return gr.abwickelbarkeit([t for t in typen if t != "unbekannt"], gmax)
+
+
 def stationaere_flaeche_waehlen(body):
     """Feste Regel statt Zufall: die grösste EBENE Fläche des Blechkörpers; bei gleicher Grösse (Ober-/Unterseite) die mit der Normale am
     weitesten nach +Z, dann die mit dem kleinsten Punkt (x, y, z). → Fläche oder None."""
@@ -2090,6 +2124,11 @@ def abwicklung(comp, stationaere_flaeche=None, body=None):
     probleme = koerper_pruefen(body)
     if probleme:
         raise AdapterFehler("Kein gültiger Blechkörper: " + " ".join(probleme))
+    art, grund = abwickelbarkeit_koerper(body)
+    if art != "exakt":
+        # Keine verzerrte Abwicklung als exakte DXF: Näherungsverfahren sind nicht umgesetzt (Nachtauftrag, Priorität 3).
+        raise AdapterFehler("Nicht exakt abwickelbar: %s. Es wird keine Abwicklung/DXF erzeugt%s." % (
+            grund, " (eine Näherungsabwicklung mit Verzerrungsangabe ist noch nicht umgesetzt)" if art == "naeherung" else ""))
     if stationaere_flaeche is None:
         stationaere_flaeche = stationaere_flaeche_waehlen(body)
         if stationaere_flaeche is None:
@@ -2469,8 +2508,49 @@ def parameter_setzen(werte_nach_fusionname):
     return gesetzt, fehlend
 
 
+def kollision_pruefen(occ, andere_koerper):
+    """Kollision des eingesetzten Details mit anderen Körpern. Zuerst ECHTE Volumenüberschneidung (Design.analyzeInterference); geht das nicht,
+    nur die grobe Vorprüfung über Begrenzungsrahmen – ausdrücklich so gekennzeichnet. → {'art': 'volumen'|'grob', 'treffer': [(name, mm³ oder None)]}.
+    Nicht live geprüft (createInterferenceInput/analyzeInterference)."""
+    try:
+        d = design()
+        coll = adsk.core.ObjectCollection.create()
+        coll.add(occ)
+        for b in andere_koerper:
+            coll.add(b)
+        ii = d.createInterferenceInput(coll)
+        try:
+            ii.areCoincidentFacesIncluded = False
+        except Exception:
+            pass
+        res = d.analyzeInterference(ii)
+        namen = {getattr(b, "name", "?") for b in andere_koerper}
+        treffer = []
+        for r in res:
+            n1, n2 = getattr(r.entityOne, "name", "?"), getattr(r.entityTwo, "name", "?")
+            gegen = n2 if n1 not in namen else n1
+            try:
+                vol = r.interferenceBody.volume * 1000.0
+            except Exception:
+                vol = None
+            treffer.append((gegen, vol))
+        return {"art": "volumen", "treffer": treffer}
+    except Exception:
+        logger.warnung("Volumen-Interferenz nicht möglich – nur grobe Vorprüfung (Begrenzungsrahmen)")
+        return {"art": "grob", "treffer": [(n, None) for n in kollision(occ, andere_koerper)]}
+
+
+def abstand_mm(a, b):
+    """Kleinster Abstand zweier Fusion-Objekte (Körper, Occurrence, Fläche) in mm über den MeasureManager; 0 = Berührung oder Überschneidung.
+    None = nicht messbar. Nicht live geprüft."""
+    try:
+        return app().measureManager.measureMinimumDistance(a, b).value * 10.0
+    except Exception:
+        return None
+
+
 def kollision(occ, andere_koerper):
-    """Grobe Kollisionsprüfung über Begrenzungsrahmen-Überlappung (Volumenprüfung ist per API nicht zuverlässig verfügbar)."""
+    """GROBE Vorprüfung über Begrenzungsrahmen-Überlappung (Rückfall von kollision_pruefen; sagt nichts über echte Überschneidung)."""
     try:
         a = occ.boundingBox
         out = []

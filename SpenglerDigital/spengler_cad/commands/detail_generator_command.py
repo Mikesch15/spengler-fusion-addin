@@ -131,13 +131,18 @@ def anwenden_erstellt(args):
     dd = inp.addDropDownCommandInput("detail", "Detailvorlage", adsk.core.DropDownStyles.TextListDropDownStyle)
     for i, d in enumerate(Z["details"]):
         dd.listItems.add("%s  [V%s]" % (d["name"], d.get("version")), i == 0)
-    k = inp.addSelectionInput("kante", "Zielkante / Falzende", "Gerade Kante, an der das Detail angesetzt wird")
+    k = inp.addSelectionInput("kante", "Zielkante / Falzende", "Kante, an der das Detail angesetzt wird (gerade; gekrümmt nur bei Vorlagen für gekrümmte Kanten)")
     k.addSelectionFilter("LinearEdges")
+    k.addSelectionFilter("CircularEdges")
     k.setSelectionLimits(1, 1)
-    f = inp.addSelectionInput("flaeche", "Bezugsfläche (optional)", "Fläche für die Z-Richtung (sonst die grössere Nachbarfläche)")
+    f = inp.addSelectionInput("flaeche", "Bezugsfläche (optional)", "Fläche für die Z-Richtung (sonst die grössere Nachbarfläche); "
+                                                                    "auf Zylinder/Kegel gilt die lokale Normale am Kantenanfang – das Detail wird starr angesetzt, nicht verformt")
     f.addSelectionFilter("PlanarFaces")
+    f.addSelectionFilter("CylindricalFaces")
+    f.addSelectionFilter("ConicalFaces")
     f.setSelectionLimits(0, 1)
     inp.addBoolValueInput("drehen", "Um 180° wenden (Richtung der Kante umkehren)", True, "", False)
+    inp.addValueInput("abstand", "Abstand zur Fläche (entlang der lokalen Normale)", "mm", adsk.core.ValueInput.createByReal(0.0))
     inp.addBoolValueInput("integrieren", "Ins bestehende Modell integrieren (keine eigene Komponente)", True, "", True)
     inp.addGroupCommandInput("parameter", "Parameter")
     inp.addTextBoxCommandInput("pruefung", "Passung", "", 5, True)
@@ -229,6 +234,17 @@ def _einsetzen(inp, integrieren=False):
         if inp.itemById("drehen").value:
             ende = [o + x * units.cm_zu_mm(kante.length) for o, x in zip(ziel["origin"], ziel["x"])]
             ziel = frames.rahmen_aus_kante(ende, ziel["origin"], ziel["z"])
+        abstand_el = inp.itemById("abstand")
+        abstand = units.cm_zu_mm(abstand_el.value) if abstand_el is not None else 0.0
+        if abs(abstand) > 1e-6:
+            if integrieren:
+                raise fa.AdapterFehler("Mit Abstand zur Fläche kann das Detail nicht mit dem Körper vereinigt werden – Abstand 0 wählen oder ohne Integration einsetzen.")
+            ziel = dict(ziel, origin=[o + abstand * z for o, z in zip(ziel["origin"], ziel["z"])])
+        ref_flaeche = flaeche or max(list(kante.faces), key=lambda f_: f_.area)
+        typ = fa.flaechentyp(ref_flaeche)
+        if typ != "eben" or fa._kurventyp(kante) != "linie":
+            hinweise = hinweise + ["Bezug %s/%s: Detail STARR tangential angesetzt (lokale Normale und Tangente am Kantenanfang), nicht an die Krümmung angepasst." % (
+                typ, fa._kurventyp(kante))]
         ziel_body_token = kante.body.entityToken     # vor dem Import lesen – die Kante ist danach evtl. ungültig
         werte = _werte(inp, d)
         T = frames.ausrichtung(d["anchor"]["frame"], ziel)
@@ -252,7 +268,13 @@ def _einsetzen(inp, integrieren=False):
                 h.append("Parameter beim Import umbenannt: " + ", ".join("%s → %s" % (n, zuordnung[n]) for n in zuordnung if zuordnung[n] != n))
             fa.markieren(occ, {"detailId": d["id"], "detailVersion": d.get("version"), "werte": werte, "addin": VERSION})
             andere = [b for b in root.bRepBodies if b.entityToken != ziel_body_token]
-            return {"gesetzt": gesetzt, "fehlend": fehlend + offen, "hinweise_import": h, "koll": fa.kollision(occ, andere)}
+            koll = fa.kollision_pruefen(occ, andere)
+            ziel_b = fa.koerper_neu(ziel_body_token)
+            if ziel_b is not None:
+                a_ = fa.abstand_mm(occ, ziel_b)
+                if a_ is not None:
+                    h.append("Abstand Detail ↔ Zielkörper: %.2f mm (%s)." % (a_, "berührt oder schneidet" if a_ < 0.01 else "frei"))
+            return {"gesetzt": gesetzt, "fehlend": fehlend + offen, "hinweise_import": h, "koll": koll}
         # Atomar: jeder Fehler in Import, Ausrichtung, Parametern oder Integration entfernt Import und neue Parameter wieder (fa.detail_einsetzen).
         erg = fa.detail_einsetzen(f3d, root, T, nach_import, ziel_body_token if integrieren else None)
         occ, cf = erg["occ"], erg["cf"]
@@ -289,8 +311,12 @@ def _anwenden(self, args):
         z.append("Parameter gesetzt: " + ", ".join(gesetzt))
     if fehlend:
         z.append("WARNUNG – Parameter nicht gefunden (Detail behält Originalmasse): " + ", ".join(fehlend))
-    if koll and cf is None:
-        z.append("Hinweis: Begrenzungsrahmen überschneidet sich mit: %s – bitte Kollision prüfen." % ", ".join(koll))
+    if koll and koll.get("treffer") and cf is None:
+        if koll["art"] == "volumen":
+            z.append("Volumenüberschneidung mit: %s." % ", ".join("%s (%s)" % (n, "%.1f mm³" % v if v is not None else "?") for n, v in koll["treffer"]))
+        else:
+            z.append("Hinweis (nur GROBE Vorprüfung über Begrenzungsrahmen, keine echte Volumenprüfung möglich): Überlappung mit %s – bitte prüfen." % (
+                ", ".join(n for n, _ in koll["treffer"])))
     z += hinweise
     if cf is None:
         z.append("Das Detail ist eine eigene Komponente und wurde nicht mit dem Blech vereinigt.")

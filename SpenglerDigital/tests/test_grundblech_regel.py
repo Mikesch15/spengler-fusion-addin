@@ -318,3 +318,44 @@ class GekruemmteKantenUndGrenzen(_Patch):
 
     def test_versatz_text_nennt_lokale_richtung(self):
         self.assertIn("nicht global", _fa().versatz_text(-5))
+
+
+class AbwickelbarkeitUndKollision(_Patch):
+    """Nicht exakt abwickelbare Körper werden abgelehnt; Kollision: echte Volumenprüfung oder ausdrücklich grob – Attrappen, KEIN Fusion-Test."""
+    def test_kugelflaeche_wird_nicht_abgewickelt(self):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Kuppel")
+        k = ff.Koerper(c, 1.0, c.bRepBodies)
+        k.faces = ["a", "b"]
+        c.bRepBodies.elemente.append(k)
+        c.flatPattern = None
+        c.createFlatPattern = lambda f: self.fail("darf nicht abwickeln")
+        self.patche(flaechentyp=lambda f: {"a": "eben", "b": "kugel"}[f])
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c)
+        self.assertIn("Nicht exakt abwickelbar", str(cm.exception))
+        self.assertIn("kugel", str(cm.exception))
+
+    def test_zylinder_und_kegel_sind_exakt(self):
+        fa = _fa()
+        k = type("K", (), {"faces": ["a", "z", "k"]})()
+        self.patche(flaechentyp=lambda f: {"a": "eben", "z": "zylinder", "k": "kegel"}[f])
+        self.assertEqual(fa.abwickelbarkeit_koerper(k)[0], "exakt")
+
+    def test_kollision_ohne_volumenpruefung_ist_grob(self):
+        fa = _fa()
+        d = self.design()                                     # Attrappe ohne createInterferenceInput → Rückfall
+        self.patche(kollision=lambda occ, andere: ["Blech"])
+        r = fa.kollision_pruefen(object(), [])
+        self.assertEqual(r, {"art": "grob", "treffer": [("Blech", None)]})
+        self.assertIsNotNone(d)
+
+    def test_neue_abwicklung_wird_nach_fehler_entfernt(self):
+        from spengler_cad.commands import export_command as ex
+        fp = ff.Objekt("Abwicklung")
+        self.assertIn("wieder entfernt", ex._abwicklung_zuruecknehmen(fp, True))
+        self.assertFalse(fp.isValid)
+        alt = ff.Objekt("vorhanden")
+        self.assertEqual(ex._abwicklung_zuruecknehmen(alt, False), "")
+        self.assertTrue(alt.isValid, "eine vorhandene Abwicklung bleibt")

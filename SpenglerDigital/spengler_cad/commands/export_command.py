@@ -102,6 +102,14 @@ def abw_erstellt(args):
     base.handler(adsk.core.CommandEventHandler, cmd.execute, abw_ausfuehren)
 
 
+def _abwicklung_zuruecknehmen(fp, neu):
+    """Nach einem Fehler: eine in DIESEM Lauf neu erzeugte Abwicklung wieder entfernen (eine vorhandene bleibt). → Zusatz für die Meldung."""
+    if fp is None or not neu:
+        return ""
+    probleme = fa.entfernen_bericht([fp])
+    return " (die dabei neu erzeugte Abwicklung wurde wieder entfernt)" if not probleme else " – ACHTUNG: neu erzeugte Abwicklung nicht entfernt (%s)" % "; ".join(probleme)
+
+
 def dxf_kontrolle(dxf_pfad, masse):
     """Gegenprobe der exportierten DXF (Masse, Einheit, Kontur) – ein fehlerhafter Export wird NICHT als Erfolg gemeldet. → Text für die Berichtszeile («✓» bzw. «✓ ⚠ Hinweis»);
     schwere Probleme (keine Elemente, Masse weichen ab, Einheit nicht mm) werfen AdapterFehler, die Datei bleibt zur Kontrolle liegen."""
@@ -129,6 +137,7 @@ def _abw(self, args):
     for nr, body in enumerate(koerper_liste, 1):
         comp = body.parentComponent
         name = body.name or comp.name
+        fp, neu = None, False
         try:
             if not fa.ist_blech(body):
                 raise fa.AdapterFehler("kein Blechkörper")
@@ -176,10 +185,10 @@ def _abw(self, args):
             z.append("✓ " + zeile)
             ok_n += 1
         except fa.AdapterFehler as ex:
-            z.append("✗ %s: %s" % (name, ex))
+            z.append("✗ %s: %s%s" % (name, ex, _abwicklung_zuruecknehmen(fp, neu)))
         except Exception as ex:
             logger.ausnahme("Abwicklung", koerper=name)
-            z.append("✗ %s: Fusion meldet: %s" % (name, base.fehlertext(ex)))
+            z.append("✗ %s: Fusion meldet: %s%s" % (name, base.fehlertext(ex), _abwicklung_zuruecknehmen(fp, neu)))
     warn = pruefung.pruefe_teile(pruef, e.get("pruefung"))
     if warn:
         z.append("\nPrüfung:\n" + "\n".join("⚠ " + w for w in warn))
