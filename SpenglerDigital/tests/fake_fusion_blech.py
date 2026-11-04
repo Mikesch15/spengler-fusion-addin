@@ -105,8 +105,16 @@ class Skizze(Objekt):
                 skizze.linien += 1
                 return object()
 
+        class Boegen(object):
+            def addByThreePoints(self, a, m, b):
+                skizze.linien += 1
+                skizze.boegen += 1
+                return object()
+
         class Kurven(object):
             sketchLines = Linien()
+            sketchArcs = Boegen()
+        self.boegen = 0
         self.sketchCurves = Kurven()
         self.schleifen = 1
 

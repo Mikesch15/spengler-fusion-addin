@@ -283,3 +283,38 @@ class Abwicklung(_Patch):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.dxf_abwicklung("FP", os.path.join(ordner, "fehlt", "x.dxf"))
         self.assertIn("Exportordner fehlt", str(cm.exception))
+
+
+class GekruemmteKantenUndGrenzen(_Patch):
+    """Bögen im Grundriss, Versatz nur auf ebener Fläche, Mindestlänge des Umschlags – Attrappen, KEIN Fusion-Test."""
+    def test_grundblech_mit_bogen(self):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Rund")
+        body = fa.blech_aus_profil(c, [[(0, 0), (100, 0, 130, 30), (100, 60), (0, 60)]], 1.0)   # rechte Seite als Bogen
+        self.assertIs(body.parentComponent, c)
+        self.assertEqual(c.skizzen.count, 1)
+        self.assertIsNone(fa.schleifen_pruefen([[(0, 0, 50, 20), (100, 0, 50, -20)]]), "zwei Bögen ergeben eine Fläche (Linse)")
+
+    def test_versatz_auf_zylinder_wird_erklaert_abgelehnt(self):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Rohr")
+        self.patche(_kurventyp=lambda e: "linie", _kantenrahmen_quer=lambda e: ((1.0, 0, 0), (0, 1.0, 0)), flaechentyp=lambda f: "zylinder")
+        k = VersatzRueckbau._kante(None, c)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._versatz_gruppe([k], 5.0, 1.0)
+        self.assertIn("nur an Kanten EBENER Blechflächen", str(cm.exception))
+        self.assertEqual(c.skizzen.count, 0, "nichts angelegt")
+
+    def test_umschlag_zu_kurz(self):
+        fa = _fa()
+        self.patche(_kurventyp=lambda e: "linie")
+        k = type("K", (), {})()
+        k.body = object()
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.umschlag(k, 1.5, False, None, None, 1.0)
+        self.assertIn("mindestens 2 × Blechdicke", str(cm.exception))
+
+    def test_versatz_text_nennt_lokale_richtung(self):
+        self.assertIn("nicht global", _fa().versatz_text(-5))

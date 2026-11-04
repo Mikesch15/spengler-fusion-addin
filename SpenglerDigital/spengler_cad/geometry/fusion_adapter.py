@@ -389,7 +389,7 @@ def _flange_features(comp):
     return ff
 
 
-def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None, lage=None):
+def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None, lage=None, fusion_fragen=False):
     """Kantenflansch über die ganze Kantenlänge. Winkel + zur Sichtseite, − nach hinten.
 
     edge: eine Kante oder eine Liste zusammenhängender Kanten – in EINEM Feature gebaut, damit Fusion die Ecken auf Gehrung schneidet
@@ -403,7 +403,7 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
     comp = erste.body.parentComponent
     ff = _flange_features(comp)
     rund = any(_kurventyp(k) != "linie" for k in kanten)
-    if rund:
+    if rund and not fusion_fragen:          # fusion_fragen=True nur im Live-Test: Fusions echte Antwort an gekrümmten Kanten erheben
         raise AdapterFehler("Flansch nur an geraden Kanten: Die Flansch-Schnittstelle von Fusion (EdgeFlangeInput, Preview) ist nur für gerade Kanten beschrieben – "
                             "an runden Kanten wird nichts versucht.")
     try:
@@ -478,7 +478,7 @@ def _kantenlaenge_mm(edge):
         return "?"
 
 
-def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=None, nur_erste_bauart=False):
+def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=None, nur_erste_bauart=False, fusion_fragen=False):
     """Umschlag/Saum 180° mit dem Saum-Werkzeug von Fusion.
 
     Echte API (help.autodesk.com, HemFeatureInput, ab September 2025): hf.createHemFeatureInput() ohne Argumente, danach
@@ -496,8 +496,13 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
         edge = edge[0]
     # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante. Mehrfaches Aufrufen derselben Eingabe mit weiteren Kanten ist nicht dokumentiert
     # und wird deshalb nicht mehr gemacht.
-    if _kurventyp(edge) != "linie":
+    if _kurventyp(edge) != "linie" and not fusion_fragen:
         raise AdapterFehler("Umschlag nur an geraden Kanten: Das Saum-Werkzeug von Fusion ist nur für gerade Kanten beschrieben – an runden Kanten wird nichts versucht.")
+    t_min = dicke_mm or blechdicke_mm(edge.body)
+    if t_min and laenge_mm < 2.0 * t_min:
+        raise AdapterFehler("Umschlag %.1f mm ist zu kurz: mindestens 2 × Blechdicke (%.1f mm), sonst entsteht keine zweite Materiallage." % (laenge_mm, 2.0 * t_min))
+    if radius_mm is not None and radius_mm < 0:
+        raise AdapterFehler("Der Abstand/Radius des Umschlags darf nicht negativ sein.")
     comp = edge.body.parentComponent
     hf = getattr(comp.features, "hemFeatures", None)
     if hf is None or not hasattr(hf, "createHemFeatureInput"):
@@ -871,6 +876,12 @@ def _versatz_alternativen(edge):
         return []
 
 
+def versatz_text(versatz_mm):
+    """Für den Bericht: was der Versatz bedeutet (lokale Richtung, nicht global)."""
+    from ..core import geometrie_referenz as gr
+    return gr.versatz_definition(gr.referenz("eben", (0, 0, 0), (0, 0, 1), (1, 0, 0), "linie"), versatz_mm, "tangential")[1]
+
+
 def _versatz_anwenden(edge, versatz_mm, dicke_mm):
     """Versatz an EINER Kante → (erzeugte Objekte, neue Kante)."""
     erzeugt, kanten = _versatz_gruppe([edge], versatz_mm, dicke_mm)
@@ -907,6 +918,15 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
         return any(math.sqrt(_skal(_plus(p, q, 1.0, -1.0), _plus(p, q, 1.0, -1.0))) < 1e-4
                    for j, d in enumerate(daten) if j != ausser for q in (d["p0"], d["p1"]))
     flaeche = max(list(edges[0].faces), key=lambda f: f.area)
+    typ = flaechentyp(flaeche)
+    if typ == "unbekannt":
+        logger.warnung("Versatz: Flächentyp der Blechfläche nicht lesbar – wie eben behandelt")
+    elif typ != "eben":
+        from ..core import geometrie_referenz as gr
+        try:
+            gr.versatz_definition(gr.referenz(typ, (0, 0, 0), (0, 0, 1)), versatz_mm, "tangential")
+        except ValueError as e:
+            raise AdapterFehler(str(e))
     koerper = edges[0].body
     comp = koerper.parentComponent
     ueber, tief = 0.1, 0.1
@@ -1116,6 +1136,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                 phase = "Schritt %d (Versatz)" % i
                 vorbereitung, aktuell = _versatz_anwenden(aktuell, op["versatz"], dicke_mm)
                 erzeugt.extend(vorbereitung)
+                hinweise.append("Schritt %d: %s" % (i, versatz_text(op["versatz"])))
                 try:
                     token = aktuell.entityToken
                 except Exception:
@@ -1725,8 +1746,15 @@ def schleifen_pruefen(schleifen_mm):
             pts = [(float(p[0]), float(p[1])) for p in poly]
         except Exception:
             return "Polygonzug %d enthält ungültige Koordinaten." % nr
-        if len(pts) < 3:
+        if len(pts) < 3 and not any(len(p) >= 4 for p in poly):
             return "Polygonzug %d hat nur %d Punkte (mindestens 3)." % (nr, len(pts))
+        # Bögen (x, y, mx, my): für die Flächenprüfung den Bogenmittelpunkt als Stützpunkt mitnehmen
+        mit_boegen = []
+        for p in poly:
+            mit_boegen.append((float(p[0]), float(p[1])))
+            if len(p) >= 4:
+                mit_boegen.append((float(p[2]), float(p[3])))
+        pts = mit_boegen
         flaeche = 0.5 * abs(sum(pts[i][0] * pts[(i + 1) % len(pts)][1] - pts[(i + 1) % len(pts)][0] * pts[i][1] for i in range(len(pts))))
         if flaeche < 1.0:
             return "Polygonzug %d umschliesst keine Fläche (%.2f mm²)." % (nr, flaeche)
@@ -1806,7 +1834,11 @@ def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
                 n = len(poly)
                 for i in range(n):
                     a_, b_ = poly[i], poly[(i + 1) % n]
-                    sk.sketchCurves.sketchLines.addByTwoPoints(adsk.core.Point3D.create(a_[0] / 10.0, a_[1] / 10.0, 0), adsk.core.Point3D.create(b_[0] / 10.0, b_[1] / 10.0, 0))
+                    pa, pb = adsk.core.Point3D.create(a_[0] / 10.0, a_[1] / 10.0, 0), adsk.core.Point3D.create(b_[0] / 10.0, b_[1] / 10.0, 0)
+                    if len(a_) >= 4:          # Bogen durch (mx, my) – gekrümmte Kante im Grundriss
+                        sk.sketchCurves.sketchArcs.addByThreePoints(pa, adsk.core.Point3D.create(a_[2] / 10.0, a_[3] / 10.0, 0), pb)
+                    else:
+                        sk.sketchCurves.sketchLines.addByTwoPoints(pa, pb)
             _testfehler("grundblech_skizze")
             prof = None
             for i in range(sk.profiles.count):
@@ -2142,10 +2174,18 @@ def drehkoerper(comp, kontur_mm, name):
     sk = comp.sketches.add(comp.xZConstructionPlane)
     sk.name = name
     linien = sk.sketchCurves.sketchLines
-    # Skizze auf XZ: Skizzen-x = Welt-x, Skizzen-y = −Welt-z (Fusion-Konvention); Profil liegt bei x ≥ 0
-    pts = [adsk.core.Point3D.create(units.mm_zu_cm(r), -units.mm_zu_cm(z), 0) for r, z in kontur_mm]
-    for a, b in zip(pts, pts[1:] + pts[:1]):
-        if a.distanceTo(b) > 1e-7:
+    # Skizze auf XZ: Skizzen-x = Welt-x, Skizzen-y = −Welt-z (Fusion-Konvention); Profil liegt bei x ≥ 0.
+    # Punkt (r, z, mr, mz): Segment zum nächsten Punkt als Bogen durch (mr, mz) – ergibt beim Drehen Kugel-/Torusflächen (Testkörper doppelt gekrümmt).
+    def P(r, z):
+        return adsk.core.Point3D.create(units.mm_zu_cm(r), -units.mm_zu_cm(z), 0)
+    for k, a_ in enumerate(kontur_mm):
+        b_ = kontur_mm[(k + 1) % len(kontur_mm)]
+        a, b = P(a_[0], a_[1]), P(b_[0], b_[1])
+        if a.distanceTo(b) <= 1e-7:
+            continue
+        if len(a_) >= 4:
+            sk.sketchCurves.sketchArcs.addByThreePoints(a, P(a_[2], a_[3]), b)
+        else:
             linien.addByTwoPoints(a, b)
     if sk.profiles.count < 1:
         raise AdapterFehler("Querschnitt des Rundblechs ist nicht geschlossen.")
