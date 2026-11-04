@@ -11,6 +11,8 @@ import adsk.core
 import adsk.fusion
 
 from ..core import livetest_bericht as bericht
+from ..core import livetest_messung as messung
+from ..manufacturing import dxf_pruefung
 from ..geometry import fusion_adapter as fa
 from . import fusion_capabilities, logger
 
@@ -98,6 +100,26 @@ def _volumen(ctx):
     return ctx.root.bRepBodies.item(0).physicalProperties.volume * 1000.0    # cm³ → mm³
 
 
+def _messen(ctx):
+    """Messwerte des Körpers in mm (Volumen, Ausdehnung, Flächen/Kanten) – Grundlage für core/livetest_messung (nicht live geprüft)."""
+    b = ctx.root.bRepBodies.item(0)
+    bb = b.boundingBox
+    return {"vol": b.physicalProperties.volume * 1000.0,
+            "min": (bb.minPoint.x * 10.0, bb.minPoint.y * 10.0, bb.minPoint.z * 10.0),
+            "max": (bb.maxPoint.x * 10.0, bb.maxPoint.y * 10.0, bb.maxPoint.z * 10.0),
+            "flaechen": b.faces.count, "kanten": b.edges.count}
+
+
+def _bewerten(ergebnis):
+    """('ok'|'warnung'|'fehler', Text) → Text bzw. passende Ausnahme."""
+    status, text = ergebnis
+    if status == "fehler":
+        raise _Falsch(text)
+    if status == "warnung":
+        raise _Warnung(text)
+    return text
+
+
 def _plausibel(zuwachs, erwartet, unten=0.4, oben=2.0):
     return erwartet <= 0 or unten <= zuwachs / erwartet <= oben
 
@@ -126,36 +148,56 @@ def t_blech(ctx):
         LAENGE, BREITE, ("%.2f" % d) if d else "unbekannt", _volumen(ctx), ctx.body.faces.count, ctx.body.edges.count)
 
 
+def _flansch_gemessen(ctx, winkel, hoehe, **kw):
+    """Flansch bauen, davor/danach messen und bewerten. Bei einer Kante der Unterseite ist die Richtung nicht vorab bekannt – dann gilt die bessere von +/−. → (Feature, Text)"""
+    vor = _messen(ctx)
+    feat, kante, seite = _flansch_versuch(ctx, winkel=winkel, laenge_mm=hoehe, **kw)
+    nach = _messen(ctx)
+    ergebnisse = [messung.pruefe_flansch(vor, nach, w, hoehe, ctx.dicke or 1.0, _laenge_mm(kante), kw.get("radius_mm")) for w in ((winkel, -winkel) if seite != "oben" else (winkel,))]
+    ergebnisse.sort(key=lambda e: {"ok": 0, "warnung": 1, "fehler": 2}[e[0]])
+    s, t = ergebnisse[0]
+    return feat, (s, "Kante der %sseite: %s" % (seite, t))
+
+
 def t_flansch(ctx):
-    v0 = _volumen(ctx)
-    feat, kante, seite = _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH)
-    zu = _volumen(ctx) - v0
-    erwartet = _laenge_mm(kante) * FLANSCH * (ctx.dicke or 1.0)
-    txt = "Kante der %sseite, Volumen +%.0f mm³ (erwartet ca. %.0f)" % (seite, zu, erwartet)
-    if not _plausibel(zu, erwartet):
-        raise _Warnung(txt + " – Volumen weicht stark ab")
-    return txt
+    feat, erg = _flansch_gemessen(ctx, 90, FLANSCH)
+    return _bewerten(erg)
 
 
 def t_flansch_hinten(ctx):
-    v0 = _volumen(ctx)
+    vor = _messen(ctx)
     kante = _rand_kanten(ctx)[0]
     fa.flansch(kante, winkel=-90, laenge_mm=FLANSCH)
-    return "Flansch nach hinten (−90°), Volumen +%.0f mm³" % (_volumen(ctx) - v0)
+    return "Flansch nach hinten (−90°): " + _bewerten(messung.pruefe_flansch(vor, _messen(ctx), -90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kante)))
 
 
 def t_flansch_winkel(ctx):
-    erg = []
+    erg, schlecht = [], []
     for w in (45, 135):
-        feat, _, _ = _flansch_versuch(ctx, winkel=w, laenge_mm=15)
-        erg.append("%d° ok" % w)
+        feat, e = _flansch_gemessen(ctx, w, 15)
+        erg.append("%d°: %s" % (w, e[1]))
+        if e[0] != "ok":
+            schlecht.append(e[0])
         fa.entfernen([feat])
-    return ", ".join(erg)
+    if "fehler" in schlecht:
+        raise _Falsch("\n".join(erg))
+    if schlecht:
+        raise _Warnung("\n".join(erg))
+    return "\n".join(erg)
 
 
 def t_flansch_radius(ctx):
-    fa.flansch(_rand_kanten(ctx)[0], winkel=90, laenge_mm=FLANSCH, radius_mm=3.0)
-    return "Biegeradius 3 mm angenommen und Flansch gebaut"
+    """Flansch ohne und mit Biegeradius 3 mm: der Radius muss das Ergebnis messbar ändern."""
+    vor = _messen(ctx)
+    feat, _, _ = _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH)
+    standard = {"vor": vor, "nach": _messen(ctx)}
+    fa.entfernen([feat])
+    feat, kante, _ = _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH, radius_mm=3.0)
+    gross = {"vor": vor, "nach": _messen(ctx)}
+    s, t = messung.pruefe_flansch(vor, gross["nach"], 90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kante), 3.0)
+    if s == "ok":
+        s, t = messung.pruefe_radius(standard, gross, 3.0)
+    return _bewerten((s, "Biegeradius 3 mm: " + t))
 
 
 def t_winkelfalz(ctx):
@@ -166,23 +208,25 @@ def t_winkelfalz(ctx):
 
 
 def t_umschlag(ctx):
+    vor = _messen(ctx)
     kante = _rand_kanten(ctx)[0]
-    feat = fa.umschlag(kante, 10.0, False, None, None, ctx.dicke)
-    return "Umschlag 10 mm gebaut (%s)" % type(feat).__name__
+    fa.umschlag(kante, 10.0, False, None, None, ctx.dicke)
+    return "Umschlag 10 mm: " + _bewerten(messung.pruefe_umschlag(vor, _messen(ctx), 10.0, ctx.dicke or 1.0, _laenge_mm(kante)))
 
 
 def t_umschlag_radius(ctx):
+    vor = _messen(ctx)
     kante = _rand_kanten(ctx)[0]
     fa.umschlag(kante, 10.0, False, 2.0, None, ctx.dicke)
-    return "Umschlag 10 mm mit Radius/Abstand 2 mm gebaut"
+    return "Umschlag 10 mm mit Radius/Abstand 2 mm: " + _bewerten(messung.pruefe_umschlag(vor, _messen(ctx), 10.0, ctx.dicke or 1.0, _laenge_mm(kante), 2.0))
 
 
 def t_gehrung_flansch(ctx):
     """Zwei Eckkanten gemeinsam (Gehrung) gegen zwei Einzelflansche: Volumen und Flächenzahl verglichen."""
     kanten = _eckkanten(ctx)
-    v0, f0 = _volumen(ctx), ctx.body.faces.count
+    vor = _messen(ctx)
     feat = fa.flansch(kanten, winkel=90, laenge_mm=FLANSCH)
-    vg, fg = _volumen(ctx) - v0, ctx.root.bRepBodies.item(0).faces.count
+    gemeinsam = _messen(ctx)
     mit = None
     try:
         mit = getattr(feat, "isMiteredCorners", None)
@@ -192,11 +236,12 @@ def t_gehrung_flansch(ctx):
     einzel = []
     for k in _eckkanten(ctx):
         einzel.append(fa.flansch(k, winkel=90, laenge_mm=FLANSCH))
-    ve, fe = _volumen(ctx) - v0, ctx.root.bRepBodies.item(0).faces.count
-    txt = "gemeinsam: +%.0f mm³, %d Flächen (isMiteredCorners=%s); einzeln: +%.0f mm³, %d Flächen (vorher %d)" % (vg, fg, mit, ve, fe, f0)
-    if fg == fe and abs(vg - ve) < 1.0:
-        raise _Warnung(txt + " – gemeinsam und einzeln sehen gleich aus: Gehrung wird NICHT geschnitten")
-    return txt
+    einzeln = _messen(ctx)
+    s, t = messung.pruefe_gehrung(einzeln, gemeinsam)
+    ratio = messung.pruefe_flansch(vor, gemeinsam, 90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kanten[0]) + _laenge_mm(kanten[1]))
+    if ratio[0] == "fehler":
+        s, t = "fehler", "Gemeinsamer Flansch: " + ratio[1]
+    return _bewerten((s, "isMiteredCorners=%s; %s" % (mit, t)))
 
 
 def _gruppe(ctx, ops, name):
@@ -218,20 +263,33 @@ def t_gehrung_umschlag(ctx):
 
 
 def t_versatz(ctx):
-    erg = []
-    for v in (5.0, -5.0):
+    """Versatz als Unterschied zu einem Bau OHNE Versatz (gleiche Kante, gleicher Flansch) – so kürzen sich Höhenbezug und Blechregeln heraus."""
+    def bau(v):
         hin = []
-        v0 = _volumen(ctx)
+        vor = _messen(ctx)
         erz = fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=v)], ctx.dicke, {"livetest": 1}, hin)
-        zu = _volumen(ctx) - v0
-        erwartet = _laenge_mm(_rand_kanten(ctx)[0]) * FLANSCH * (ctx.dicke or 1.0)
-        erg.append("%+g mm: ok, Volumen %+.0f mm³ (Blechdicke %.2f)%s" % (v, zu, ctx.dicke or 0, ("; " + " / ".join(hin)) if hin else ""))
-        if zu > 3 * erwartet:
-            erg[-1] += " – Volumen viel zu gross (Dicke verdoppelt?)"
+        m = {"vor": vor, "nach": _messen(ctx)}
         fa.entfernen(erz)
-    if any("zu gross" in x for x in erg):
+        return m, hin
+    ohne, _ = bau(None)
+    erg, schlecht = [], []
+    laenge = _laenge_mm(_rand_kanten(ctx)[0])
+    for v in (5.0, -5.0):
+        try:
+            mit, hin = bau(v)
+        except Exception as e:
+            erg.append("%+g mm: Fehler – %s" % (v, _letzte_zeile(e)))
+            schlecht.append("fehler")
+            continue
+        s, t = messung.pruefe_versatz(ohne, mit, v, ctx.dicke or 1.0, laenge, FLANSCH)
+        erg.append("%+g mm: %s%s" % (v, t, ("; " + " / ".join(hin)) if hin else ""))
+        if s != "ok":
+            schlecht.append(s)
+    if "fehler" in schlecht:
+        raise _Falsch("\n".join(erg))
+    if schlecht:
         raise _Warnung("\n".join(erg))
-    return "; ".join(erg)
+    return "\n".join(erg)
 
 
 def t_abwicklung(ctx):
@@ -242,10 +300,15 @@ def t_abwicklung(ctx):
     pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "abwicklung.dxf")
     fa.dxf_abwicklung(fp, pfad)
     gross, klein = max(m["laenge"], m["breite"]), min(m["laenge"], m["breite"])
-    txt = "Abwicklung %.1f × %.1f mm (erwartet ca. %.0f × %.0f), DXF %d Byte" % (gross, klein, LAENGE, BREITE + FLANSCH, os.path.getsize(pfad))
-    if abs(gross - LAENGE) > 3 or not (BREITE + FLANSCH - 6 <= klein <= BREITE + FLANSCH + 2):
-        raise _Warnung(txt + " – Mass weicht ab")
-    return txt
+    s, t = messung.pruefe_abwicklung(m["breite"], m["laenge"], LAENGE, BREITE, FLANSCH, ctx.dicke or 1.0)
+    # Gegenprobe der DXF-Datei selbst (Masse, Einheit, Kontur) – unabhängig von der Fusion-Abmessung
+    dxf = dxf_pruefung.pruefe_datei(pfad, gross, klein)
+    t += "; DXF: " + dxf_pruefung.zusammenfassung(dxf)
+    if not dxf["ok"]:
+        s = "fehler"
+    elif dxf["hinweise"] and s == "ok":
+        s = "warnung"
+    return _bewerten((s, t))
 
 
 def t_bildschirmfoto(ctx):
@@ -310,6 +373,10 @@ def t_referenzbild(ctx):
 
 class _Warnung(Exception):
     """Schritt lief, aber das Ergebnis ist auffällig."""
+
+
+class _Falsch(Exception):
+    """Schritt lief ohne Fusion-Fehler, aber das gemessene Ergebnis ist geometrisch falsch."""
 
 
 SCHRITTE = [
@@ -380,6 +447,8 @@ def ausfuehren(fortschritt=None):
                 detail = funktion(ctx) or ""
             except _Warnung as w:
                 status, detail = "warnung", str(w)
+            except _Falsch as w:
+                status, detail = "fehler", str(w)
             except Exception as e:
                 status, detail = "fehler", _letzte_zeile(e)
                 logger.ausnahme("Live-Test " + name)
