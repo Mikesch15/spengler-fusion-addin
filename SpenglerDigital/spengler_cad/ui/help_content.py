@@ -102,7 +102,7 @@ def text(thema):
 
 TOOLTIPS = {
     "koerper": "Zuerst den Blechkörper wählen, an dem die Kanten gelten sollen (hilft, wenn mehrere Bleche nebeneinander liegen).",
-    "kanten": "Aussenkanten DIESES Blechkörpers (gerade; Kreis/Bogen werden versucht). Mehrfachauswahl möglich; Kanten anderer Körper werden abgelehnt.",
+    "kanten": "Gerade Aussenkanten DIESES Blechkörpers (Kreis/Bogen werden abgelehnt – Fusions Flansch/Saum per API nur an geraden Kanten). Mehrfachauswahl möglich; Kanten anderer Körper werden abgelehnt.",
     "vorlage": "Eigene Kantenvorlage. Anlegen unter «Vorlagen verwalten».",
     "material": "Eigenes Materialprofil (Dicke, optional Radius/K-Faktor).",
     "experte": "Operationsfolge direkt bearbeiten (Kurzschrift).",

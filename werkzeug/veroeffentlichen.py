@@ -120,7 +120,7 @@ def veroeffentlichen(db, version, text, mit_tests=True, log=print):
     log("1/8 Version prüfen")
     version_pruefen(db, version)
     if mit_tests:
-        log("2/8 Automatische Tests: " + tests_ausfuehren())
+        log("2/8 Automatische Unit-/Stub-Tests OHNE Fusion (kein Fusion-Live-Test): " + tests_ausfuehren())
     else:
         log("2/8 Tests übersprungen (nur für Testläufe)")
     log("3/8 Version setzen, Testplan auffrischen")

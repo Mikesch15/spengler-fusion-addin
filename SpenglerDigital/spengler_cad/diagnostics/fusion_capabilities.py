@@ -8,7 +8,10 @@ from . import logger
 
 PRUEFUNGEN = {
     # Schlüssel: (Beschreibung, Pfad ab design.rootComponent.features bzw. Objekt, Attribut)
-    "flansch": ("Flansch an Kante (FlangeFeatures.createEdgeFlangeInput)", "features.flangeFeatures", "createEdgeFlangeInput"),
+    "grundblech": ("Grundblech/Basisflansch (FlangeFeatures.createBaseFlangeInput, Preview)", "features.flangeFeatures", "createBaseFlangeInput"),
+    "blechregel": ("Blechregel mit Soll-Dicke anlegen (Design.designSheetMetalRules.addByCopy)", "@design.designSheetMetalRules", "addByCopy"),
+    "aktivieren": ("Zielkomponente aktivieren (Design.activateRootComponent / Occurrence.activate)", "@design", "activateRootComponent"),
+    "flansch": ("Flansch an Kante (FlangeFeatures.createEdgeFlangeInput, Preview)", "features.flangeFeatures", "createEdgeFlangeInput"),
     "saum": ("Saum/Umschlag (HemFeatures)", "features.hemFeatures", "createHemFeatureInput"),
     "drehen": ("Drehkörper (RevolveFeatures)", "features.revolveFeatures", "createInput"),
     "abwicklung": ("Abwicklung (Component.createFlatPattern)", "", "createFlatPattern"),
@@ -43,7 +46,10 @@ def pruefen(app):
         root = None
     for k, (text, pfad, attr) in PRUEFUNGEN.items():
         try:
-            if pfad == "@export":
+            if pfad.startswith("@design"):
+                basis = _aufloesen(app.activeProduct, pfad[len("@design"):].lstrip("."))
+                ok = basis is not None and hasattr(basis, attr)
+            elif pfad == "@export":
                 basis = getattr(getattr(app.activeProduct, "exportManager", None), attr, None) if root is not None else None
                 ok = basis is not None
             elif pfad == "@import":

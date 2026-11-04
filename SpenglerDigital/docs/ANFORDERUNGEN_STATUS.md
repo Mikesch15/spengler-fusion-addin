@@ -221,3 +221,25 @@ Legende: A = in Fusion live bestätigt, B = nur mit Fusion-Stub/Fake-Cloud getes
 - Projektkarte lesen/schreiben (Status, Hinweis, Termine), Aufträge, Profil aus der App: **B** (Fake-Supabase); Schreiben nur mit Rückfrage, Termin-Änderung nur mit den gelesenen Werten (bedingter PATCH, bei Konflikt wird nichts überschrieben).
 - Änderungen: A Zeitzone der Projektkarte (`_zeit()`, Neu-Vergleich); B Termin-Konfliktschutz; C Rückbau des Bauteils bei Abbruch (`abbruch_mit_rueckbau`); D DXF-Prüfung (`dxf_pruefung`, Export meldet fehlerhafte DXF nicht als Erfolg); F Live-Test-Bericht nur seit Teststart, Benutzerpfade/E-Mail maskiert; G messender Live-Test (`core/livetest_messung.py`).
 - Offen: Umschlag-Varianten geometrisch bewerten, Mehrfachkanten-Fallback, innerHTML-Prüfung der Palette (19 Stellen ohne `esc(` in derselben Zeile), Fehlermeldungen bei Offline/fehlenden Tabellen.
+
+### Geometrie-Stabilisierung 0.4.49 (4. 11. 2026) – Stand je Funktion
+Kennzeichnung: **LIVE** = in Fusion bestätigt · **TEIL** = Logik mit Attrappen geprüft, Fusion-Lauf steht aus · **UNGETESTET**. Seit 0.4.42 lief kein Live-Test; alles unten ist **TEIL**, bis der Live-Test 0.4.49 vorliegt.
+- **Grundblech** (`blech_aus_profil`): Regel mit Soll-Dicke (Design-Kopie per `addByCopy`, Bibliothek unverändert), `activeSheetMetalRule` vor `createBaseFlangeInput(profil)` (ohne Distanz), Zielkomponente aktiviert und zurückgestellt, Körper in Zielkomponente / gemessene Dicke / Blechkörper geprüft, Rückbau. **TEIL** (Basisflansch an sich LIVE seit 0.4.42, damals ohne Dickenregel).
+- **Flansch / Gehrung**: Kreis/Bogen vor dem Modellieren abgelehnt, Gruppe geprüft (ein Körper, gerade, Kette), nach dem Bau kontrolliert (isMiteredCorners, Körper, Volumen); kein stiller Einzelkanten-Rückfall, nur nach Rückfrage. **TEIL**. Grenze: feine Spalte an der Ecke erkennt die Volumenprüfung nicht.
+- **Umschlag**: genau eine Kante je Saum-Feature, 179°-Ersatz entfernt, jede Variante geometrisch kontrolliert (zweite Lage per Volumen, kein Zusatzkörper), Gruppe je Kante mit Rückbau. **TEIL**.
+- **Versatz**: zentraler Rückbau (`Rueckbau`, `entfernen_bericht` prüft `deleteMe()`), Versatz entfernt eigene Skizze/Extrusion bei Fehler. **TEIL**; Versatz selbst weiter **offen** (Fusion lehnte die versetzte Kante live ab).
+- **Abwicklung / DXF**: Voraussetzungen geprüft, feste Flächenwahl, Export mit Ordnerprüfung, alte Datei gilt nie als Export, DXF-Gegenprobe inkl. Konturzahl. **TEIL**.
+- **Tests**: `run_all.py` = Unit-/Stub-Tests (so gekennzeichnet, auch im Release-Protokoll); Live-Test um Dicke 0.7/1.0, Zielkomponente, ungültige Eingaben, provozierten Rückbau, Abwicklung mit zwei Biegungen erweitert.
+- **Verhaltensänderungen (mit dem Anwender abgestimmt 4.11.)**: Bau ohne Gehrung nur nach Ja; Umschlag-Ersatz über Flansch entfernt; runde Kanten für Flansch/Umschlag abgelehnt (Vorlagen «gekrümmt» damit derzeit nicht anwendbar – offen).
+
+#### Fusion-API: kritische Aufrufe (Stand Autodesk-Doku laut Websuche 4.11.2026; Doku-Seiten aus der Sandbox nicht abrufbar, deshalb nicht im Wortlaut geprüft)
+| API | wofür | Preview | seit | Verhalten bei Fehlen |
+|---|---|---|---|---|
+| `FlangeFeatures.createBaseFlangeInput(profile)` / `BaseFlangeInput` | Grundblech | **ja** | Preview-Stand 2025/26 | Abbruch mit Meldung, nichts gebaut |
+| `FlangeFeatures.createEdgeFlangeInput(edges, distance)` / `EdgeFlangeInput` | Flansch, Gehrung | **ja** | API Okt. 2026 (laut Code-Kommentar) | Abbruch mit Meldung |
+| `HemFeatures.createHemFeatureInput()`, `setFlatHem/setOpenHem(edge, …)` | Umschlag (eine Kante) | **ja** (Blech-API) | Sept. 2025 (laut Code-Kommentar) | Abbruch mit Meldung |
+| `Component.activeSheetMetalRule` | Regel setzen | nein | Nov. 2022 | – |
+| `SheetMetalRules.addByCopy(rule, name)`, `SheetMetalRule.thickness.expression` | Regel mit Soll-Dicke | nein (nicht als Preview bekannt) | Nov. 2022 | Abbruch, kein Grundblech mit falscher Dicke |
+| `Occurrence.activate`, `Design.activateRootComponent`, `Design.activeOccurrence` | Zielkomponente aktivieren | nein | alt | Abbruch, wenn Aktivierung `False` meldet |
+| `Component.createFlatPattern(face)`, `ExportManager.createDXFFlatPatternExportOptions` | Abwicklung/DXF | nein (nicht als Preview bekannt) | alt | Abbruch mit Meldung |
+Alle Preview-Aufrufe liegen nur in `geometry/fusion_adapter.py` und werden vor dem Aufruf mit `hasattr` geprüft; «Fähigkeiten prüfen» und der Live-Test listen sie (`fusion_capabilities.py`). Ein unkontrollierter geometrischer Ersatz (z. B. 179°-Flansch statt Saum) wird nicht mehr verwendet.

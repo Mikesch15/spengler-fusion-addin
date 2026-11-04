@@ -96,14 +96,14 @@ def pruefe_gehrung(einzeln, gemeinsam):
     return "ok", kopf
 
 
-def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, ri=None, k=0.44):
+def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, ri=None, k=0.44, flansche=1):
     """Abwicklung eines Blechs (soll_laenge × basis_breite) mit einem 90°-Flansch der Höhe `hoehe` an der Längskante: Breite = Basis + Zugabe (theoretisch, mit Innenradius und K-Faktor).
     Die Toleranz deckt Höhenbezug (aussen/innen) und unbekannten K-Faktor ab."""
     ri = dicke if ri is None else ri
     gross, klein = max(breite, laenge), min(breite, laenge)
     zugabe, _ = bend_geometry.zugabe_abwicklung([{"typ": "flansch", "winkel": 90.0, "laenge": float(hoehe), "radius": None}], dicke, ri, k, basis_mm=basis_breite)
-    soll_breite = basis_breite + zugabe
-    tol = 2 * dicke + 2.0
+    soll_breite = basis_breite + flansche * zugabe          # flansche: Anzahl gleicher 90°-Flansche an den Längskanten
+    tol = flansche * (2 * dicke + 2.0)
     kopf = "Abwicklung %.1f × %.1f mm (erwartet %.1f × %.1f ± %.1f; theoretisch mit Ri %.1f, K %.2f)" % (gross, klein, soll_laenge, soll_breite, tol, ri, k)
     if abs(gross - soll_laenge) > 0.2 * soll_laenge or abs(klein - soll_breite) > 0.2 * soll_breite:
         return "fehler", "Die Abwicklung passt nicht zum 3D-Modell: " + kopf

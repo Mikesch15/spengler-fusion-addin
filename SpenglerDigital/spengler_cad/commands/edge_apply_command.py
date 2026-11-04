@@ -353,8 +353,13 @@ def _bauen(inp, ergebnis, frage=None):
     try:
         gruppen = fa.gruppen_bilden([z["ref"] for z in plan["targets"] if z["geeignet"]])
     except Exception:
-        logger.ausnahme("Kantengruppen nicht bestimmbar – es wird einzeln gebaut")
-        gruppen = [[i] for i in range(len(tokens))]
+        # Kein stiller Einzelbau: ohne bekannte Gruppen könnten zusammenhängende Kanten ohne Gehrung entstehen.
+        logger.ausnahme("Kantengruppen nicht bestimmbar")
+        if len(tokens) > 1:
+            ergebnis.fehler.append("Die Lage der gewählten Kanten zueinander liess sich nicht bestimmen – nichts gebaut (sonst entstünden Ecken ohne Gehrung). "
+                                   "Bitte die Kanten einzeln bearbeiten.")
+            return plan
+        gruppen = [[0]] if tokens else []
     ohne_gehrung = set()
     for gruppe in gruppen:
         einzeln = list(gruppe)

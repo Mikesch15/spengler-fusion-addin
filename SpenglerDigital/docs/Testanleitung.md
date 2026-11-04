@@ -40,6 +40,8 @@ Live-Test in Fusion · zum Abhaken in der Palette (Register **Tests**) oder zum 
 | ☐ | SPENGLER → Verwaltung → **Live-Test** → «Test starten» (Haken «Ergebnis senden» an), 1–2 Min. nichts anklicken | Meldung «x ok, y Warnungen, z Fehler»; Bericht als Testpunkt 97.002 in der App-Datenbank und in `livetest.txt` – **dieses Ergebnis genügt**, die Einzelprüfungen der Blöcke 5/8 müssen dafür nicht von Hand gemacht werden |
 | ☐ | Hilfe: Themen durchklicken, «Bedienungsanleitung (PDF) öffnen» | Texte erscheinen, PDF öffnet |
 
+**Live-Test der Blechgeometrie (ab 0.4.49) – so starten und zurückmelden:** Ein beliebiges Dokument offen lassen (es wird nicht verändert). SPENGLER → Verwaltung → **Live-Test** → Haken «Ergebnis senden» an → «Test starten». 2–4 Minuten nichts anklicken; Fusion öffnet und schliesst dabei eigene Testdokumente ungespeichert. **Erwartet:** je Schritt ✓ (PASS) oder ✗ (FAIL) mit Zahlen: Grundblech 1.0 und 0.7 mm in eigener Komponente (Regel und gemessene Dicke = Soll), ungültiges Profil/Dicke abgelehnt ohne Reste, Flansch, Gehrung an 2 Eckkanten, Umschlag je Kante (echter Saum), Versatz ±5, Rückbau nach provoziertem Fehler (Zustand vorher = nachher), Abwicklung L- und U-Blech mit DXF (mm, 1 Kontur). **Fehlerbilder:** ✗ mit «gemessen … statt …» (falsche Dicke), «liegt nicht in der Zielkomponente», «Rückbau UNVOLLSTÄNDIG», «Kontur(en) statt 1». **Zurückmelden:** nichts weiter nötig, wenn «Ergebnis senden» an war (Testpunkt 97.002); sonst `livetest.txt` aus dem Datenordner schicken, bei ✗ zusätzlich ein Bildschirmfoto der Meldung.
+
 ## 3. Materialien und K-Faktor (10 Min.)
 
 | ☐ | Schritt | Erwartet |

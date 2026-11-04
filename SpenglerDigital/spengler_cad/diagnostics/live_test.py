@@ -40,9 +40,24 @@ def _neues_dokument(app):
     return doc, design, design.rootComponent
 
 
-def _blech_bauen(design, root):
-    """Test-Blech mit derselben Funktion wie der Befehl «Blech aus Massaufnahme» (fa.grundblech_bauen)."""
-    return fa.grundblech_bauen(root, LAENGE, BREITE, 1.0)
+def _blech_bauen(design, root, dicke=1.0, name="Live-Test Blech"):
+    """Test-Blech wie beim Befehl «Blech aus Massaufnahme»: in einer NEUEN Komponente (fa.neue_komponente + fa.grundblech_bauen)."""
+    return fa.grundblech_bauen(fa.neue_komponente(name), LAENGE, BREITE, dicke)
+
+
+def _zustand(root):
+    """Modellzustand für Rückbau-Vergleiche: Zeitleiste, Skizzen und Körper aller Komponenten, Gesamtvolumen (mm³)."""
+    def alle(comp):
+        yield comp
+        for occ in comp.allOccurrences:
+            yield occ.component
+    skizzen = koerper = 0
+    vol = 0.0
+    for c in alle(root):
+        skizzen += c.sketches.count
+        koerper += c.bRepBodies.count
+        vol += sum(b.volume for b in c.bRepBodies) * 1000.0
+    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": skizzen, "koerper": koerper, "vol": round(vol, 1)}
 
 
 def _oberflaeche(body, seite="oben"):
@@ -142,10 +157,82 @@ def _flansch_versuch(ctx, **kw):
 
 
 # ------------------------------------------------------------------ Schritte
+def _blech_bericht(body, soll):
+    """Grundblech-Prüfung wie im Adapter (Komponente, Dicke laut Regel und gemessen, Blechkörper) – ausdrücklich im Bericht."""
+    bb = body.boundingBox
+    gemessen = (bb.maxPoint.z - bb.minPoint.z) * 10.0
+    regel = fa.blechdicke_mm(body)
+    probleme = fa.grundblech_pruefen(body.parentComponent, body, soll)
+    if fa._gleiche(body.parentComponent, fa.design().rootComponent):
+        probleme.append("Körper liegt in der Root-Komponente statt in der neuen Zielkomponente")
+    txt = "Komponente «%s», Soll %.2f mm, Regel %s mm, gemessen %.3f mm, isSheetMetal=%s" % (
+        body.parentComponent.name, soll, ("%.3f" % regel) if regel else "?", gemessen, getattr(body, "isSheetMetal", "?"))
+    if probleme:
+        raise _Falsch(txt + " – " + " ".join(probleme))
+    return txt
+
+
 def t_blech(ctx):
-    d = fa.blechdicke_mm(ctx.body)
-    return "Test-Blech %.0f × %.0f mm, Dicke laut Blechregel %s mm, Volumen %.0f mm³, %d Flächen, %d Kanten" % (
-        LAENGE, BREITE, ("%.2f" % d) if d else "unbekannt", _volumen(ctx), ctx.body.faces.count, ctx.body.edges.count)
+    return "Test-Blech %.0f × %.0f mm: %s, Volumen %.0f mm³, %d Flächen, %d Kanten" % (
+        LAENGE, BREITE, _blech_bericht(ctx.body, 1.0), _volumen(ctx), ctx.body.faces.count, ctx.body.edges.count)
+
+
+def t_blech_07(ctx):
+    """Grundblech 0.7 mm in einer neuen Komponente, während schon eine andere Komponente mit Körper existiert (Akzeptanztest Phase 1)."""
+    vorhanden = _blech_bauen(ctx.design, ctx.root, 1.0, "Live-Test vorhanden")
+    body = _blech_bauen(ctx.design, ctx.root, 0.7, "Live-Test 0.7 mm")
+    if fa._gleiche(body.parentComponent, vorhanden.parentComponent):
+        raise _Falsch("Das 0.7-mm-Blech liegt in der Komponente des vorhandenen Blechs.")
+    if abs((fa.blechdicke_mm(vorhanden) or 0) - 1.0) > 0.001:
+        raise _Falsch("Die Regel des vorhandenen 1.0-mm-Blechs wurde verändert (%s mm)." % fa.blechdicke_mm(vorhanden))
+    return _blech_bericht(body, 0.7) + "; vorhandenes Blech unverändert 1.0 mm"
+
+
+def t_blech_ungueltig(ctx):
+    """Ungültiges Profil und ungültige Dicke müssen VOR dem Modellieren abbrechen – das Design bleibt unverändert."""
+    vorher = _zustand(ctx.design.rootComponent)
+    erg = []
+    for profil, dicke, was in (([[(0, 0), (100, 0)]], 1.0, "Profil mit 2 Punkten"), ([[(0, 0), (100, 0), (100, 60), (0, 60)]], 0.0, "Dicke 0 mm")):
+        comp = fa.neue_komponente("Live-Test ungültig")
+        try:
+            fa.blech_aus_profil(comp, profil, dicke)
+            erg.append("%s: NICHT abgelehnt" % was)
+        except fa.AdapterFehler as e:
+            erg.append("%s: abgelehnt (%s)" % (was, str(e)[:90]))
+        fa.komponente_entfernen(comp)
+    nachher = _zustand(ctx.design.rootComponent)
+    if any("NICHT" in x for x in erg) or nachher["skizzen"] != vorher["skizzen"] or nachher["koerper"] != vorher["koerper"]:
+        raise _Falsch("; ".join(erg) + "; Zustand vorher %s, nachher %s" % (vorher, nachher))
+    return "; ".join(erg) + "; keine Teilgeometrie"
+
+
+def _rueckbau_probe(ctx, stelle, bauen):
+    """Fehler an einer Stelle absichtlich auslösen und den Modellzustand vor/nach vergleichen (Rückbau-Akzeptanztest)."""
+    vorher = _zustand(ctx.design.rootComponent)
+    fa.TESTFEHLER.add(stelle)
+    try:
+        bauen()
+        raise _Falsch("Der absichtliche Fehler bei «%s» wurde nicht ausgelöst." % stelle)
+    except fa.AdapterFehler as e:
+        meldung = str(e)
+        ok = getattr(e, "rueckbau_ok", True)
+    finally:
+        fa.TESTFEHLER.discard(stelle)
+    nachher = _zustand(ctx.design.rootComponent)
+    gleich = all(nachher[k] == vorher[k] for k in ("skizzen", "koerper", "zeitleiste")) and abs(nachher["vol"] - vorher["vol"]) < 0.5
+    txt = "%s: vorher %s, nachher %s, Rückbau gemeldet %s" % (stelle, vorher, nachher, "ok" if ok else "UNVOLLSTÄNDIG")
+    if not gleich or not ok:
+        raise _Falsch(txt + " – " + meldung[:200])
+    return txt
+
+
+def t_rueckbau(ctx):
+    """Provozierte Fehler nach Skizze bzw. Extrusion des Versatzes und nach dem Basisflansch: danach darf nichts übrig sein."""
+    erg = []
+    for stelle in ("versatz_skizze", "versatz_extrusion"):
+        erg.append(_rueckbau_probe(ctx, stelle, lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=5.0)], ctx.dicke, {"livetest": 1}, [])))
+    erg.append(_rueckbau_probe(ctx, "grundblech_feature", lambda: fa.grundblech_bauen(ctx.root, LAENGE, BREITE, 1.0)))
+    return "\n".join(erg)
 
 
 def _flansch_gemessen(ctx, winkel, hoehe, **kw):
@@ -244,14 +331,17 @@ def t_gehrung_flansch(ctx):
     return _bewerten((s, "isMiteredCorners=%s; %s" % (mit, t)))
 
 
-def _gruppe(ctx, ops, name):
+def _gruppe(ctx, ops, name, features_soll=None, erwartete_hinweise=()):
     kanten = _eckkanten(ctx)
     hin = []
     erz = fa.folge_anbringen_gruppe(kanten, ops, ctx.dicke, {"livetest": 1}, hin)
     txt = "%s an 2 Eckkanten: %d Features" % (name, len(erz))
-    if hin:
-        raise _Warnung(txt + "\n" + "\n".join(hin))
-    return txt
+    if features_soll is not None and len(erz) != features_soll:
+        raise _Falsch(txt + " (erwartet %d)" % features_soll)
+    unerwartet = [h for h in hin if not any(e in h for e in erwartete_hinweise)]
+    if unerwartet:
+        raise _Warnung(txt + "\n" + "\n".join(unerwartet))
+    return txt + ("; " + " / ".join(hin) if hin else "")
 
 
 def t_gehrung_winkelfalz(ctx):
@@ -259,7 +349,8 @@ def t_gehrung_winkelfalz(ctx):
 
 
 def t_gehrung_umschlag(ctx):
-    return _gruppe(ctx, [_op("umschlag", 180, 10)], "Umschlag")
+    """Umschlag an 2 Eckkanten: je Kante ein ECHTER Saum (kein 179°-Flansch), jeder geometrisch kontrolliert."""
+    return _gruppe(ctx, [_op("umschlag", 180, 10)], "Umschlag", 2, ("NICHT auf Gehrung",))
 
 
 def t_versatz(ctx):
@@ -292,23 +383,38 @@ def t_versatz(ctx):
     return "\n".join(erg)
 
 
-def t_abwicklung(ctx):
-    feat, _, _ = _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH)
-    stat = _oberflaeche(ctx.root.bRepBodies.item(0), "oben")
-    fp, neu = fa.abwicklung(ctx.root, stat)
+def _abwickeln(ctx, flansche):
+    """Abwicklung OHNE vorgegebene Fläche (feste Auswahlregel des Adapters), DXF-Export und Gegenprobe der DXF (Masse, Einheit, Konturen)."""
+    fp, neu = fa.abwicklung(ctx.root)
     m = fa.abwicklung_masse(fp)
     pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "abwicklung.dxf")
     fa.dxf_abwicklung(fp, pfad)
     gross, klein = max(m["laenge"], m["breite"]), min(m["laenge"], m["breite"])
-    s, t = messung.pruefe_abwicklung(m["breite"], m["laenge"], LAENGE, BREITE, FLANSCH, ctx.dicke or 1.0)
-    # Gegenprobe der DXF-Datei selbst (Masse, Einheit, Kontur) – unabhängig von der Fusion-Abmessung
-    dxf = dxf_pruefung.pruefe_datei(pfad, gross, klein)
+    s, t = messung.pruefe_abwicklung(m["breite"], m["laenge"], LAENGE, BREITE, FLANSCH, ctx.dicke or 1.0, flansche=flansche)
+    # Gegenprobe der DXF-Datei selbst (Masse, Einheit, Kontur, keine Zusatzprofile) – unabhängig von der Fusion-Abmessung
+    dxf = dxf_pruefung.pruefe_datei(pfad, gross, klein, erwartete_konturen=1)
     t += "; DXF: " + dxf_pruefung.zusammenfassung(dxf)
     if not dxf["ok"]:
         s = "fehler"
     elif dxf["hinweise"] and s == "ok":
         s = "warnung"
     return _bewerten((s, t))
+
+
+def t_abwicklung(ctx):
+    """L-Blech: ein Flansch."""
+    _flansch_versuch(ctx, winkel=90, laenge_mm=FLANSCH)
+    return _abwickeln(ctx, 1)
+
+
+def t_abwicklung_mehrfach(ctx):
+    """U-Blech: Flansche an beiden langen Kanten (zwei Biegungen)."""
+    k = _rand_kanten(ctx)
+    fa.flansch(k[0], winkel=90, laenge_mm=FLANSCH)
+    gegen = [e for e in _rand_kanten(ctx) if abs(_laenge_mm(e) - LAENGE) < 1]
+    gegen.sort(key=lambda e: -e.boundingBox.minPoint.y)
+    fa.flansch(gegen[0], winkel=90, laenge_mm=FLANSCH)
+    return _abwickeln(ctx, 2)
 
 
 def t_bildschirmfoto(ctx):
@@ -380,7 +486,9 @@ class _Falsch(Exception):
 
 
 SCHRITTE = [
-    ("Test-Blech (Basisflansch)", t_blech, False),
+    ("Test-Blech 1.0 mm (Basisflansch in eigener Komponente)", t_blech, False),
+    ("Grundblech 0.7 mm neben vorhandener Komponente", t_blech_07, False),
+    ("Ungültiges Profil / ungültige Dicke wird abgelehnt", t_blech_ungueltig, False),
     ("Flansch 90° (Kante des Test-Blechs)", t_flansch, True),
     ("Flansch nach hinten (−90°)", t_flansch_hinten, True),
     ("Flansch 45° und 135°", t_flansch_winkel, True),
@@ -392,7 +500,9 @@ SCHRITTE = [
     ("Gehrung: Winkelfalz 35 an 2 Eckkanten", t_gehrung_winkelfalz, True),
     ("Gehrung: Umschlag an 2 Eckkanten", t_gehrung_umschlag, True),
     ("Versatz +5 mm und −5 mm", t_versatz, True),
-    ("Abwicklung und DXF", t_abwicklung, True),
+    ("Abwicklung und DXF (L-Blech)", t_abwicklung, True),
+    ("Abwicklung und DXF (zwei Biegungen)", t_abwicklung_mehrfach, True),
+    ("Rückbau bei provoziertem Fehler (Versatz, Grundblech)", t_rueckbau, True),
     ("Bauteil: L-förmiger Grundrissverlauf", t_bauteil_l, False),
     ("Bauteil: geschlossener Ring", t_bauteil_ring, False),
     ("Referenzbild (Canvas) einfügen", t_referenzbild, False),
@@ -441,7 +551,7 @@ def ausfuehren(fortschritt=None):
                 dokumente.append(doc)
                 if braucht_blech or funktion is t_blech:
                     body = _blech_bauen(design, root)
-                    ctx = _Ctx(design, root, body, fa.blechdicke_mm(body) or 1.0)
+                    ctx = _Ctx(design, body.parentComponent, body, fa.blechdicke_mm(body) or 1.0)
                 else:
                     ctx = _Ctx(design, root, None, 1.0)
                 detail = funktion(ctx) or ""
