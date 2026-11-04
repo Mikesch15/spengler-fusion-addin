@@ -212,3 +212,12 @@ Gewünscht vom Anwender («erstmal merken, später besprechen»). Die App hat be
 - App → CAD: Massaufnahmen «Freies Profil»/«Dachrandblech» lesen und als Kantenvorlage übernehmen (nur Schenkel und Winkel).
 - Noch offen: Material der App automatisch zuordnen (heute von Hand), Reste (`reststuecke`), Rückmeldung des App-Status (gerüstet/erledigt) ins CAD, andere Massaufnahme-Arten.
 - Aufträge abgleichen (1. 11. 2026): Projekte der App ↔ Auftragsordner in Fusion über die Auftragsnummer, beide Richtungen mit Auswahl; Add-in schreibt in `projects` (nur INSERT wie die App; Verlauf über deren Trigger). Offen: Status/Kunde/Titel abgleichen, Änderungen am Objekt synchron halten, automatisches Abgleichen beim Start.
+
+### Stabilisierung 0.4.48 (4. 11. 2026) – Status je Funktion
+Legende: A = in Fusion live bestätigt, B = nur mit Fusion-Stub/Fake-Cloud getestet (Logik geprüft, Fusion-Aufruf nicht), C = nicht getestet, D = bekannt problematisch.
+- Basisflansch aus Rechteck/L-Grundriss, gemeinsamer Flansch an 2 Kanten, Bildschirmfoto, Rundblech, 3D-Detail: **A** (Live-Test 97.002, 0.4.42).
+- Flansch auf Test-Blech ±90°/45°/135°, Radius, Winkelfalz, Umschlag, Gehrung (Flansch/Winkelfalz/Umschlag), Abwicklung, DXF, Referenzbild, Ordnerliste, Bauteil L/Ring: **B** – der Live-Test ab 0.4.48 misst die Geometrie (Richtung, Höhe, Volumen) und bewertet sie; erster Lauf mit Messung steht aus.
+- Versatz ±: **D** – Fusion lehnte die versetzte Kante ab («edge is not suitable for a sheet metal flange»); Ersatzkante seit 0.4.44, nie live gesehen. Der Live-Test misst ihn als Unterschied zum Bau ohne Versatz.
+- Projektkarte lesen/schreiben (Status, Hinweis, Termine), Aufträge, Profil aus der App: **B** (Fake-Supabase); Schreiben nur mit Rückfrage, Termin-Änderung nur mit den gelesenen Werten (bedingter PATCH, bei Konflikt wird nichts überschrieben).
+- Änderungen: A Zeitzone der Projektkarte (`_zeit()`, Neu-Vergleich); B Termin-Konfliktschutz; C Rückbau des Bauteils bei Abbruch (`abbruch_mit_rueckbau`); D DXF-Prüfung (`dxf_pruefung`, Export meldet fehlerhafte DXF nicht als Erfolg); F Live-Test-Bericht nur seit Teststart, Benutzerpfade/E-Mail maskiert; G messender Live-Test (`core/livetest_messung.py`).
+- Offen: Umschlag-Varianten geometrisch bewerten, Mehrfachkanten-Fallback, innerHTML-Prüfung der Palette (19 Stellen ohne `esc(` in derselben Zeile), Fehlermeldungen bei Offline/fehlenden Tabellen.
