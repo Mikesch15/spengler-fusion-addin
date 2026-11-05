@@ -269,62 +269,63 @@ Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Rele
 
 **Unterstützungsmatrix (aus `core/unterstuetzung.py` erzeugt – implementiert ≠ live getestet; «Prototyp» ist im normalen Bau gesperrt):**
 
-| Bearbeitung | Fläche | gerade Kante | Kreisbogen | Kreis | sonstige Kurve |
-|---|---|---|---|---|---|
-| Grundblech | eben | implementiert | implementiert | implementiert | implementiert |
-| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Abwicklung / DXF | eben | implementiert | implementiert | implementiert | implementiert |
-| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| 3D-Detail starr | eben | implementiert | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail an Fläche angepasst | eben | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Prototyp (gesperrt) | nicht unterstützt |
-| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+<!-- AUTO:matrix -->
+| Bearbeitung | Fläche | gerade Kante | Kreisbogen | Kreis | Ellipse | Spline/freie Kurve | Kette aus Linien und Bögen |
+|---|---|---|---|---|---|---|---|
+| Grundblech | eben | implementiert | implementiert | implementiert | implementiert | implementiert | implementiert |
+| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Abwicklung / DXF | eben | implementiert | implementiert | implementiert | implementiert | implementiert | implementiert |
+| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail starr | eben | implementiert | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail an Fläche angepasst | eben | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 
 Grenzen und Gründe (gekrümmte Fälle):
 - **Grundblech / Zylinder** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
@@ -378,9 +379,11 @@ Grenzen und Gründe (gekrümmte Fälle):
 - **3D-Detail an Fläche angepasst / einfach gekrümmt** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
 - **3D-Detail an Fläche angepasst / doppelt gekrümmt** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
 - **3D-Detail an Fläche angepasst / Freiform** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
+<!-- /AUTO:matrix -->
 
 **Machbarkeit gekrümmter Fälle (aus `core/unterstuetzung.py` erzeugt):**
 
+<!-- AUTO:machbarkeit -->
 | Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | exakt | Live-Test |
 |---|---|---|---|---|---|---|---|
 | Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
@@ -428,6 +431,7 @@ Grenzen und Gründe (gekrümmte Fälle):
 | 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
 | 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
 | 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+<!-- /AUTO:machbarkeit -->
 
 **Fusion-API-Risiken:** Blech-Features (BaseFlange, EdgeFlange, Hem) sind Preview-API und werden vor dem Aufruf mit `hasattr` geprüft; neu genutzt und
 nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/parametricRange`, `CurveEvaluator.getTangent`, `MeasureManager.measureMinimumDistance`,

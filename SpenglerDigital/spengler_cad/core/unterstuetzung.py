@@ -9,10 +9,11 @@ ein Fusion-Live-Test bestanden ist; nur der Live-Test darf ihn ausführen) | 'ne
 Der Live-/Freigabestand steht bewusst NICHT hier, sondern im Statusdokument: implementiert ist nicht getestet und nicht freigegeben."""
 
 FLAECHEN = ("eben", "zylinder", "kegel", "einfach_gekruemmt", "doppelt_gekruemmt", "freiform")
-KANTEN = ("gerade", "bogen", "kreis", "kurve")
+KANTEN = ("gerade", "bogen", "kreis", "ellipse", "kurve", "kette")
 FLAECHEN_TEXT = {"eben": "eben", "zylinder": "Zylinder", "kegel": "Kegel", "einfach_gekruemmt": "einfach gekrümmt", "doppelt_gekruemmt": "doppelt gekrümmt",
                  "freiform": "Freiform", "unbekannt": "unbekannt"}
-KANTEN_TEXT = {"gerade": "gerade Kante", "bogen": "Kreisbogen", "kreis": "Kreis", "kurve": "sonstige Kurve"}
+KANTEN_TEXT = {"gerade": "gerade Kante", "bogen": "Kreisbogen", "kreis": "Kreis", "ellipse": "Ellipse", "kurve": "Spline/freie Kurve",
+               "kette": "Kette aus Linien und Bögen"}
 OPS = ("grundblech", "flansch", "mehrkant_gehrung", "umschlag", "doppelfalz", "versatz", "abwicklung", "detail_starr", "detail_anpassen")
 OP_TEXT = {"grundblech": "Grundblech", "flansch": "Flansch", "mehrkant_gehrung": "Mehrkantflansch mit Gehrung", "umschlag": "Umschlag", "doppelfalz": "Doppelfalz",
            "versatz": "Versatz", "abwicklung": "Abwicklung / DXF", "detail_starr": "3D-Detail starr", "detail_anpassen": "3D-Detail an Fläche angepasst"}
@@ -31,7 +32,9 @@ def kantentyp(kurve):
     """Kurventyp (linie, bogen, kreis, ellipse, spline, andere, None) → Kantentyp. Keine Kante (Flächenoperation) gilt als 'gerade'."""
     if kurve in (None, "linie"):
         return "gerade"
-    return kurve if kurve in ("bogen", "kreis") else "kurve"
+    if kurve in ("bogen", "kreis", "ellipse", "kette"):
+        return kurve
+    return "kurve"
 
 
 def _api_nur_gerade(op):
@@ -154,4 +157,86 @@ def machbarkeit_markdown():
             m = machbarkeit(op, f, "gerade")
             z.append("| %s | %s | %s | %s | %s | %s | %s | %s |" % (OP_TEXT[op], FLAECHEN_TEXT[f], STAND_TEXT[m["stand"]], STAND_TEXT[stand(op, f, "bogen")[0]],
                                                                    m["nativ"], m["eindeutig"], m["exakt"], m["live"]))
+    return "\n".join(z)
+
+
+# ------------------------------------------------------------------ Bauweise «eigene Geometrie» und geometrische Klasse a–e (Auftrag Kantenwerkzeug, Review C)
+# Eine Ablehnung durch Fusions native Blech-API (EdgeFlange/Hem) ist KEIN Beweis geometrischer Unmöglichkeit. Deshalb getrennt:
+#   nativ  – Fusion-Blechfunktion (stand(), oben)
+#   eigen  – eigene Profilgeometrie: Querschnitt (Linien + Kreisbögen) senkrecht zur Kante, entlang einer GERADEN Kante extrudiert
+#            (core/profil_engine, Adapter eigene_folge). Biegezonen sind dann Zylinder, Schenkel Ebenen → exakt abwickelbar.
+#   klasse – a nativ unterstützt · b eigene exakte Geometrie möglich (implementiert oder zu prototypisieren) · c nur mit konstruktiver Änderung
+#            (Freistellung/Segmentierung) · d mathematisch nicht exakt abwickelbar · e technisch ungeklärt
+KLASSEN_AE = {"a": "native Fusion-Operation unterstützt", "b": "eigene exakte Geometrie möglich", "c": "nur mit konstruktiver Änderung (Freistellung/Segmentierung)",
+              "d": "mathematisch nicht exakt abwickelbar", "e": "technisch ungeklärt"}
+PROFIL_OPS = ("flansch", "umschlag", "doppelfalz")      # alles, was als Querschnitts-Kette entlang der Kante entsteht
+
+
+def eigen(op, flaeche, kante="gerade"):
+    """Stand der Bauweise «eigene Geometrie». → ('ja'|'eingeschraenkt'|'prototyp'|'nein', Grund, Klasse a–e)."""
+    if flaeche not in FLAECHEN or kante not in KANTEN:
+        return "nein", "Flächen- oder Kantentyp unbekannt – keine Bearbeitung ohne sichere Erkennung", "e"
+    if op in PROFIL_OPS:
+        if kante == "gerade" and flaeche == "eben":
+            return "eingeschraenkt", "Profil entlang gerader Kante (Linien + Kreisbögen), Masse auf Blechmitte bis virtuelle Kante; Ecken stumpf", "b"
+        if kante == "gerade" and flaeche in ("zylinder", "kegel", "einfach_gekruemmt"):
+            return ("prototyp", "gerade Kante = Mantellinie einer abwickelbaren Fläche: Tangentialebene längs der Kante konstant, das Profil wird "
+                                "entlang der Kante extrudiert (Biegezone Zylinder, Schenkel eben) – exakt abwickelbar; Prüfung, dass die Normale "
+                                "entlang der Kante konstant ist; gesperrt bis Live-Test", "b")
+        if kante in ("bogen", "kreis") and flaeche in ("eben", "zylinder", "kegel"):
+            return ("nein", "Aufkantung entlang einer Kreiskante: die Biegezone ist ein Torusabschnitt (Gausssche Krümmung ≠ 0) und der Schenkel "
+                            "ein Kegel/Zylinder, der nur mit Stauchung/Streckung anschliesst – nicht exakt abwickelbar. Konstruktive Alternativen "
+                            "(segmentierte Aufkantung mit Freistellungen, separater Zargenstreifen mit Naht) wären bewusst wählbare Varianten – "
+                            "nicht umgesetzt", "d")
+        if kante in ("ellipse", "kurve"):
+            return "nein", "Biegezone entlang einer Kurve mit wechselnder Krümmung ist doppelt gekrümmt – nicht exakt abwickelbar", "d"
+        if kante == "kette":
+            return ("nein", "Kette aus Linien und Bögen: gerade Abschnitte einzeln möglich (b), Bogenabschnitte nicht exakt (d); an den Übergängen "
+                            "wären Freistellungen nötig (c) – nicht umgesetzt", "c")
+        if flaeche in ("doppelt_gekruemmt", "freiform"):
+            return "nein", "Grundfläche selbst nicht (nachweislich) abwickelbar", "d"
+        return "nein", "noch nicht untersucht", "e"
+    if op == "mehrkant_gehrung":
+        if kante == "gerade" and flaeche == "eben":
+            return "nein", "Gehrung zwischen eigenen Profilen (Schnitt zweier Prismen an der Winkelhalbierenden) ist geometrisch exakt möglich – noch zu prototypisieren", "b"
+        return "nein", "erst nach dem Einzelkanten-Prototyp", "e"
+    if op == "versatz":
+        if kante == "gerade" and flaeche == "eben":
+            return "nein", "Versatz in der eigenen Profilkette = verlängerter/verkürzter Basisschenkel, exakt – noch zu prototypisieren (nativ vorhanden)", "b"
+        return "nein", "Versatzart (normal/radial/tangential) muss je Fläche festgelegt werden", "e"
+    s_, g = stand(op, flaeche, kante)
+    return s_, g, "a" if s_ in ("ja", "eingeschraenkt") else "e"
+
+
+def klasse(op, flaeche, kante="gerade"):
+    """Geometrische Einordnung a–e: a, wenn nativ unterstützt; sonst die Klasse der eigenen Bauweise."""
+    if stand(op, flaeche, kante)[0] in ("ja", "eingeschraenkt"):
+        return "a"
+    return eigen(op, flaeche, kante)[2]
+
+
+def pruefen_bauweise(op, flaeche, kante, bauweise="nativ", prototyp_erlaubt=False):
+    """Wie pruefen(), aber für die gewählte Bauweise ('nativ' | 'eigen'). → None (erlaubt) oder Text."""
+    if bauweise != "eigen":
+        return pruefen(op, flaeche, kante, prototyp_erlaubt)
+    s_, grund, kl = eigen(op, flaeche, kante)
+    if s_ == "nein" or (s_ == "prototyp" and not prototyp_erlaubt):
+        return "%s (eigene Geometrie) an %s auf «%s» %s [%s – %s]: %s." % (
+            OP_TEXT.get(op, op), KANTEN_TEXT.get(kante, kante), FLAECHEN_TEXT.get(flaeche, flaeche),
+            "ist ein gesperrter Prototyp (Freigabe in den Einstellungen nach bestandenem Live-Test)" if s_ == "prototyp" else "ist nicht möglich",
+            kl, KLASSEN_AE[kl], grund)
+    return None
+
+
+def kantenwerkzeug_markdown():
+    """Support-Matrix Kante × angrenzende Fläche × Bearbeitung für das Kantenwerkzeug: nativ / eigene Geometrie / Klasse a–e."""
+    z = ["| Bearbeitung | Fläche | Kante | nativ (Fusion) | eigene Geometrie | Klasse |", "|---|---|---|---|---|---|"]
+    for op in ("flansch", "umschlag", "doppelfalz", "mehrkant_gehrung", "versatz"):
+        for f in FLAECHEN:
+            for k in KANTEN:
+                n = stand(op, f, k)[0]
+                e_ = eigen(op, f, k)
+                z.append("| %s | %s | %s | %s | %s | %s |" % (OP_TEXT[op], FLAECHEN_TEXT[f], KANTEN_TEXT[k], STAND_TEXT[n], STAND_TEXT[e_[0]], e_[2] if n not in ("ja", "eingeschraenkt") else "a"))
+    z.append("")
+    z.append("Klassen: " + "; ".join("**%s** %s" % (k, v) for k, v in KLASSEN_AE.items()) + ". «implementiert» heisst NICHT live getestet.")
     return "\n".join(z)
