@@ -51,8 +51,27 @@ def _eigen_an_blech(ctx, ops, name):
 
 
 def t_eigen_aufkantung(ctx):
-    """Regression ebene gerade Kante: Aufkantung 90° 20 mm als eigene Geometrie – Höhe exakt, nur Ebenen/Zylinder, Volumen exakt."""
-    return _eigen_an_blech(ctx, [_flansch()], "Aufkantung 90° 20 mm")
+    """Regression ebene gerade Kante: Aufkantung 90° 20 mm als eigene Geometrie am regulären Fusion-Blechkörper – Höhe/Volumen, Blechstatus VOR und
+    NACH der Operation, native Abwicklung und DXF danach (Korrektur 0.4.49 Phase 2)."""
+    import os
+    import tempfile
+    lt = _lt()
+    vorher = getattr(ctx.root.bRepBodies.item(0), "isSheetMetal", None)
+    t = _eigen_an_blech(ctx, [_flansch()], "Aufkantung 90° 20 mm")
+    body = ctx.root.bRepBodies.item(0)
+    nachher = getattr(body, "isSheetMetal", None)
+    t += "\nBlechkörper vorher isSheetMetal=%s, nachher isSheetMetal=%s, ist_blech=%s" % (vorher, nachher, fa.ist_blech(body))
+    if vorher is not True or nachher is not True:
+        raise lt._Falsch(t + " – Blechsemantik nicht erhalten")
+    fp, _neu = fa.abwicklung(ctx.root, None, body)
+    m = fa.abwicklung_masse(fp)
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "eigen_nativ.dxf")
+    fa.dxf_abwicklung(fp, pfad)
+    pr = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"], erwartete_konturen=1)
+    t += "\nNative Abwicklung nach eigener Geometrie: %.2f × %.2f mm; DXF: %s" % (m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
+    if not pr["ok"]:
+        raise lt._Falsch(t)
+    return t
 
 
 def t_eigen_einfachfalz(ctx):
@@ -119,7 +138,8 @@ def t_eigen_negativ(ctx):
 def t_eigen_rueckbau(ctx):
     """Rückbau: eingeschleuster Fehler nach der Extrusion (eigene Folge an der Kante und neues Profilteil) – Modellzustand vorher = nachher."""
     lt = _lt()
-    t = [lt._rueckbau_probe(ctx, "eigen_nach_extrusion", lambda: fa.eigene_folge(lt._rand_kanten(ctx)[0], [_flansch(25.0), _umschlag()], T, RI, K, {}, []))]
+    t = [lt._rueckbau_probe(ctx, stelle, lambda: fa.eigene_folge(lt._rand_kanten(ctx)[0], [_flansch(25.0), _umschlag()], T, RI, K, {}, []))
+         for stelle in ("eigen_nach_extrusion", "eigen_validierung_abwicklung", "eigen_validierung_dxf")]
 
     def neues_teil():
         comp = fa.neue_komponente("Live-Test Rückbau Profilteil")

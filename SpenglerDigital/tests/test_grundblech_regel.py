@@ -499,3 +499,62 @@ class EigeneGeometrieVorpruefung(_Patch):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.eigene_abwicklung(object())
         self.assertIn("keine eigene Abwicklung", str(cm.exception))
+
+
+class BlechSemantikNachEigenerGeometrie(_Patch):
+    """Korrektur 0.4.49 Phase 2: eigene Geometrie gilt nur, wenn danach die Abwicklung des GANZEN Teils verlässlich ist – Attrappen, KEIN Fusion-Test
+    (ob Fusion die Blechsemantik nach einem Join tatsächlich behält, zeigt nur der Live-Test)."""
+    def test_blechsemantik_verloren_wird_abgelehnt(self):
+        fa = _fa()
+        self.patche(ist_blech=lambda b: False)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._native_abwicklung_absichern(object(), object(), fa.Rueckbau("t"))
+        self.assertIn("KEIN Fusion-Blechkörper mehr", str(cm.exception))
+
+    def test_pruef_abwicklung_wird_bei_fehler_mit_zurueckgebaut(self):
+        fa = _fa()
+        fp = ff.Objekt("Abwicklung")
+        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, True))
+        fa.TESTFEHLER.add("eigen_validierung_abwicklung")
+        self.addCleanup(fa.TESTFEHLER.clear)
+        rb = fa.Rueckbau("t")
+        with self.assertRaises(fa.AdapterFehler):
+            fa._native_abwicklung_absichern(object(), object(), rb)
+        self.assertIn(fp, rb.objekte, "die Prüf-Abwicklung gehört zum Rückbau")
+        self.assertTrue(rb.zurueck())
+        self.assertFalse(fp.isValid)
+
+    def test_erfolg_entfernt_pruef_abwicklung_und_prueft_dxf(self):
+        import os
+        fa = _fa()
+        fp = ff.Objekt("Abwicklung")
+
+        def dxf(fp_, pfad):
+            from test_dxf_pruefung import dxf as baue, rechteck
+            with open(pfad, "w") as f:
+                f.write(baue(rechteck(100, 60)))
+            return pfad
+        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, True), abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0},
+                    dxf_abwicklung=dxf)
+        rb = fa.Rueckbau("t")
+        t = fa._native_abwicklung_absichern(object(), object(), rb)
+        self.assertIn("bleibt Fusion-Blech", t)
+        self.assertIn("Prüf-Abwicklung wieder entfernt", t)
+        self.assertFalse(fp.isValid)
+        self.assertNotIn(fp, rb.objekte)
+        self.assertTrue(os.path.basename(__file__))
+
+    def test_dxf_fehlerhaft_wird_abgelehnt(self):
+        fa = _fa()
+        fp = ff.Objekt("Abwicklung")
+
+        def dxf(fp_, pfad):
+            from test_dxf_pruefung import dxf as baue, rechteck
+            with open(pfad, "w") as f:
+                f.write(baue(rechteck(100, 60)))
+            return pfad
+        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, False), abwicklung_masse=lambda f: {"breite": 80.0, "laenge": 100.0},
+                    dxf_abwicklung=dxf)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._native_abwicklung_absichern(object(), object(), fa.Rueckbau("t"))
+        self.assertIn("DXF der Abwicklung", str(cm.exception))

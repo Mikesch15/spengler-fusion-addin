@@ -2439,6 +2439,12 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
     comp = body.parentComponent
     attr = profil_attribut(body)
     seite, links = _ende_des_profils(attr, edge, t) if attr else (None, None)
+    war_blech = ist_blech(body)
+    # Abwicklung VOR dem Bau sicherstellen (Korrektur 0.4.49, Phase 2): entweder Fusion-Blechkörper (native Abwicklung wird nach dem Bau geprüft)
+    # oder Profilteil, dessen gespeichertes Profil durch die Erweiterung das GANZE Teil beschreibt. Sonst gäbe es keine verlässliche Abwicklung.
+    if not war_blech and not (attr and seite == "ende"):
+        raise AdapterFehler("Der Körper ist weder ein Fusion-Blechkörper noch ein Profilteil, dessen Ende an dieser Kante liegt – nach der eigenen Geometrie "
+                            "gäbe es keine verlässliche Abwicklung des ganzen Teils. Nichts gebaut.")
     laenge = edge.length * 10.0
     rb = Rueckbau("Eigene Geometrie an der Kante")
     try:
@@ -2461,19 +2467,55 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
         if probleme:
             raise AdapterFehler("Ergebnis fehlerhaft: " + "; ".join(probleme))
         markieren(feat, dict(markierung or {}, eigeneGeometrie=1, ops=ops))
-        if attr and seite == "ende":
+        if war_blech:
+            hinweise.append(_native_abwicklung_absichern(comp, neu, rb))
+        else:
             vz = 1.0 if _skal(n, tuple(links)) > 0 else -1.0
+            attr_alt = dict(attr)
             attr["profil"] = pe.anhaengen(attr["profil"], ops, t, ri_mm, vz)
             _profil_attribut_setzen(neu, attr)
-            hinweise.append("Eigene Geometrie: Profil des Teils fortgeschrieben – eigene Abwicklung des ganzen Teils möglich.")
-        elif attr:
-            _profil_attribut_setzen(neu, None)
-            hinweise.append("Eigene Geometrie: Kante liegt nicht am Profilende – die eigene Abwicklung des Teils ist danach nicht mehr verfügbar.")
-        hinweise.append("Eigene Geometrie (Profil entlang der Kante): %d Biegung(en), Zuschnitt-Zugabe %.2f mm, nur Ebenen/Zylinder – exakt abwickelbar." % (
-            len(q["biegungen"]), q["zuschnitt"]))
+            try:
+                _testfehler("eigen_validierung_abwicklung")
+                _zs, vergleich = eigene_abwicklung(neu)
+            except Exception:
+                _profil_attribut_setzen(neu, attr_alt)
+                raise
+            hinweise.append("Eigene Abwicklung des GANZEN Teils geprüft: " + " | ".join(vergleich["texte"]))
+        hinweise.append("Eigene Geometrie (Profil entlang der Kante): %d Biegung(en); Zuschnitt-Zugabe THEORETISCH %.2f mm (Modell ri + k·t, ri %.2f mm, "
+                        "k %.2f – nicht praktisch verifiziert); Flächen nur Ebenen/Zylinder = mathematisch abwickelbar." % (
+                            len(q["biegungen"]), q["zuschnitt"], ri_mm, k))
         return list(rb.objekte)
     except Exception as ex:
         rb.abbrechen(ex)
+
+
+def _native_abwicklung_absichern(comp, body, rb):
+    """Nach eigener Geometrie an einem Fusion-Blechkörper: Blechsemantik erhalten? Native Abwicklung erzeugbar? DXF exportierbar und Kontur in Ordnung?
+    Erst dann gilt die Operation. Eine dafür NEU erzeugte Abwicklung ist nur eine Prüf-Abwicklung und wird danach wieder entfernt (eine vorhandene
+    bleibt, Fusion führt sie nach). Jeder Fehler wirft AdapterFehler → der Aufrufer baut alles zurück. → Text für den Bericht. NICHT live geprüft."""
+    import os
+    import tempfile
+    from ..manufacturing import dxf_pruefung
+    if not ist_blech(body):
+        raise AdapterFehler("Nach der eigenen Geometrie ist der Körper KEIN Fusion-Blechkörper mehr (Blechsemantik verloren) – eine vollständige eigene "
+                            "Abwicklung des ganzen Teils gibt es nicht, deshalb wird zurückgebaut.")
+    fp, neu_fp = abwicklung(comp, None, body)
+    if neu_fp:
+        rb.merke(fp)                       # bei einem Fehler danach wird die Prüf-Abwicklung mit zurückgebaut
+    _testfehler("eigen_validierung_abwicklung")
+    m = abwicklung_masse(fp)
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_pruef_"), "pruefung.dxf")
+    dxf_abwicklung(fp, pfad)
+    _testfehler("eigen_validierung_dxf")
+    pr = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"])
+    if not pr["ok"]:
+        raise AdapterFehler("DXF der Abwicklung nach der eigenen Geometrie fehlerhaft: " + "; ".join(pr["probleme"]))
+    text = "Blechkörper bleibt Fusion-Blech; native Abwicklung %.1f × %.1f mm und DXF geprüft (%s)" % (m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
+    if neu_fp:
+        rb.objekte.remove(fp)
+        p_ = _loeschen(fp)
+        text += "; Prüf-Abwicklung wieder entfernt" if not p_ else "; Prüf-Abwicklung NICHT entfernt (%s)" % p_
+    return text
 
 
 def eigene_abwicklung(body):
