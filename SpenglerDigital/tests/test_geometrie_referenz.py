@@ -33,9 +33,11 @@ class Referenz(unittest.TestCase):
         self.assertGreater(n[0], 0)
 
     def test_klasse(self):
-        self.assertEqual(gr.klasse(gr.referenz("eben", (0, 0, 0), (0, 0, 1), kurve_typ="linie")), "eben_gerade")
-        self.assertEqual(gr.klasse(gr.referenz("eben", (0, 0, 0), (0, 0, 1), kurve_typ="bogen")), "gekruemmte_kante")
-        self.assertEqual(gr.klasse(gr.referenz("kugel", (0, 0, 0), (0, 0, 1))), "freiform")
+        self.assertEqual(gr.klasse(gr.referenz("eben", (0, 0, 0), (0, 0, 1), kurve_typ="linie")), ("eben", "gerade"))
+        self.assertEqual(gr.klasse(gr.referenz("eben", (0, 0, 0), (0, 0, 1), kurve_typ="bogen")), ("eben", "bogen"))
+        self.assertEqual(gr.klasse(gr.referenz("zylinder", (0, 0, 0), (0, 0, 1), kurve_typ="linie")), ("zylinder", "gerade"),
+                         "gerade Kante auf Zylinder ist KEIN ebener Fall")
+        self.assertEqual(gr.klasse(gr.referenz("kugel", (0, 0, 0), (0, 0, 1))), ("doppelt_gekruemmt", "gerade"))
         with self.assertRaises(ValueError):
             gr.referenz("blob", (0, 0, 0), (0, 0, 1))
 
@@ -58,7 +60,11 @@ class Abwickelbarkeit(unittest.TestCase):
         self.assertEqual(gr.abwickelbarkeit(["freiform"], 1e-10)[0], "naeherung")
         self.assertEqual(gr.abwickelbarkeit(["freiform"], 1e-3)[0], "nicht")
         self.assertEqual(gr.abwickelbarkeit(["freiform"])[0], "nicht", "ohne Messung keine Aussage")
-        self.assertEqual(gr.abwickelbarkeit(["unbekannt"])[0], "nicht")
+        self.assertEqual(gr.abwickelbarkeit(["freiform"], 1e-10, stichprobe_unsicher=True)[0], "unsicher", "ausgefallene Stichproben = unsicher")
+        self.assertEqual(gr.abwickelbarkeit(["unbekannt"])[0], "unsicher", "fehlende Erkennung ist nie «exakt»")
+        self.assertEqual(gr.abwickelbarkeit(["eben", "unbekannt"])[0], "unsicher")
+        self.assertEqual(gr.abwickelbarkeit([])[0], "unsicher")
+        self.assertEqual(gr.abwickelbarkeit(["einfach_gekruemmt", "eben"])[0], "exakt")
         self.assertAlmostEqual(gr.gauss(0.01, 0.0), 0.0)                     # Zylinder: eine Hauptkrümmung 0
 
 
@@ -80,21 +86,46 @@ class Versatz(unittest.TestCase):
 
 class Matrix(unittest.TestCase):
     def test_vollstaendig_und_pruefung(self):
-        for op, felder in u.MATRIX.items():
-            self.assertEqual(set(felder), set(u.KLASSEN), op)
-            for k, (s, grund) in felder.items():
-                self.assertIn(s, ("ja", "eingeschraenkt", "nein"))
-                if s == "nein":
-                    self.assertTrue(grund, "%s/%s: Ablehnung braucht einen Grund" % (op, k))
-        self.assertIsNone(u.pruefen("flansch", "eben_gerade"))
-        self.assertIn("nicht unterstützt", u.pruefen("flansch", "gekruemmte_kante"))
-        self.assertIn("nicht ungefragt verformt", u.pruefen("detail_anpassen", "zylinder"))
+        for op in u.OPS:
+            for f in u.FLAECHEN:
+                for k in u.KANTEN:
+                    s, grund = u.stand(op, f, k)
+                    self.assertIn(s, ("ja", "eingeschraenkt", "prototyp", "nein"))
+                    if s != "ja":
+                        self.assertTrue(grund, "%s/%s/%s: Einschränkung braucht einen Grund" % (op, f, k))
+        self.assertIsNone(u.pruefen("flansch", "eben", "gerade"))
+        self.assertIn("nicht unterstützt", u.pruefen("flansch", "eben", "bogen"))
+        self.assertIn("nicht ungefragt verformt", u.pruefen("detail_anpassen", "kegel", "gerade"))
+
+    def test_gerade_kante_auf_zylinder_ist_kein_ebener_fall(self):
+        self.assertIn("gesperrter Prototyp", u.pruefen("flansch", "zylinder", "gerade"))
+        self.assertIsNone(u.pruefen("flansch", "zylinder", "gerade", prototyp_erlaubt=True), "nur im Live-Test")
+        self.assertIn("erst nach bestandenem Einzelkanten-Prototyp", u.pruefen("mehrkant_gehrung", "zylinder", "gerade", True))
+        self.assertIn("Prototyp", u.hinweis("flansch", "zylinder", "gerade"))
+
+    def test_unbekannt_wird_nie_bearbeitet(self):
+        for op in u.OPS:
+            self.assertIn("unbekannt", u.pruefen(op, "unbekannt", "gerade", True))
+        self.assertEqual(u.flaechenklasse("torus"), "doppelt_gekruemmt")
+        self.assertEqual(u.flaechenklasse("blob"), "unbekannt")
+        self.assertEqual((u.kantentyp("linie"), u.kantentyp("spline"), u.kantentyp(None)), ("gerade", "kurve", "gerade"))
+
+    def test_eignung_im_bauplan(self):
+        from spengler_cad.core import operation_plan as op
+        from test_operation_plan import kante
+        from test_templates import testvorlage
+        from _basis import test_material
+        p = op.erstelle(testvorlage(), {}, test_material(), [kante(flaeche="zylinder")])
+        self.assertFalse(op.ist_ausfuehrbar(p), "gerade Kante auf Zylinder rutscht nicht durch")
+        self.assertIn("Zylinder", " ".join(p["validation"]["errors"]))
+        p = op.erstelle(testvorlage(), {}, test_material(), [kante(flaeche="unbekannt")])
+        self.assertFalse(op.ist_ausfuehrbar(p), "unbekannte Fläche nie wie eben")
+        self.assertTrue(op.ist_ausfuehrbar(op.erstelle(testvorlage(), {}, test_material(), [kante(flaeche="eben")])), "Regression eben")
+
+    def test_markdown(self):
         t = u.als_markdown()
-        self.assertIn("| Versatz | implementiert | nicht unterstützt |", t)
-
-
-if __name__ == "__main__":
-    unittest.main()
+        self.assertIn("| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt |", t)
+        self.assertIn("Grenzen und Gründe", t)
 
 
 class DokuSynchron(unittest.TestCase):

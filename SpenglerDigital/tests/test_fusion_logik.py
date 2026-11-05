@@ -81,10 +81,26 @@ class Liste(list):
         return self[i]
 
 
+def ebene():
+    """Geometrie einer EBENEN Fläche (Attrappe mit stabiler Typ-Konstante) – ohne Flächentyp gilt eine Fläche als «unbekannt» und wird abgelehnt."""
+    import adsk.core
+    g = adsk.core.Plane()
+    g.surfaceType = adsk.core.SurfaceTypes.PlaneSurfaceType
+    return g
+
+
+def zylinder():
+    import adsk.core
+    g = adsk.core.Cylinder()
+    g.surfaceType = adsk.core.SurfaceTypes.CylinderSurfaceType
+    return g
+
+
 class Flaeche(object):
-    def __init__(self, kanten=(), area=1.0):
+    def __init__(self, kanten=(), area=1.0, geometrie=None):
         self.edges = list(kanten)
         self.area = area
+        self.geometry = geometrie if geometrie is not None else ebene()
 
 
 class Feature(object):
@@ -182,7 +198,7 @@ def kante_mit(flange=None, hem=None):
     if hem is not None:
         feats.hemFeatures = hem
     comp = type("Comp", (), {"features": feats})()
-    k = Kante((0, 0, 0), (50, 0, 0))
+    k = Kante((0, 0, 0), (50, 0, 0), flaechen=[Flaeche(area=100.0)])
     k.body = type("Body", (), {"parentComponent": comp, "entityToken": "tok-koerper"})()
     return k
 
@@ -246,14 +262,14 @@ class FlanschTest(unittest.TestCase):
             k.geometry.curveType = typ
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.flansch(k, 90, 20)
-            self.assertIn("nur an geraden Kanten", str(cm.exception))
+            self.assertIn("nur für gerade Kanten", str(cm.exception))
             self.assertEqual((ff.aufrufe, ff.hinzu), ([], []), "nichts an Fusion gegeben")
 
     def test_mehrere_kanten_in_einem_feature_mit_gehrung(self):
         inp = Eingabe("angle", "isMiteredCorners")
         ff = Sammlung(inp)
         k1 = kante_mit(ff)
-        k2 = Kante((0, 0, 0), (0, 30, 0))
+        k2 = Kante((0, 0, 0), (0, 30, 0), flaechen=[Flaeche(area=100.0)])
         k2.body = k1.body
         fa.flansch([k1, k2], 90, 20)
         self.assertEqual(ff.aufrufe[0][0], [k1, k2], "beide Kanten in einer Eingabe")
@@ -347,7 +363,7 @@ class UmschlagTest(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.flansch(k, 90, 20)
         self.assertIn("Edges must be linear", str(cm.exception))
-        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        self.assertIn("nur für gerade Kanten", str(cm.exception))
         ff = Sammlung(Eingabe("angle"))
         ff.createEdgeFlangeInput = lambda kanten, hoehe: None     # Fusion liefert null
         k2 = kante_mit(ff)
@@ -1251,7 +1267,7 @@ class SaumEineKanteTest(unittest.TestCase):
         k.geometry.curveType = "KREIS"
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.umschlag(k, 7, False)
-        self.assertIn("nur an geraden Kanten", str(cm.exception))
+        self.assertIn("nur für gerade Kanten", str(cm.exception))
         self.assertEqual(inp.aufrufe, [])
 
 
@@ -1364,7 +1380,7 @@ class VersatzTest(unittest.TestCase):
         self.ziel = ((0, 0.5, 0), (50, 0.5, 0))
         kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07)
         flaeche = kante.faces[0]
-        flaeche.geometry = type("Pl", (), {"normal": V(0, 0, 1)})()      # Aussennormale +z, Blech liegt darunter
+        flaeche.geometry = type("Pl", (), {"normal": V(0, 0, 1), "surfaceType": adsk.core.SurfaceTypes.PlaneSurfaceType})()      # Aussennormale +z, Blech liegt darunter
         flaeche.isParamReversed = False
         orig_add = comp_sketch_add = kante.body.parentComponent.sketches.add
 
@@ -1378,7 +1394,7 @@ class VersatzTest(unittest.TestCase):
         flaeche.isParamReversed = True                                     # umgekehrte Fläche → Richtung dreht sich
         kante, log, versuch, d = self.aufbau(volumen_nach=100.0 + 50 * 0.5 * 0.07)
         flaeche = kante.faces[0]
-        flaeche.geometry, flaeche.isParamReversed = type("Pl", (), {"normal": V(0, 0, 1)})(), True
+        flaeche.geometry, flaeche.isParamReversed = type("Pl", (), {"normal": V(0, 0, 1), "surfaceType": adsk.core.SurfaceTypes.PlaneSurfaceType})(), True
         orig_add = kante.body.parentComponent.sketches.add
 
         def mit_richtung2(f):

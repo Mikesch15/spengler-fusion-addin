@@ -267,19 +267,117 @@ Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Rele
 | 3D-Detail an Krümmung anpassen | nicht unterstützt (kein ungefragtes Verformen) |
 | Flansch/Umschlag an gekrümmter Kante, auf Zylinder/Kegel | nicht unterstützt; Live-Test fragt Fusion ausdrücklich an |
 
-**Unterstützungsmatrix (aus `core/unterstuetzung.py` erzeugt – implementiert ≠ live getestet):**
+**Unterstützungsmatrix (aus `core/unterstuetzung.py` erzeugt – implementiert ≠ live getestet; «Prototyp» ist im normalen Bau gesperrt):**
 
-| Bearbeitung | eben, gerade Kante | gekrümmte Kante | Zylinder | Kegel | Freiform |
+| Bearbeitung | Fläche | gerade Kante | Kreisbogen | Kreis | sonstige Kurve |
 |---|---|---|---|---|---|
-| Grundblech | implementiert | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Mehrkantflansch mit Gehrung | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Doppelfalz | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Versatz | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Abwicklung / DXF | implementiert | implementiert | eingeschränkt | eingeschränkt | nicht unterstützt |
-| 3D-Detail starr | implementiert | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
-| 3D-Detail an Fläche angepasst | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | eben | implementiert | implementiert | implementiert | implementiert |
+| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | eben | eingeschränkt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Versatz | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Abwicklung / DXF | eben | implementiert | implementiert | implementiert | implementiert |
+| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail starr | eben | implementiert | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | eingeschränkt | eingeschränkt |
+| 3D-Detail an Fläche angepasst | eben | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Prototyp (gesperrt) | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+
+Grenzen und Gründe (gekrümmte Fälle):
+- **Grundblech / Zylinder** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
+- **Grundblech / Kegel** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
+- **Grundblech / einfach gekrümmt** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
+- **Grundblech / doppelt gekrümmt** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
+- **Grundblech / Freiform** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
+- **Flansch / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native EdgeFlange; gesperrt bis Live-Test
+- **Flansch / Zylinder** (nicht unterstützt): Flansch entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
+- **Flansch / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
+- **Flansch / einfach gekrümmt** (nicht unterstützt): Flansch auf einfach gekrümmt: keine eindeutige, exakte Geometrie
+- **Flansch / doppelt gekrümmt** (nicht unterstützt): Flansch auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
+- **Flansch / Freiform** (nicht unterstützt): Flansch auf Freiform: keine eindeutige, exakte Geometrie
+- **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
+- **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): Mehrkantflansch mit Gehrung entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
+- **Mehrkantflansch mit Gehrung / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
+- **Mehrkantflansch mit Gehrung / einfach gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf einfach gekrümmt: keine eindeutige, exakte Geometrie
+- **Mehrkantflansch mit Gehrung / doppelt gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
+- **Mehrkantflansch mit Gehrung / Freiform** (nicht unterstützt): Mehrkantflansch mit Gehrung auf Freiform: keine eindeutige, exakte Geometrie
+- **Umschlag / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native Hem; gesperrt bis Live-Test
+- **Umschlag / Zylinder** (nicht unterstützt): Umschlag entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
+- **Umschlag / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
+- **Umschlag / einfach gekrümmt** (nicht unterstützt): Umschlag auf einfach gekrümmt: keine eindeutige, exakte Geometrie
+- **Umschlag / doppelt gekrümmt** (nicht unterstützt): Umschlag auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
+- **Umschlag / Freiform** (nicht unterstützt): Umschlag auf Freiform: keine eindeutige, exakte Geometrie
+- **Doppelfalz / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
+- **Doppelfalz / Zylinder** (nicht unterstützt): Doppelfalz entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
+- **Doppelfalz / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
+- **Doppelfalz / einfach gekrümmt** (nicht unterstützt): Doppelfalz auf einfach gekrümmt: keine eindeutige, exakte Geometrie
+- **Doppelfalz / doppelt gekrümmt** (nicht unterstützt): Doppelfalz auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
+- **Doppelfalz / Freiform** (nicht unterstützt): Doppelfalz auf Freiform: keine eindeutige, exakte Geometrie
+- **Versatz / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Zylinderachse: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse, exakt)
+- **Versatz / Zylinder** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
+- **Versatz / Kegel** (nicht unterstützt): Kegel: tangentialer Versatz einer Mantellinie ist eine Drehung um die Spitze, Normal- und Radialrichtung unterscheiden sich – noch nicht umgesetzt
+- **Versatz / einfach gekrümmt** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
+- **Versatz / doppelt gekrümmt** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
+- **Versatz / Freiform** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
+- **Abwicklung / DXF / Zylinder** (eingeschränkt): exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
+- **Abwicklung / DXF / Kegel** (eingeschränkt): exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
+- **Abwicklung / DXF / einfach gekrümmt** (eingeschränkt): mathematisch abwickelbar; Fusion entscheidet, kein eigener Nachweis
+- **Abwicklung / DXF / doppelt gekrümmt** (nicht unterstützt): Gausssche Krümmung ≠ 0 – keine exakte Abwicklung, keine DXF als exakt
+- **Abwicklung / DXF / Freiform** (nicht unterstützt): Abwickelbarkeit nicht nachgewiesen – keine DXF als exakt; Näherung ist ein eigener, noch fehlender Modus
+- **3D-Detail starr / Zylinder** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
+- **3D-Detail starr / Kegel** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
+- **3D-Detail starr / einfach gekrümmt** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
+- **3D-Detail starr / doppelt gekrümmt** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
+- **3D-Detail starr / Freiform** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
+- **3D-Detail an Fläche angepasst / Zylinder** (Prototyp (gesperrt)): nur Vorlagen mit Anschlussradius-Parameter: der Radius wird auf den Zylinderradius gesetzt (keine freie Verformung)
+- **3D-Detail an Fläche angepasst / Zylinder** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
+- **3D-Detail an Fläche angepasst / Kegel** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
+- **3D-Detail an Fläche angepasst / einfach gekrümmt** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
+- **3D-Detail an Fläche angepasst / doppelt gekrümmt** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
+- **3D-Detail an Fläche angepasst / Freiform** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
 
 **Fusion-API-Risiken:** Blech-Features (BaseFlange, EdgeFlange, Hem) sind Preview-API und werden vor dem Aufruf mit `hasattr` geprüft; neu genutzt und
 nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/parametricRange`, `CurveEvaluator.getTangent`, `MeasureManager.measureMinimumDistance`,

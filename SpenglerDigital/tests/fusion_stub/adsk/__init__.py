@@ -60,7 +60,10 @@ class _Meta(type):
     def __getattr__(cls, n):
         if n.startswith("__"):
             raise AttributeError(n)
-        return Attrappe(_name=n)
+        # Konstanten (z. B. SurfaceTypes.PlaneSurfaceType) müssen bei jedem Zugriff DASSELBE Objekt sein, sonst sind Vergleiche nie wahr
+        wert = Attrappe(_name=n)
+        type.__setattr__(cls, n, wert)
+        return wert
 
 
 class _Modul(object):

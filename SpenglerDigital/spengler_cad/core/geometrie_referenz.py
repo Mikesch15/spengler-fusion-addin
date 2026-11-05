@@ -12,9 +12,9 @@ import math
 
 from ..details import frames
 
-FLAECHENTYPEN = ("eben", "zylinder", "kegel", "kugel", "torus", "freiform", "unbekannt")
+FLAECHENTYPEN = ("eben", "zylinder", "kegel", "einfach_gekruemmt", "kugel", "torus", "freiform", "unbekannt")
 KURVENTYPEN = ("linie", "kreis", "bogen", "ellipse", "spline", "andere")
-EINFACH_GEKRUEMMT = ("zylinder", "kegel")          # abwickelbar (Gausssche Krümmung 0)
+EINFACH_GEKRUEMMT = ("zylinder", "kegel", "einfach_gekruemmt")          # abwickelbar (Gausssche Krümmung 0)
 DOPPELT_GEKRUEMMT = ("kugel", "torus")             # nicht exakt abwickelbar
 
 
@@ -52,13 +52,10 @@ def referenz(flaeche_typ, punkt, normale, tangente=None, kurve_typ=None, kruemmu
 
 
 def klasse(ref):
-    """Fall A/B/C bzw. 'eben' für Meldungen und die Unterstützungsmatrix: 'eben_gerade' | 'gekruemmte_kante' | 'zylinder' | 'kegel' | 'freiform'."""
-    f, k = ref["flaeche"], ref.get("kurve")
-    if f == "eben":
-        return "eben_gerade" if k in (None, "linie") else "gekruemmte_kante"
-    if f in ("zylinder", "kegel"):
-        return f
-    return "freiform"
+    """→ (Flächenklasse, Kantentyp) für die Unterstützungsmatrix (core/unterstuetzung). Eine GERADE Kante auf einem Zylinder ist ('zylinder', 'gerade')
+    – nie stillschweigend «eben»."""
+    from . import unterstuetzung as u
+    return u.flaechenklasse(ref["flaeche"]), u.kantentyp(ref.get("kurve"))
 
 
 def ist_veraltet(alt, neu, tol_mm=0.01):
@@ -106,17 +103,22 @@ def gauss(k1, k2):
     return k1 * k2
 
 
-def abwickelbarkeit(flaechentypen, freiform_gauss_max=None, tol=1e-7):
-    """Lässt sich ein Körper aus diesen Flächentypen EXAKT abwickeln? → ('exakt' | 'naeherung' | 'nicht', Begründung).
-    eben/zylinder/kegel: exakt (Gausssche Krümmung 0). kugel/torus: nicht (doppelt gekrümmt). freiform: nur 'naeherung', wenn die gemessene
-    Gausssche Krümmung (1/mm²) an allen Stichproben ≈ 0 ist – sonst 'nicht'. 'unbekannt' gilt als 'nicht' (keine Aussage = keine exakte DXF)."""
+def abwickelbarkeit(flaechentypen, freiform_gauss_max=None, tol=1e-7, stichprobe_unsicher=False):
+    """Lässt sich ein Körper aus diesen Flächentypen EXAKT abwickeln? → ('exakt' | 'naeherung' | 'nicht' | 'unsicher', Begründung).
+    eben/zylinder/kegel/einfach gekrümmt: exakt (Gausssche Krümmung 0, mathematisch abwickelbar). kugel/torus: nicht. freiform: 'naeherung' nur,
+    wenn die Gausssche Krümmung (1/mm²) an ALLEN Stichproben ≈ 0 ist und keine Stichprobe ausfiel – sonst 'nicht' bzw. 'unsicher'.
+    'unbekannt' (nicht erkannter Flächentyp) und leere Typliste → 'unsicher': fehlende Erkennung ist nie ein Nachweis."""
     typen = set(flaechentypen)
+    if not typen:
+        return "unsicher", "keine Flächentypen lesbar – keine Aussage zur Abwickelbarkeit"
     doppelt = sorted(typen & set(DOPPELT_GEKRUEMMT))
     if doppelt:
         return "nicht", "doppelt gekrümmte Fläche(n) (%s): Gausssche Krümmung ≠ 0, nicht verzerrungsfrei abwickelbar" % ", ".join(doppelt)
     if "unbekannt" in typen:
-        return "nicht", "Flächentyp unbekannt – keine Aussage zur Abwickelbarkeit"
+        return "unsicher", "mindestens ein Flächentyp nicht erkannt – keine Aussage zur Abwickelbarkeit"
     if "freiform" in typen:
+        if stichprobe_unsicher:
+            return "unsicher", "Krümmungsstichprobe der Freiformfläche unvollständig (Punkte nicht auswertbar)"
         if freiform_gauss_max is not None and abs(freiform_gauss_max) < tol:
             return "naeherung", "Freiformfläche mit Gaussscher Krümmung ≈ 0 an den Stichproben (max. %.2e 1/mm²) – abwickelbar, Exaktheit nicht belegt" % freiform_gauss_max
         return "nicht", "Freiformfläche mit Gaussscher Krümmung ≠ 0 (max. %s 1/mm²)" % ("?" if freiform_gauss_max is None else "%.2e" % freiform_gauss_max)

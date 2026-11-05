@@ -3,6 +3,7 @@ und der Versatz-Rückbau. Mit Attrappen (tests/fake_fusion_blech.py) – KEIN ec
 import unittest
 
 import fake_fusion_blech as ff
+from test_fusion_logik import ebene
 from _basis import DatenTest  # noqa: F401
 
 RECHTECK = [[(0, 0), (100, 0), (100, 60), (0, 60)]]
@@ -172,6 +173,7 @@ class VersatzRueckbau(_Patch):
     def _kante(self, comp):
         class Flaeche(object):
             area = 60.0
+            geometry = ebene()
 
         class Geo(object):
             startPoint, endPoint = ff.Punkt(0, 0, 0.1), ff.Punkt(10, 0, 0.1)
@@ -312,6 +314,7 @@ class GekruemmteKantenUndGrenzen(_Patch):
         self.patche(_kurventyp=lambda e: "linie")
         k = type("K", (), {})()
         k.body = object()
+        k.faces = [type("F", (), {"area": 1.0, "geometry": ebene()})()]
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.umschlag(k, 1.5, False, None, None, 1.0)
         self.assertIn("mindestens 2 × Blechdicke", str(cm.exception))

@@ -166,13 +166,40 @@ def kantenrahmen(edge, face=None):
 
 
 FLAECHENTYP_FUSION = {"PlaneSurfaceType": "eben", "CylinderSurfaceType": "zylinder", "ConeSurfaceType": "kegel", "SphereSurfaceType": "kugel",
-                      "TorusSurfaceType": "torus", "NurbsSurfaceType": "freiform", "EllipticalCylinderSurfaceType": "freiform",
-                      "EllipticalConeSurfaceType": "freiform"}
+                      "TorusSurfaceType": "torus", "NurbsSurfaceType": "freiform", "EllipticalCylinderSurfaceType": "einfach_gekruemmt",
+                      "EllipticalConeSurfaceType": "einfach_gekruemmt"}
+
+
+def bezugsflaeche(edge):
+    """Angrenzende Blechfläche einer Kante (die grösste) oder None."""
+    try:
+        faces = list(edge.faces)
+        return max(faces, key=lambda f: f.area) if faces else None
+    except Exception:
+        return None
+
+
+def matrix_sperre(op, edges, prototyp_erlaubt=False):
+    """VOR dem Erzeugen eines Features: Kantentyp und angrenzender Flächentyp jeder Kante gegen core/unterstuetzung prüfen. Wirft AdapterFehler
+    (nichts wurde gebaut). Unbekannte Flächen gelten nie als eben. → Liste der Hinweise (Einschränkungen)."""
+    from ..core import unterstuetzung as u
+    hinweise = []
+    for nr, e in enumerate(edges if isinstance(edges, (list, tuple)) else [edges], 1):
+        f = bezugsflaeche(e)
+        fk = u.flaechenklasse(flaechentyp(f) if f is not None else "unbekannt")
+        kt = u.kantentyp(_kurventyp(e))
+        grund = u.pruefen(op, fk, kt, prototyp_erlaubt)
+        if grund:
+            raise AdapterFehler(("Kante %d: " % nr if len(edges if isinstance(edges, (list, tuple)) else [edges]) > 1 else "") + grund)
+        h = u.hinweis(op, fk, kt)
+        if h and h not in hinweise:
+            hinweise.append(h)
+    return hinweise
 
 
 def flaechentyp(face):
-    """Fusion-Flächentyp → Typ der Geometrie-Referenz (eben, zylinder, kegel, kugel, torus, freiform, unbekannt). Elliptische Zylinder/Kegel sind
-    zwar abwickelbar, werden aber vorsichtig als Freiform geführt (keine eigene Rechnung dafür)."""
+    """Fusion-Flächentyp → Typ der Geometrie-Referenz (eben, zylinder, kegel, einfach_gekruemmt, kugel, torus, freiform, unbekannt).
+    Elliptische Zylinder/Kegel sind abwickelbar (einfach gekrümmt). Nicht lesbar → «unbekannt» (wird nie wie eben behandelt)."""
     try:
         t = face.geometry.surfaceType
         for name, typ in FLAECHENTYP_FUSION.items():
@@ -403,9 +430,8 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
     comp = erste.body.parentComponent
     ff = _flange_features(comp)
     rund = any(_kurventyp(k) != "linie" for k in kanten)
-    if rund and not fusion_fragen:          # fusion_fragen=True nur im Live-Test: Fusions echte Antwort an gekrümmten Kanten erheben
-        raise AdapterFehler("Flansch nur an geraden Kanten: Die Flansch-Schnittstelle von Fusion (EdgeFlangeInput, Preview) ist nur für gerade Kanten beschrieben – "
-                            "an runden Kanten wird nichts versucht.")
+    if not fusion_fragen:           # fusion_fragen=True nur im Live-Test: Fusions echte Antwort erheben bzw. Prototypen ausführen
+        matrix_sperre("flansch" if len(kanten) == 1 else "mehrkant_gehrung", kanten)
     try:
         inp = ff.createEdgeFlangeInput(kanten, _vi_mm(laenge_mm))
     except Exception as e:
@@ -498,8 +524,8 @@ def umschlag(edge, laenge_mm, nach_hinten, radius_mm=None, lage=None, dicke_mm=N
         edge = edge[0]
     # Live 31.10.: setFlatHem/setOpenHem nehmen nur EINE Kante. Mehrfaches Aufrufen derselben Eingabe mit weiteren Kanten ist nicht dokumentiert
     # und wird deshalb nicht mehr gemacht.
-    if _kurventyp(edge) != "linie" and not fusion_fragen:
-        raise AdapterFehler("Umschlag nur an geraden Kanten: Das Saum-Werkzeug von Fusion ist nur für gerade Kanten beschrieben – an runden Kanten wird nichts versucht.")
+    if not fusion_fragen:
+        matrix_sperre("umschlag", [edge])
     t_min = dicke_mm or blechdicke_mm(edge.body)
     if t_min and laenge_mm < 2.0 * t_min:
         raise AdapterFehler("Umschlag %.1f mm ist zu kurz: mindestens 2 × Blechdicke (%.1f mm), sonst entsteht keine zweite Materiallage." % (laenge_mm, 2.0 * t_min))
@@ -921,10 +947,10 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
                    for j, d in enumerate(daten) if j != ausser for q in (d["p0"], d["p1"]))
     flaeche = max(list(edges[0].faces), key=lambda f: f.area)
     typ = flaechentyp(flaeche)
-    if typ == "unbekannt":
-        logger.warnung("Versatz: Flächentyp der Blechfläche nicht lesbar – wie eben behandelt")
-    elif typ != "eben":
+    if typ != "eben":
         from ..core import geometrie_referenz as gr
+        if typ == "unbekannt":
+            raise AdapterFehler("Versatz: Der Flächentyp der Blechfläche ist nicht lesbar – ohne sichere Erkennung wird nichts gebaut (nie stillschweigend «eben»).")
         try:
             gr.versatz_definition(gr.referenz(typ, (0, 0, 0), (0, 0, 1)), versatz_mm, "tangential")
         except ValueError as e:

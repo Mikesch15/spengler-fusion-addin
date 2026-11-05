@@ -75,7 +75,7 @@ def t_bogenkante(ctx):
         raise _lt()._Falsch("Das Bogenblech hat keine Bogenkante – Bögen im Profil wirken nicht.")
     oben = max([e for e in boegen], key=lambda e: e.boundingBox.maxPoint.z)
     ref = fa.referenz_aus_fusion(edge=oben)
-    if gr.klasse(ref) != "gekruemmte_kante":
+    if gr.klasse(ref)[1] not in ("bogen", "kreis"):
         raise _lt()._Falsch("Bogenkante als «%s» eingeordnet." % gr.klasse(ref))
     t = ["Bogenkante erkannt (%s, Fläche %s)" % (ref["kurve"], ref["flaeche"]),
          _fusion_frage("Flansch an Bogenkante", lambda: fa.flansch(oben, 90, 20, fusion_fragen=True))]

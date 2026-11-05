@@ -21,15 +21,21 @@ def kante_eignung(kante, vorlage, material):
     arten = {o.get("typ") for o in ((vorlage or {}).get("operations") or [])} or {"flansch"}
     # Eignung nach Operationstyp. Flansch (EdgeFlangeInput) und Saum (HemFeatureInput) sind laut Autodesk-Doku nur für GERADE Kanten
     # beschrieben; Kreis/Bogen werden deshalb VOR dem Modellieren abgelehnt (früher: versucht und gewarnt). Ellipse/Spline ohnehin.
-    if kurve != "linie":
-        # Zentral über die Unterstützungsmatrix (core/unterstuetzung) – dieselbe Aussage wie in Doku und Live-Test.
-        from . import unterstuetzung
-        flaeche = kante.get("flaeche", "eben")
-        klasse_ = "gekruemmte_kante" if flaeche == "eben" else (flaeche if flaeche in ("zylinder", "kegel") else "freiform")
-        for art in sorted(arten):
-            grund = unterstuetzung.pruefen(art, klasse_)
-            if grund:
-                gruende.append("ist %s – %s Kurz: nur an geraden Kanten" % ({"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "vom Kurventyp «%s»" % kurve), grund))
+    # Zentral über die Unterstützungsmatrix (core/unterstuetzung): Kantentyp UND angrenzender Flächentyp zählen – eine gerade Kante auf einem Zylinder
+    # ist kein ebener Fall. Ohne Flächenangabe (alte Aufrufer) gilt «unbekannt» nur dann als eben, wenn es ein Blechkörper mit ebener Erkennung ist.
+    from . import unterstuetzung
+    fk = unterstuetzung.flaechenklasse(kante.get("flaeche", "eben"))
+    kt = unterstuetzung.kantentyp(kurve)
+    beschr = {"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "gerade" if kt == "gerade" else "vom Kurventyp «%s»" % kurve)
+    for art in sorted(a for a in arten if a in unterstuetzung.OPS):
+        grund = unterstuetzung.pruefen(art, fk, kt)
+        if grund:
+            gruende.append("ist %s auf %s – %s%s" % (beschr, unterstuetzung.FLAECHEN_TEXT.get(fk, fk), grund,
+                                                    " Kurz: nur an geraden Kanten ebener Flächen" if kt != "gerade" or fk != "eben" else ""))
+    if any(o.get("versatz") for o in ((vorlage or {}).get("operations") or [])):
+        grund = unterstuetzung.pruefen("versatz", fk, kt)
+        if grund:
+            gruende.append(grund)
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     ops_ = (vorlage or {}).get("operations") or []
@@ -69,6 +75,13 @@ def erstelle(vorlage, eingaben, material, kanten):
                       "laenge": k.get("laenge")})
     plan = neuer_bauplan(vorlage, eingaben or {}, material, ziele)
     err, warn = plan["validation"]["errors"], plan["validation"]["warnings"]
+    # Einschränkungen der Unterstützungsmatrix im Bauplan anzeigen (eingeschränkt/Prototyp) – gleiche Quelle wie die Sperre
+    from . import unterstuetzung
+    for k in kanten:
+        for art in sorted({o.get("typ") for o in ((vorlage or {}).get("operations") or [])} & set(unterstuetzung.OPS)):
+            h = unterstuetzung.hinweis(art, unterstuetzung.flaechenklasse(k.get("flaeche", "eben")), unterstuetzung.kantentyp(k.get("kurve")))
+            if h and h not in warn:
+                warn.append(h)
     if not kanten:
         err.append("Keine Kante gewählt.")
     if not material:
