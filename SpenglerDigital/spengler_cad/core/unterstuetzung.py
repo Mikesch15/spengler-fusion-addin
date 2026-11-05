@@ -164,8 +164,8 @@ def machbarkeit_markdown():
 # Eine Ablehnung durch Fusions native Blech-API (EdgeFlange/Hem) ist KEIN Beweis geometrischer Unmöglichkeit. Deshalb getrennt:
 #   nativ  – Fusion-Blechfunktion (stand(), oben)
 #   eigen  – eigene Profilgeometrie: Querschnitt (Linien + Kreisbögen) senkrecht zur Kante, entlang einer GERADEN Kante extrudiert
-#            (core/profil_engine, Adapter eigene_folge). Biegezonen sind dann Zylinder, Schenkel Ebenen → exakt abwickelbar.
-#   klasse – a nativ unterstützt · b eigene exakte Geometrie möglich (implementiert oder zu prototypisieren) · c nur mit konstruktiver Änderung
+#            (core/profil_engine, Adapter eigene_folge). Biegezonen sind dann Zylinder, Schenkel Ebenen → mathematisch abwickelbar.
+#   klasse – a nativ unterstützt · b eigene, mathematisch abwickelbare Geometrie möglich (implementiert oder zu prototypisieren) · c nur mit konstruktiver Änderung
 #            (Freistellung/Segmentierung) · d mathematisch nicht verzerrungsfrei abwickelbar · e technisch ungeklärt
 KLASSEN_AE = {"a": "native Fusion-Operation unterstützt", "b": "eigene, mathematisch abwickelbare Geometrie möglich", "c": "nur mit konstruktiver Änderung (Freistellung/Segmentierung)",
               "d": "mathematisch nicht verzerrungsfrei abwickelbar", "e": "technisch ungeklärt"}
@@ -191,18 +191,18 @@ def eigen(op, flaeche, kante="gerade"):
         if kante in ("ellipse", "kurve"):
             return "nein", "Biegezone entlang einer Kurve mit wechselnder Krümmung ist doppelt gekrümmt – nicht verzerrungsfrei abwickelbar", "d"
         if kante == "kette":
-            return ("nein", "Kette aus Linien und Bögen: gerade Abschnitte einzeln möglich (b), Bogenabschnitte nicht exakt (d); an den Übergängen "
+            return ("nein", "Kette aus Linien und Bögen: gerade Abschnitte einzeln möglich (b), Bogenabschnitte nicht verzerrungsfrei abwickelbar (d); an den Übergängen "
                             "wären Freistellungen nötig (c) – nicht umgesetzt", "c")
         if flaeche in ("doppelt_gekruemmt", "freiform"):
             return "nein", "Grundfläche selbst nicht (nachweislich) abwickelbar", "d"
         return "nein", "noch nicht untersucht", "e"
     if op == "mehrkant_gehrung":
         if kante == "gerade" and flaeche == "eben":
-            return "nein", "Gehrung zwischen eigenen Profilen (Schnitt zweier Prismen an der Winkelhalbierenden) ist geometrisch exakt möglich – noch zu prototypisieren", "b"
+            return "nein", "Gehrung zwischen eigenen Profilen (Schnitt zweier Prismen an der Winkelhalbierenden) ist geometrisch eindeutig möglich – noch zu prototypisieren", "b"
         return "nein", "erst nach dem Einzelkanten-Prototyp", "e"
     if op == "versatz":
         if kante == "gerade" and flaeche == "eben":
-            return "nein", "Versatz in der eigenen Profilkette = verlängerter/verkürzter Basisschenkel, exakt – noch zu prototypisieren (nativ vorhanden)", "b"
+            return "nein", "Versatz in der eigenen Profilkette = verlängerter/verkürzter Basisschenkel, geometrisch eindeutig – noch zu prototypisieren (nativ vorhanden)", "b"
         return "nein", "Versatzart (normal/radial/tangential) muss je Fläche festgelegt werden", "e"
     s_, g = stand(op, flaeche, kante)
     return s_, g, "a" if s_ in ("ja", "eingeschraenkt") else "e"
@@ -223,7 +223,7 @@ def pruefen_bauweise(op, flaeche, kante, bauweise="nativ", prototyp_erlaubt=Fals
     if s_ == "nein" or (s_ == "prototyp" and not prototyp_erlaubt):
         return "%s (eigene Geometrie) an %s auf «%s» %s [%s – %s]: %s." % (
             OP_TEXT.get(op, op), KANTEN_TEXT.get(kante, kante), FLAECHEN_TEXT.get(flaeche, flaeche),
-            "ist ein gesperrter Prototyp (Freigabe in den Einstellungen nach bestandenem Live-Test)" if s_ == "prototyp" else "ist nicht möglich",
+            "ist ein gesperrter Prototyp (im Produktionsmodus gesperrt; nur Entwickler-Override SPENGLER_CAD_EXPERIMENTELL in Testdokumenten)" if s_ == "prototyp" else "ist nicht möglich",
             kl, KLASSEN_AE[kl], grund)
     return None
 

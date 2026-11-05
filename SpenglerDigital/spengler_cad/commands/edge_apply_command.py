@@ -64,10 +64,11 @@ def erstellt(args):
         md.listItems.item(0).isSelected = True
     g_ = e.get("geometrie") or {}
     bw = inp.addDropDownCommandInput("bauweise", "Bauweise", adsk.core.DropDownStyles.TextListDropDownStyle)
-    bw.tooltip = ("Fusion-Blechfunktion: Flansch/Umschlag mit Fusions Blech-Werkzeugen (Fusion-Abwicklung). Eigene Geometrie: exakter Querschnitt "
-                  "(Kreisbögen + Linien) entlang einer GERADEN Kante – Aufkantung, Falz, Doppelfalz in einem Vorgang, eigene exakte Abwicklung.")
+    bw.tooltip = ("Fusion-Blechfunktion: Flansch/Umschlag mit Fusions Blech-Werkzeugen (Fusion-Abwicklung). Eigene Geometrie: Querschnitt aus "
+                  "Kreisbögen + Linien entlang einer GERADEN Kante – Aufkantung, Falz, Doppelfalz in einem Vorgang; Geometrie mathematisch abwickelbar, "
+                  "eigene Abwicklung mit THEORETISCHEM Zuschnitt (Innenradius und K-Faktor des Materialprofils), nicht praktisch verifiziert.")
     bw.listItems.add("Fusion-Blechfunktion (nativ)", g_.get("bauweise", "nativ") != "eigen")
-    bw.listItems.add("Eigene Geometrie (exaktes Profil, auch gerade Kante auf Zylinder/Kegel)", g_.get("bauweise") == "eigen")
+    bw.listItems.add("Eigene Geometrie (Profil aus Bögen und Linien, gerade Kante)", g_.get("bauweise") == "eigen")
     from ..core import experimentell
     exp = experimentell.faelle()
     if exp:     # Entwickler-Override (Umgebungsvariable) – in der normalen Oberfläche NICHT schaltbar
@@ -374,7 +375,7 @@ def _bauen(inp, ergebnis, frage=None):
     logger.info("Kanten bearbeiten", vorlage=plan["templateId"], version=plan["templateVersion"], kanten=len(tokens), folge=short_syntax.als_text(plan["operations"]))
     ops = plan["operations"]
     if plan.get("bauweise") == "eigen":
-        # Eigene Geometrie: je Kante EIN exakter Querschnitt (Aufkantung + Falz/Doppelfalz in einem Vorgang); keine Gehrung zwischen Kanten (noch nicht umgesetzt)
+        # Eigene Geometrie: je Kante EIN Querschnitt aus Bögen und Linien (Aufkantung + Falz/Doppelfalz in einem Vorgang); keine Gehrung zwischen Kanten (noch nicht umgesetzt)
         mat = plan.get("material") or {}
         if len(tokens) > 1:
             ergebnis.warnungen.append("Eigene Geometrie: mehrere Kanten werden je Kante gebaut – Gehrung zwischen eigenen Profilen ist noch nicht umgesetzt (Ecken stumpf).")

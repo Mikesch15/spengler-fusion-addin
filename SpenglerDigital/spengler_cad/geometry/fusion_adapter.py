@@ -2297,7 +2297,7 @@ def _extrudieren_geprueft(comp, prof, laenge_mm, operation, koerper, soll_mm3, r
 
 
 def _flaechenarten_pruefen(body):
-    """Nur Ebenen und Zylinder (exakt abwickelbar) dürfen entstehen – sonst ist die eigene Geometrie fehlerhaft."""
+    """Nur Ebenen und Zylinder (mathematisch abwickelbar) dürfen entstehen – sonst ist die eigene Geometrie fehlerhaft."""
     typen = sorted({flaechentyp(f) for f in body.faces})
     falsch = [t for t in typen if t not in ("eben", "zylinder")]
     return ["unerwartete Flächenart(en) %s im Profilkörper" % ", ".join(falsch)] if falsch else []
@@ -2391,7 +2391,7 @@ def _ende_des_profils(attr, edge, t):
 
 
 def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, prototyp=False):
-    """Bauweise «eigene Geometrie»: Kantenoperationen (Aufkantung, Umschlag, Folgen = Einfach-/Doppelfalz) als EIN exakter Querschnitt senkrecht zu
+    """Bauweise «eigene Geometrie»: Kantenoperationen (Aufkantung, Umschlag, Folgen = Einfach-/Doppelfalz) als EIN Querschnitt aus Bögen und Linien senkrecht zu
     einer GERADEN Kante, entlang der Kante extrudiert und mit dem Körper vereinigt. Vorher geprüft: Matrix (Flächenklasse × Kantentyp, Bauweise eigen),
     Normale entlang der Kante konstant (Mantellinie), freie Aussenkante, Querschnitt ohne Selbstschnitt. Nachher: Volumenzuwachs exakt, nur
     Ebenen/Zylinder, Körper gültig. Atomar mit Rückbau. Das Profil des Körpers wird für die eigene Abwicklung fortgeschrieben, wenn die Kante am
@@ -2414,7 +2414,7 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
     ok, txt, drehung = gr.orientierung_entlang(rahmen)
     if drehung is None or drehung > 0.05:
         raise AdapterFehler("Die Flächennormale dreht sich entlang der Kante um %.3f° – die Kante ist keine Mantellinie, ein Profil schlösse nicht überall "
-                            "tangential an (keine exakte Geometrie)." % (drehung or -1))
+                            "tangential an (Bearbeitung abgelehnt)." % (drehung or -1))
     andere = [g for g in edge.faces if not _gleiche(g, f)]
     if len(andere) != 1 or flaechentyp(andere[0]) != "eben":
         raise AdapterFehler("Die Kante ist keine freie Aussenkante mit ebener Stirnfläche – das Profil hätte keinen sauberen Anschluss.")

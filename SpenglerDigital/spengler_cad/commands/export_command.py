@@ -154,7 +154,7 @@ def _abw(self, args):
         fp, neu = None, False
         try:
             if fa.profil_attribut(body) is not None:
-                # Profilteil der eigenen Geometrie: EIGENE exakte Abwicklung (unabhängig von Fusion Flat Pattern) mit Rückvergleich 2D/3D
+                # Profilteil der eigenen Geometrie: EIGENE Abwicklung mit theoretischem Zuschnitt (unabhängig von Fusion Flat Pattern) mit Rückvergleich 2D/3D
                 z.append("✓ " + _eigene_abwicklung_export(body, name, ordner, e, inp))
                 ok_n += 1
                 continue

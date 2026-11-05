@@ -167,7 +167,7 @@ def beschreibung(plan):
                 extra += ", Versatz %+g mm (%s)" % (op["versatz"], "nach innen" if op["versatz"] > 0 else "nach aussen")
             z.append("  %d. %s %g°, %.2f mm%s%s" % (i, art, op["winkel"], op["laenge"], r, extra))
     z.append("Kanten: %d gewählt, %d geeignet" % (len(plan["targets"]), sum(1 for t in plan["targets"] if t["geeignet"])))
-    z.append("Bauweise: %s" % ("eigene Geometrie (exaktes Profil entlang gerader Kante)" if plan.get("bauweise") == "eigen" else "Fusion-Blechfunktion (nativ)"))
+    z.append("Bauweise: %s" % ("eigene Geometrie (Profil aus Bögen und Linien entlang gerader Kante; mathematisch abwickelbar, Zuschnitt theoretisch)" if plan.get("bauweise") == "eigen" else "Fusion-Blechfunktion (nativ)"))
     for a in plan.get("analyse") or []:
         z.append("Analyse " + a)
     th = plan.get("theory") or {}

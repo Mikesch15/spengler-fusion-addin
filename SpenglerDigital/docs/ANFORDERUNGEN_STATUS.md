@@ -458,7 +458,7 @@ ist «fachlich geprüft» oder «freigegeben». Grundlage der Live-Angaben: Live
 
 **Grenzen (nachvollziehbar):** Kegel – ein gerolltes Kegelblech lässt sich per API nicht erzeugen (kein Lofted-Flange bekannt), deshalb nichts prüfbar;
 die lokale Normale am Kegel ist nicht radial (Halbwinkel) – ein «Versatz» muss vorher fachlich als Normal-, Radial- oder Tangentialversatz festgelegt
-werden. Doppelt gekrümmt (Kugel, Torus) – Gausssche Krümmung ≠ 0, keine exakte Abwicklung; Flansch/Umschlag ohne eindeutige Geometrie. Freiform –
+werden. Doppelt gekrümmt (Kugel, Torus) – Gausssche Krümmung ≠ 0, keine verzerrungsfreie Abwicklung; Flansch/Umschlag ohne eindeutige Geometrie. Freiform –
 Abwickelbarkeit nur über Stichproben, ausgefallene Punkte = unsicher; Bearbeitungen nicht definiert. Prototypen sind im normalen Bau GESPERRT und
 werden erst nach bestandenem Live-Test (und fachlicher Prüfung) in `core/unterstuetzung.py` freigegeben.
 
@@ -475,7 +475,7 @@ Profilteile die eigene Abwicklung. **Fusion-Live-Tests: 0 ausgeführt** – alle
 | Analyse je Kante im Bauplan (Kantenart, Fläche, Klasse a–e, Abwicklungsaussicht) | IMPLEMENTIERT – NICHT LIVE GETESTET |
 | Gehrung zwischen eigenen Profilen | NICHT IMPLEMENTIERT (Klasse b, zu prototypisieren) |
 | Versatz in der eigenen Profilkette | NICHT IMPLEMENTIERT (nativ vorhanden) |
-| Aufkantung an Kreisbogen-/Kreiskante | NICHT IMPLEMENTIERT – mathematisch nicht exakt abwickelbar (Klasse d); Alternativen nur als bewusste Variante |
+| Aufkantung an Kreisbogen-/Kreiskante | NICHT IMPLEMENTIERT – mathematisch nicht verzerrungsfrei abwickelbar (Klasse d); Alternativen nur als bewusste Variante |
 | Ellipse / Spline / Kette aus Linien und Bögen | NICHT IMPLEMENTIERT (d bzw. c) |
 
 **Mathematische Machbarkeit und Wahl des ersten Prototyps:**
@@ -698,5 +698,5 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
 - Begriffe: «mathematisch abwickelbar» (Geometrie) · «theoretischer Zuschnitt» (Modell ri + k·t, Werte angegeben) · «praktisch verifiziert» (nur nach
   Probebiegung) – nichts in diesem Stand ist praktisch verifiziert.
 - Konturprüfung: Berührung/kollineare Überlappung (0.01 mm), adaptive Bogenteilung (Sehnenfehler ≤ 0.005 mm). Kollision mit dem BESTEHENDEN Körper wird
-  über den exakten Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
+  über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.

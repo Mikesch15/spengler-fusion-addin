@@ -111,7 +111,7 @@ def t_zylinder(ctx):
     art, _g = fa.abwickelbarkeit_koerper(body)
     t.append("Abwickelbarkeit: %s" % art)
     if art != "exakt":
-        raise _lt()._Falsch("Zylinderschale als «%s» eingeordnet (erwartet exakt)." % art)
+        raise _lt()._Falsch("Zylinderschale als «%s» eingeordnet (erwartet: mathematisch abwickelbar)." % art)
     t.append(_detail_starr(ctx, ref, aussen))
     return "\n".join(t)
 
@@ -148,7 +148,7 @@ def t_kegel(ctx):
     art, _g = fa.abwickelbarkeit_koerper(body)
     t.append("Abwickelbarkeit: %s" % art)
     if art != "exakt":
-        raise _lt()._Falsch("Kegelschale als «%s» eingeordnet (erwartet exakt)." % art)
+        raise _lt()._Falsch("Kegelschale als «%s» eingeordnet (erwartet: mathematisch abwickelbar)." % art)
     t.append(_detail_starr(ctx, ref, aussen))
     return "\n".join(t)
 
@@ -182,7 +182,7 @@ def t_gerollt(ctx):
 
 
 def t_kugel(ctx):
-    """Fixture 8: Kugelband (Querschnitt mit Bogen gedreht) – muss als NICHT exakt abwickelbar erkannt werden."""
+    """Fixture 8: Kugelband (Querschnitt mit Bogen gedreht) – muss als NICHT verzerrungsfrei abwickelbar erkannt werden."""
     comp = fa.neue_komponente("Live-Test Kugelband")
     # Aussenbogen R 101 von 0° bis 40°, Innenbogen R 100 zurück (r, z, Bogenmitte)
     import math
@@ -341,7 +341,7 @@ def t_proto_versatz_zylinder(ctx):
 
 
 def t_proto_abwicklung_zylinder(ctx):
-    """Phase 7: Abwicklung des gerollten Zylinderblechs (ganzer Körper beurteilt, exakt abwickelbar) und DXF erst NACH erfolgreicher Abwicklung, mit
+    """Phase 7: Abwicklung des gerollten Zylinderblechs (ganzer Körper beurteilt, mathematisch abwickelbar) und DXF erst NACH erfolgreicher Abwicklung, mit
     Gegenprobe (Masse, mm, eine Kontur). Soll-Länge = Bogenlänge der neutralen Faser, zwischen Innen- und Aussenradius."""
     import math
     import os
@@ -391,7 +391,7 @@ def t_kegel_grenzen(ctx):
 
 
 def t_torus(ctx):
-    """Fixture 7: Torus (Kreis-Querschnitt gedreht) – doppelt gekrümmt, nie exakt abwickelbar."""
+    """Fixture 7: Torus (Kreis-Querschnitt gedreht) – doppelt gekrümmt, nie verzerrungsfrei abwickelbar."""
     comp = fa.neue_komponente("Live-Test Torus")
     body = fa.drehkoerper(comp, [(160, 0, 150, 10), (140, 0, 150, -10)], "Live-Test Torus").bodies.item(0)
     typen = sorted({fa.flaechentyp(f) for f in body.faces})
@@ -402,14 +402,14 @@ def t_torus(ctx):
 
 
 def t_zylinder_kegel(ctx):
-    """Fixture 9: Übergang Zylinder → Kegel in einem Körper: alle Flächen werden gemeinsam beurteilt (exakt abwickelbar), Flächentypen erkannt."""
+    """Fixture 9: Übergang Zylinder → Kegel in einem Körper: alle Flächen werden gemeinsam beurteilt (mathematisch abwickelbar), Flächentypen erkannt."""
     comp = fa.neue_komponente("Live-Test Zylinder-Kegel")
     body = fa.drehkoerper(comp, [(100, 0), (101, 0), (101, 40), (81, 80), (80, 80), (100, 40)], "Live-Test Zylinder-Kegel").bodies.item(0)
     typen = sorted({fa.flaechentyp(f) for f in body.faces})
     art, grund = fa.abwickelbarkeit_koerper(body)
     if not {"zylinder", "kegel"} <= set(typen) or art != "exakt":
         raise _lt()._Falsch("Übergang Zylinder–Kegel: Typen %s, Abwickelbarkeit «%s»." % (typen, art))
-    return "Typen %s; Abwickelbarkeit exakt (%s)" % (", ".join(typen), grund)
+    return "Typen %s; mathematisch abwickelbar (%s)" % (", ".join(typen), grund)
 
 
 # (Name, Funktion, braucht Test-Blech) – an live_test.SCHRITTE angehängt

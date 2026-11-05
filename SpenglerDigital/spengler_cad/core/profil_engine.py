@@ -2,7 +2,7 @@
 
 Ein Spenglerprofil entlang einer GERADEN Kante ist ein prismatischer Körper: ein ebener Querschnitt (Blechmitte als Folge von Schenkeln und
 Kreisbögen, Dicke t) wird senkrecht zur Kante extrudiert. Daraus folgt mathematisch:
-- jede Fläche ist eine Ebene (Schenkel) oder ein Kreiszylinder (Biegung, Achse ∥ Kante) → Gausssche Krümmung 0 → EXAKT abwickelbar;
+- jede Fläche ist eine Ebene (Schenkel) oder ein Kreiszylinder (Biegung, Achse ∥ Kante) → Gausssche Krümmung 0 → mathematisch (verzerrungsfrei) abwickelbar;
 - Abwicklung: Breite = Kantenlänge, Länge = Σ gerade Schenkelteile + Σ (ri + k·t)·|α| (Spengler-Modell mit K-Faktor, wie core/bend_geometry);
 - Volumen des 3D-Körpers = Breite · t · (Länge der Blechmitte) exakt; die Abweichung zur Abwicklung ist rein das K-Faktor-Modell:
   ΔV = Breite · t · Σ (k − ½)·t·|α|  → Rückvergleich trennt numerischen Fehler und Modellannahme.
