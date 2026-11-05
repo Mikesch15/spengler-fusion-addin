@@ -246,7 +246,7 @@ def _rueckbau_probe(ctx, stelle, bauen):
         stelle, "eingeschleuster Fehler ausgelöst" if richtig else "ANDERER Fehler (vor der Teststelle oder Fusion-Ablehnung): " + meldung[:200],
         "unverändert" if not abweichung and not offen else ("VERÄNDERT" if abweichung else "NICHT VOLLSTÄNDIG MESSBAR"),
         (" (%s)" % ", ".join("%s %s→%s" % x for x in abweichung)) if abweichung else "",
-        (" (nicht messbar: %s)" % ", ".join(offen)) if offen else "", "ok" if ok else "UNVOLLSTÄNDIG")
+        (" (nicht messbar: %s)" % ", ".join(offen)) if offen else "", "ok" if ok else "UNVOLLSTÄNDIG – " + meldung[-300:])
     if not richtig or abweichung or offen or not ok:
         raise _Falsch(txt)
     return txt
