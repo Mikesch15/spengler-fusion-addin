@@ -465,7 +465,8 @@ class Backend(object):
         """Trockenlauf ohne Fusion: wie würde der Bauplan an einer gedachten geraden Blechkante aussehen?"""
         m = MaterialBibliothek(self.wurzel).holen(d["materialId"]) if d.get("materialId") else None
         k = {"ref": None, "text": "Testkante", "kurve": "linie", "laenge": 1000.0, "flaechen": 2, "blech": True,
-             "dicke": m.get("thickness") if m else None, "frei": True}
+             "dicke": m.get("thickness") if m else None, "frei": True,
+             "flaeche": "eben"}   # ausdrücklich gedachte EBENE Kante (Trockenlauf) – kein Rückfall
         return operation_plan.beschreibung(operation_plan.erstelle(d["vorlage"], d.get("werte") or {}, m, [k]))
 
     # ------------------------------------------------------------------ Tests (Register «Tests»)

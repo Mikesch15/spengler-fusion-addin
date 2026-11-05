@@ -26,9 +26,12 @@ def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
     # Zentral über die Unterstützungsmatrix (core/unterstuetzung): Kantentyp UND angrenzender Flächentyp zählen – eine gerade Kante auf einem Zylinder
     # ist kein ebener Fall. Ohne Flächenangabe (alte Aufrufer) gilt «unbekannt» nur dann als eben, wenn es ein Blechkörper mit ebener Erkennung ist.
     from . import unterstuetzung
-    fk = unterstuetzung.flaechenklasse(kante.get("flaeche", "eben"))
+    fk = unterstuetzung.flaechenklasse(kante.get("flaeche", "unbekannt"))
     kt = unterstuetzung.kantentyp(kurve)
     beschr = {"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "gerade" if kt == "gerade" else "vom Kurventyp «%s»" % kurve)
+    if fk == "unbekannt":
+        # Nicht sicher bestimmbare Fläche: IMMER ablehnen (nie als eben behandeln), Diagnose nennen
+        gruende.append("angrenzende Fläche nicht sicher bestimmbar (%s) – die Bearbeitung wird nicht ausgeführt" % (kante.get("flaeche_diagnose") or "Flächentyp unbekannt"))
     for art in sorted(a for a in arten if a in unterstuetzung.OPS):
         grund = unterstuetzung.pruefen_bauweise(art, fk, kt, bauweise, prototyp)
         if grund:
@@ -75,7 +78,7 @@ def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
 def analyse(kante, vorlage, bauweise="nativ"):
     """Geometrieanalyse einer Kante für den Bauplan (Kantenwerkzeug): Kantenart, angrenzende Fläche, Klasse a–e, Stand je Bauweise, Abwicklungsaussicht."""
     from . import unterstuetzung as u
-    fk = u.flaechenklasse(kante.get("flaeche", "eben"))
+    fk = u.flaechenklasse(kante.get("flaeche", "unbekannt"))
     kt = u.kantentyp(kante.get("kurve"))
     arten = sorted({o.get("typ") for o in ((vorlage or {}).get("operations") or [])} & set(u.OPS)) or ["flansch"]
     teile = []
@@ -107,7 +110,7 @@ def erstelle(vorlage, eingaben, material, kanten, bauweise="nativ", prototyp=Fal
     from . import unterstuetzung
     for k in kanten:
         for art in sorted({o.get("typ") for o in ((vorlage or {}).get("operations") or [])} & set(unterstuetzung.OPS)):
-            h = unterstuetzung.hinweis(art, unterstuetzung.flaechenklasse(k.get("flaeche", "eben")), unterstuetzung.kantentyp(k.get("kurve")))
+            h = unterstuetzung.hinweis(art, unterstuetzung.flaechenklasse(k.get("flaeche", "unbekannt")), unterstuetzung.kantentyp(k.get("kurve")))
             if h and h not in warn:
                 warn.append(h)
     if not kanten:

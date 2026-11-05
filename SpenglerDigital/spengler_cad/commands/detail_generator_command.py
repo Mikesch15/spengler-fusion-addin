@@ -268,6 +268,8 @@ def _einsetzen(inp, integrieren=False):
             ziel = dict(ziel, origin=[o + abstand * z for o, z in zip(ziel["origin"], ziel["z"])])
         ref_flaeche = flaeche or max(list(kante.faces), key=lambda f_: f_.area)
         typ = fa.flaechentyp(ref_flaeche)
+        if typ == "unbekannt":
+            raise fa.AdapterFehler("Die Bezugsfläche ist nicht sicher bestimmbar (Flächentyp unbekannt) – das Detail wird nicht eingesetzt.")
         werte = _werte(inp, d)
         md_ = inp.itemById("modus")
         anpassen = md_ is not None and md_.selectedItem is not None and md_.selectedItem.index == 1

@@ -123,23 +123,46 @@ def kante_beschreiben(edge, nr=1):
     edge = adsk.fusion.BRepEdge.cast(edge)
     body = edge.body
     t = blechdicke_mm(body)
+    try:
+        n_flaechen = edge.faces.count
+    except Exception:
+        n_flaechen = None                      # nicht lesbar → kante_eignung lehnt ab («grenzt an None Flächen»)
     d = {"ref": edge, "text": "Kante %d" % nr, "kurve": _kurventyp(edge), "laenge": units.cm_zu_mm(edge.length),
-         "flaechen": edge.faces.count, "blech": ist_blech(body), "dicke": t, "frei": None}
+         "flaechen": n_flaechen, "blech": ist_blech(body), "dicke": t, "frei": None}
     # Aussenkante: eine angrenzende Fläche ist die schmale Stirnfläche (Breite ≈ Blechdicke)
-    if t and edge.faces.count == 2 and d["laenge"] > 0:
-        breiten = [units.cm_zu_mm(f.area / edge.length) for f in edge.faces]
-        d["frei"] = any(abs(b - t) < max(0.02, 0.05 * t) for b in breiten)
+    try:
+        if t and n_flaechen == 2 and d["laenge"] > 0:
+            breiten = [units.cm_zu_mm(f.area / edge.length) for f in edge.faces]
+            d["frei"] = any(abs(b - t) < max(0.02, 0.05 * t) for b in breiten)
+    except Exception:
+        d["frei"] = None
     try:
         d["start"] = _punkt_mm(edge.startVertex.geometry)
         d["ende"] = _punkt_mm(edge.endVertex.geometry)
     except Exception:
         pass
     d["profilteil"] = profil_attribut(body) is not None
-    try:      # Flächentyp der Bezugsfläche (grösste angrenzende) für die Unterstützungsmatrix: eben / zylinder / kegel / …
-        d["flaeche"] = flaechentyp(max(list(edge.faces), key=lambda f: f.area))
-    except Exception:
-        d["flaeche"] = "eben"
+    # Flächentyp der Bezugsfläche (grösste angrenzende) für die Unterstützungsmatrix. Nicht lesbar → «unbekannt» (NIE «eben»), mit Diagnose.
+    d["flaeche"], d["flaeche_diagnose"] = flaechentyp_kante(edge)
     return d
+
+
+def flaechentyp_kante(edge):
+    """→ (Flächentyp der Bezugsfläche, Diagnose oder None). Jeder Lesefehler ergibt «unbekannt» mit Grund – nie einen stillen Standardwert."""
+    try:
+        faces = list(edge.faces)
+    except Exception as e:
+        logger.warnung("Flächen der Kante nicht lesbar", fehler=e)
+        return "unbekannt", "angrenzende Flächen nicht lesbar (%s)" % ((str(e).strip().splitlines() or [type(e).__name__])[-1][:80])
+    if not faces:
+        return "unbekannt", "keine angrenzende Fläche"
+    try:
+        f = max(faces, key=lambda x: x.area)
+    except Exception as e:
+        logger.warnung("Flächengrösse nicht lesbar", fehler=e)
+        return "unbekannt", "Flächengrösse nicht lesbar (%s)" % ((str(e).strip().splitlines() or [type(e).__name__])[-1][:80])
+    typ = flaechentyp(f)
+    return typ, (None if typ != "unbekannt" else "Flächentyp von Fusion nicht erkannt/nicht lesbar")
 
 
 def flaechennormale(face, punkt=None):
@@ -172,11 +195,12 @@ FLAECHENTYP_FUSION = {"PlaneSurfaceType": "eben", "CylinderSurfaceType": "zylind
 
 
 def bezugsflaeche(edge):
-    """Angrenzende Blechfläche einer Kante (die grösste) oder None."""
+    """Angrenzende Blechfläche einer Kante (die grösste) oder None (nicht lesbar – Aufrufer behandeln das als «unbekannt»)."""
     try:
         faces = list(edge.faces)
         return max(faces, key=lambda f: f.area) if faces else None
-    except Exception:
+    except Exception as e:
+        logger.warnung("Bezugsfläche nicht lesbar", fehler=e)
         return None
 
 
@@ -201,13 +225,16 @@ def matrix_sperre(op, edges, prototyp_erlaubt=False):
 def flaechentyp(face):
     """Fusion-Flächentyp → Typ der Geometrie-Referenz (eben, zylinder, kegel, einfach_gekruemmt, kugel, torus, freiform, unbekannt).
     Elliptische Zylinder/Kegel sind abwickelbar (einfach gekrümmt). Nicht lesbar → «unbekannt» (wird nie wie eben behandelt)."""
+    if face is None:
+        return "unbekannt"
     try:
         t = face.geometry.surfaceType
         for name, typ in FLAECHENTYP_FUSION.items():
             if t == getattr(adsk.core.SurfaceTypes, name):
                 return typ
-    except Exception:
-        pass
+        logger.warnung("Unbekannter Fusion-Flächentyp", typ=t)
+    except Exception as e:
+        logger.warnung("Flächentyp nicht lesbar", fehler=e)
     return "unbekannt"
 
 

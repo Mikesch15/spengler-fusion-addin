@@ -7,7 +7,7 @@ from test_templates import testvorlage
 
 
 def kante(**k):
-    d = {"ref": 1, "text": "Kante 1", "kurve": "linie", "laenge": 500.0, "flaechen": 2, "blech": True, "dicke": 0.7, "frei": True}
+    d = {"ref": 1, "text": "Kante 1", "kurve": "linie", "laenge": 500.0, "flaechen": 2, "blech": True, "dicke": 0.7, "frei": True, "flaeche": "eben"}
     d.update(k)
     return d
 
