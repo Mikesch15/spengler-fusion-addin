@@ -86,7 +86,7 @@ def _vorbelegen(inp):
         inp.itemById("laenge").expression = "%g mm" % laenge
     if m["art"] == "gesendet":
         g["hinweise"] = list(g["hinweise"]) + ["Aus der App gesendet: %g mm, %d Stück (gebaut wird ein Bauteil)." % (m["laenge"], m["stueck"])]
-    inp.itemById("info").text = ("Grundblech %.0f mm breit, %d Biegung(en) aus der App.<br>%s" % (g["breite"], len(g["ops"]), "<br>".join(g["hinweise"]))).replace("\n", "<br>")
+    inp.itemById("info").formattedText = ("Grundblech %.0f mm breit, %d Biegung(en) aus der App.<br>%s" % (g["breite"], len(g["ops"]), "<br>".join(g["hinweise"]))).replace("\n", "<br>")
 
 
 def _geaendert(args):

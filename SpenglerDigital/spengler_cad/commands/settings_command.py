@@ -202,10 +202,10 @@ def hilfe_erstellt(args):
             base.melden("Selbsttest", selftest.ausfuehren() + "\n\nProtokoll: " + logger.pfad())
             return
         k = keys[i.itemById("thema").selectedItem.index]
-        i.itemById("text").text = help_content.text(k).replace("\n", "<br>")
+        i.itemById("text").formattedText = help_content.text(k).replace("\n", "<br>")
     base.handler(adsk.core.InputChangedEventHandler, cmd.inputChanged, zeigen)
     cmd.isOKButtonVisible = False
-    inp.itemById("text").text = help_content.text(keys[0]).replace("\n", "<br>")
+    inp.itemById("text").formattedText = help_content.text(keys[0]).replace("\n", "<br>")
 
 
 def registrieren():

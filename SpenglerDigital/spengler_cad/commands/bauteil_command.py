@@ -105,7 +105,7 @@ def _vorlage_gewaehlt(inp):
     inp.itemById("name").value = v.get("name") or "Bauteil"
     teile = [v["description"]] if v.get("description") else []
     teile += ["<i>%s: %s</i>" % (models_text(s), t) for s, t in bauteil.texte_der_vorlage(v).items() if t]
-    inp.itemById("kurzinfo").text = "<br>".join(teile)
+    inp.itemById("kurzinfo").formattedText = "<br>".join(teile)
 
 
 def models_text(s):
@@ -142,9 +142,9 @@ def _plan(inp):
 def _status(inp):
     p, fehler = _plan(inp)
     if fehler:
-        inp.itemById("status").text = statusanzeige.html("rot", fehler)
+        inp.itemById("status").formattedText = statusanzeige.html("rot", fehler)
     else:
-        inp.itemById("status").text = statusanzeige.html("gruen", "Bereit: " + p["text"]) + ("<br>" + "<br>".join(p["warnungen"]) if p["warnungen"] else "")
+        inp.itemById("status").formattedText = statusanzeige.html("gruen", "Bereit: " + p["text"]) + ("<br>" + "<br>".join(p["warnungen"]) if p["warnungen"] else "")
     return p, fehler
 
 

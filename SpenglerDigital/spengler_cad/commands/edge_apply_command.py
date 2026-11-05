@@ -112,7 +112,7 @@ def _kurzinfo(inp):
             teile.append("<i>Folge: %s</i>" % short_syntax.als_text(v.get("operations") or []))
         except Exception:
             pass
-        inp.itemById("kurzinfo").text = "<br>".join(teile)
+        inp.itemById("kurzinfo").formattedText = "<br>".join(teile)
     except Exception:
         logger.ausnahme("Kurzinfo")
 
@@ -316,7 +316,7 @@ def geaendert(args):
         base.melden("Hilfe", help_content.text("kanten") + "\n\n" + help_content.text("kurzschrift"))
         return
     plan, fehler = _plan_gemerkt(inp)
-    inp.itemById("plan").text = (fehler or operation_plan.beschreibung(plan)).replace("\n", "<br>")
+    inp.itemById("plan").formattedText = (fehler or operation_plan.beschreibung(plan)).replace("\n", "<br>")
     _status(inp, plan, fehler)
 
 
@@ -347,7 +347,7 @@ def _fremde_entfernen(inp):
 def _status(inp, plan, fehler):
     try:
         farbe, text = statusanzeige.ampel(plan, fehler, inp.itemById("koerper").selectionCount > 0, inp.itemById("kanten").selectionCount)
-        inp.itemById("status").text = statusanzeige.html(farbe, text)
+        inp.itemById("status").formattedText = statusanzeige.html(farbe, text)
     except Exception:
         logger.ausnahme("Statusanzeige")
 
@@ -479,7 +479,7 @@ def vorschau(args):
         _bauen(inp, r)
         args.isValidResult = False   # Fusion baut beim OK erneut – die Vorschau wird verworfen
         if r.fehler:
-            inp.itemById("plan").text = ("Vorschau: " + r.text()).replace("\n", "<br>")
+            inp.itemById("plan").formattedText = ("Vorschau: " + r.text()).replace("\n", "<br>")
     except Exception:
         logger.ausnahme("Vorschau")
 

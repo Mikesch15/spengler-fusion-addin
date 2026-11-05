@@ -2432,6 +2432,9 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
     Normale entlang der Kante konstant (Mantellinie), freie Aussenkante, Querschnitt ohne Selbstschnitt. Nachher: Volumenzuwachs exakt, nur
     Ebenen/Zylinder, Körper gültig. Atomar mit Rückbau. Das Profil des Körpers wird für die eigene Abwicklung fortgeschrieben, wenn die Kante am
     Profilende liegt. → erzeugte Objekte. Testfehler: eigen_nach_extrusion. NICHT live geprüft."""
+    if dicke_mm is None or ri_mm is None or k is None:
+        raise AdapterFehler("Für die eigene Geometrie fehlen Materialwerte (%s) – im Materialprofil eintragen." % ", ".join(
+            n for n, w in (("Dicke", dicke_mm), ("Innenradius", ri_mm), ("K-Faktor", k)) if w is None))
     from ..core import geometrie_referenz as gr
     from ..core import profil_engine as pe
     from ..core import unterstuetzung as u

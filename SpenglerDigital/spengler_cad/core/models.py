@@ -218,7 +218,8 @@ def neuer_bauplan(vorlage, werte, material, ziele):
         "templateVersion": vorlage.get("version") if vorlage else None,
         "templateName": vorlage.get("name") if vorlage else "Direkteingabe",
         "values": dict(werte),
-        "material": {"id": material.get("id"), "name": material.get("name"), "thickness": material.get("thickness")} if material else None,
+        "material": {"id": material.get("id"), "name": material.get("name"), "thickness": material.get("thickness"),
+                     "innerRadius": material.get("innerRadius"), "kFactor": material.get("kFactor")} if material else None,
         "targets": ziele,        # [{ref, beschreibung, eignung, gruende}]
         "operations": [],        # aufgelöste Operationen (Zahlen)
         "validation": {"errors": [], "warnings": []},

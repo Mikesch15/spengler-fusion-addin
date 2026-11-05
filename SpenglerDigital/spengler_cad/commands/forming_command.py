@@ -88,7 +88,7 @@ def _rechnen(inp):
     if b.get("dehnung_rand"):
         z.append("Tangentiale Dehnung am Rand: %+.1f %%" % (b["dehnung_rand"] * 100))
     z += b["hinweise"]
-    inp.itemById("erg").text = "<br>".join(z)
+    inp.itemById("erg").formattedText = "<br>".join(z)
     return fall, r, h, w, r2, m, b
 
 
@@ -99,7 +99,7 @@ def geaendert(args):
     try:
         _rechnen(args.inputs)
     except ValueError as e:
-        args.inputs.itemById("erg").text = "✗ %s" % e
+        args.inputs.itemById("erg").formattedText = "✗ %s" % e
 
 
 def _zuschnitt_ausgeben(inp, fall, b, m):

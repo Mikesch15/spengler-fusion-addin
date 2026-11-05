@@ -230,7 +230,7 @@ def anwenden_geaendert(args):
         base.melden("Hilfe", help_content.text("details"))
         return
     _, gruende, hinweise = _passung(inp)
-    inp.itemById("pruefung").text = "<br>".join(["✗ " + g for g in gruende] + ["• " + h for h in hinweise]) or "✓ passt"
+    inp.itemById("pruefung").formattedText = "<br>".join(["✗ " + g for g in gruende] + ["• " + h for h in hinweise]) or "✓ passt"
 
 
 def anwenden_pruefen(args):
