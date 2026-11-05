@@ -46,3 +46,50 @@ class Machbarkeit(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class BauplanEigeneGeometrie(unittest.TestCase):
+    """«Kanten bearbeiten» mit Bauweise «eigene Geometrie»: Eignung und Analyse im Bauplan – reine Logik, KEIN Fusion-Test."""
+    def plan(self, bauweise="eigen", prototyp=False, mat=None, **kante_):
+        from spengler_cad.core import operation_plan as op
+        from test_operation_plan import kante
+        from test_templates import testvorlage
+        from _basis import test_material
+        m = mat if mat is not None else test_material(innerRadius=1.0, kFactor=0.44)
+        return op, op.erstelle(testvorlage(), {"H": 25}, m, [kante(**kante_)], bauweise, prototyp)
+
+    def test_eben_gerade_eigen_ausfuehrbar_mit_analyse(self):
+        op, p = self.plan()
+        self.assertTrue(op.ist_ausfuehrbar(p), p["validation"]["errors"])
+        t = op.beschreibung(p)
+        self.assertIn("Bauweise: eigene Geometrie", t)
+        self.assertIn("gerade Kante auf eben Fläche", t)
+        self.assertIn("Abwicklung: exakt", t)
+
+    def test_zylinder_nur_mit_freigegebenen_prototypen(self):
+        op, p = self.plan(flaeche="zylinder")
+        self.assertFalse(op.ist_ausfuehrbar(p))
+        self.assertIn("gesperrter Prototyp", " ".join(p["validation"]["errors"]))
+        op, p = self.plan(prototyp=True, flaeche="zylinder")
+        self.assertTrue(op.ist_ausfuehrbar(p), p["validation"]["errors"])
+
+    def test_bogenkante_mit_begruendung_abgelehnt(self):
+        op, p = self.plan(prototyp=True, kurve="bogen")
+        self.assertFalse(op.ist_ausfuehrbar(p))
+        self.assertIn("Torus", " ".join(p["validation"]["errors"]))
+        self.assertIn("keine exakte Abwicklung", op.beschreibung(p))
+
+    def test_ohne_k_faktor_oder_radius_keine_eigene_geometrie(self):
+        from _basis import test_material
+        op, p = self.plan(mat=test_material(innerRadius=1.0, kFactor=None))
+        self.assertIn("K-Faktor", " ".join(p["validation"]["errors"]))
+        op, p = self.plan(mat=test_material(innerRadius=0.0, kFactor=0.4))
+        self.assertIn("Innenradius", " ".join(p["validation"]["errors"]))
+
+    def test_profilteil_ohne_blech_und_regression_nativ(self):
+        op, p = self.plan(blech=False, profilteil=True)
+        self.assertTrue(op.ist_ausfuehrbar(p), "Profilteil der eigenen Geometrie braucht keinen Fusion-Blechkörper")
+        op, p = self.plan(bauweise="nativ")
+        self.assertTrue(op.ist_ausfuehrbar(p), "Regression: native Bauweise auf ebener gerader Kante unverändert")
+        op, p = self.plan(bauweise="nativ", blech=False, profilteil=True)
+        self.assertFalse(op.ist_ausfuehrbar(p))

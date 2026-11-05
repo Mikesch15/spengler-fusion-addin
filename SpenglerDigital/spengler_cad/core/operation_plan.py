@@ -11,11 +11,13 @@ from .bend_geometry import ProfilFehler, zugabe_abwicklung
 from .models import neuer_bauplan
 
 
-def kante_eignung(kante, vorlage, material):
-    """→ (geeignet, gruende[]). Ungeeignete Kanten werden NIE stillschweigend bearbeitet."""
+def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
+    """→ (geeignet, gruende[]). Ungeeignete Kanten werden NIE stillschweigend bearbeitet. bauweise 'eigen' = eigene Profilgeometrie (Kantenwerkzeug);
+    prototyp = in den Einstellungen freigegebene Prototypen (nur nach bestandenem Live-Test)."""
     gruende = []
-    if not kante.get("blech"):
-        gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)")
+    if not kante.get("blech") and not (bauweise == "eigen" and kante.get("profilteil")):
+        gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)" +
+                       ("" if bauweise == "eigen" else " – oder Bauweise «eigene Geometrie» an einem Profilteil"))
     typ = (vorlage or {}).get("connection", {}).get("edgeType", "gerade")
     kurve = kante.get("kurve")
     arten = {o.get("typ") for o in ((vorlage or {}).get("operations") or [])} or {"flansch"}
@@ -28,12 +30,12 @@ def kante_eignung(kante, vorlage, material):
     kt = unterstuetzung.kantentyp(kurve)
     beschr = {"kreis": "ein Kreis", "bogen": "ein Bogen"}.get(kurve, "gerade" if kt == "gerade" else "vom Kurventyp «%s»" % kurve)
     for art in sorted(a for a in arten if a in unterstuetzung.OPS):
-        grund = unterstuetzung.pruefen(art, fk, kt)
+        grund = unterstuetzung.pruefen_bauweise(art, fk, kt, bauweise, prototyp)
         if grund:
             gruende.append("ist %s auf %s – %s%s" % (beschr, unterstuetzung.FLAECHEN_TEXT.get(fk, fk), grund,
                                                     " Kurz: nur an geraden Kanten ebener Flächen" if kt != "gerade" or fk != "eben" else ""))
     if any(o.get("versatz") for o in ((vorlage or {}).get("operations") or [])):
-        grund = unterstuetzung.pruefen("versatz", fk, kt)
+        grund = unterstuetzung.pruefen_bauweise("versatz", fk, kt, bauweise, prototyp)
         if grund:
             gruende.append(grund)
     if typ == "gekruemmt" and kurve == "linie":
@@ -52,6 +54,10 @@ def kante_eignung(kante, vorlage, material):
         gruende.append("ist mit %.1f mm kürzer als die Mindestlänge %.1f mm der Vorlage" % (L, c["edgeLengthMin"]))
     t_kante = kante.get("dicke")
     t_mat = (material or {}).get("thickness")
+    if bauweise == "eigen" and material and material.get("kFactor") is None:
+        gruende.append("das Materialprofil hat keinen K-Faktor – ohne ihn ist die eigene Abwicklung nicht rechenbar")
+    if bauweise == "eigen" and material and not material.get("innerRadius"):
+        gruende.append("das Materialprofil hat keinen Innenradius – die eigene Geometrie braucht einen Biegeradius > 0")
     if t_kante is not None and t_mat is not None and abs(t_kante - t_mat) > 0.005:
         gruende.append("Blechdicke des Körpers %.2f mm passt nicht zum Materialprofil %.2f mm" % (t_kante, t_mat))
     t = t_kante if t_kante is not None else t_mat
@@ -66,14 +72,36 @@ def kante_eignung(kante, vorlage, material):
     return (not gruende), gruende
 
 
-def erstelle(vorlage, eingaben, material, kanten):
-    """Bauplan erstellen. Fehler stehen in plan['validation']['errors'] – ausgeführt wird nur ohne Fehler."""
+def analyse(kante, vorlage, bauweise="nativ"):
+    """Geometrieanalyse einer Kante für den Bauplan (Kantenwerkzeug): Kantenart, angrenzende Fläche, Klasse a–e, Stand je Bauweise, Abwicklungsaussicht."""
+    from . import unterstuetzung as u
+    fk = u.flaechenklasse(kante.get("flaeche", "eben"))
+    kt = u.kantentyp(kante.get("kurve"))
+    arten = sorted({o.get("typ") for o in ((vorlage or {}).get("operations") or [])} & set(u.OPS)) or ["flansch"]
+    teile = []
+    for art in arten:
+        n = u.stand(art, fk, kt)[0]
+        e_ = u.eigen(art, fk, kt)
+        teile.append("%s: nativ %s, eigene Geometrie %s (Klasse %s – %s)" % (u.OP_TEXT[art], u.STAND_TEXT[n], u.STAND_TEXT[e_[0]], u.klasse(art, fk, kt),
+                                                                         u.KLASSEN_AE[u.klasse(art, fk, kt)]))
+    if bauweise == "eigen":
+        abw = "Abwicklung: exakt (Profil nur aus Ebenen und Zylindern) – sofern die Prüfungen bestehen" if u.eigen(arten[0], fk, kt)[2] == "b" else \
+            "Abwicklung: keine exakte Abwicklung möglich"
+    else:
+        abw = "Abwicklung: über Fusion-Blech (nach dem Bau geprüft)"
+    return "%s: %s auf %s Fläche – %s. %s" % (kante.get("text", "Kante"), u.KANTEN_TEXT.get(kt, kt), u.FLAECHEN_TEXT.get(fk, fk), "; ".join(teile), abw)
+
+
+def erstelle(vorlage, eingaben, material, kanten, bauweise="nativ", prototyp=False):
+    """Bauplan erstellen. Fehler stehen in plan['validation']['errors'] – ausgeführt wird nur ohne Fehler. bauweise/prototyp: siehe kante_eignung."""
     ziele = []
     for k in kanten:
-        ok, gruende = kante_eignung(k, vorlage, material)
+        ok, gruende = kante_eignung(k, vorlage, material, bauweise, prototyp)
         ziele.append({"ref": k.get("ref"), "text": k.get("text", "Kante"), "geeignet": ok, "gruende": gruende,
                       "laenge": k.get("laenge")})
     plan = neuer_bauplan(vorlage, eingaben or {}, material, ziele)
+    plan["bauweise"] = bauweise
+    plan["analyse"] = [analyse(k, vorlage, bauweise) for k in kanten]
     err, warn = plan["validation"]["errors"], plan["validation"]["warnings"]
     # Einschränkungen der Unterstützungsmatrix im Bauplan anzeigen (eingeschränkt/Prototyp) – gleiche Quelle wie die Sperre
     from . import unterstuetzung
@@ -134,6 +162,9 @@ def beschreibung(plan):
                 extra += ", Versatz %+g mm (%s)" % (op["versatz"], "nach innen" if op["versatz"] > 0 else "nach aussen")
             z.append("  %d. %s %g°, %.2f mm%s%s" % (i, art, op["winkel"], op["laenge"], r, extra))
     z.append("Kanten: %d gewählt, %d geeignet" % (len(plan["targets"]), sum(1 for t in plan["targets"] if t["geeignet"])))
+    z.append("Bauweise: %s" % ("eigene Geometrie (exaktes Profil entlang gerader Kante)" if plan.get("bauweise") == "eigen" else "Fusion-Blechfunktion (nativ)"))
+    for a in plan.get("analyse") or []:
+        z.append("Analyse " + a)
     th = plan.get("theory") or {}
     if th.get("zugabe") is not None:
         z.append("Abwicklungszugabe theoretisch: %.1f mm je Kante" % th["zugabe"])

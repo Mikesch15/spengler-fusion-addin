@@ -134,6 +134,7 @@ def kante_beschreiben(edge, nr=1):
         d["ende"] = _punkt_mm(edge.endVertex.geometry)
     except Exception:
         pass
+    d["profilteil"] = profil_attribut(body) is not None
     try:      # Flächentyp der Bezugsfläche (grösste angrenzende) für die Unterstützungsmatrix: eben / zylinder / kegel / …
         d["flaeche"] = flaechentyp(max(list(edge.faces), key=lambda f: f.area))
     except Exception:

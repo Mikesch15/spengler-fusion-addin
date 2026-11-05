@@ -103,6 +103,19 @@ def abw_erstellt(args):
     base.handler(adsk.core.CommandEventHandler, cmd.execute, abw_ausfuehren)
 
 
+def _eigene_abwicklung_export(body, name, ordner, e, inp):
+    """Eigene Abwicklung eines Profilteils → DXF (dxf_writer) + Gegenprobe (dxf_pruefung). → Berichtszeile. Fehler → AdapterFehler."""
+    zuschnitt, vergleich = fa.eigene_abwicklung(body)
+    zeile = "%s: EIGENE Abwicklung %.2f × %.2f mm (exakt: nur Ebenen/Zylinder); %s" % (name, zuschnitt["laenge"], zuschnitt["breite"], " | ".join(vergleich["texte"]))
+    if inp.itemById("dxf").value:
+        ex_ = e.get("export") or {}
+        pfad = os.path.join(ordner, "%s_eigen.dxf" % _dateiname(e, name, "", None))
+        dxf_writer.elemente_dxf(zuschnitt, name, ex_.get("layerContour") or "ZUSCHNITT", ex_.get("layerBendUp") or "BIEGELINIE",
+                                ex_.get("layerText") or "TEXT").speichern(pfad)
+        zeile += ", DXF " + dxf_kontrolle(pfad, {"breite": min(zuschnitt["laenge"], zuschnitt["breite"]), "laenge": max(zuschnitt["laenge"], zuschnitt["breite"])})
+    return zeile
+
+
 def _abwicklung_zuruecknehmen(fp, neu):
     """Nach einem Fehler: eine in DIESEM Lauf neu erzeugte Abwicklung wieder entfernen (eine vorhandene bleibt). → Zusatz für die Meldung."""
     if fp is None or not neu:
@@ -140,6 +153,11 @@ def _abw(self, args):
         name = body.name or comp.name
         fp, neu = None, False
         try:
+            if fa.profil_attribut(body) is not None:
+                # Profilteil der eigenen Geometrie: EIGENE exakte Abwicklung (unabhängig von Fusion Flat Pattern) mit Rückvergleich 2D/3D
+                z.append("✓ " + _eigene_abwicklung_export(body, name, ordner, e, inp))
+                ok_n += 1
+                continue
             if not fa.ist_blech(body):
                 raise fa.AdapterFehler("kein Blechkörper")
             fe = inp.itemById("fusion_entscheidet")

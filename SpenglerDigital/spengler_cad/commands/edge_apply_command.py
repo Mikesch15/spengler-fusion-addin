@@ -62,6 +62,13 @@ def erstellt(args):
         md.listItems.add("%s (%.2f mm)" % (m["name"], m["thickness"]), m["id"] == auftrag_logik.material_vorgabe(e, Z["materialien"]))
     if Z["materialien"] and md.selectedItem is None:
         md.listItems.item(0).isSelected = True
+    g_ = e.get("geometrie") or {}
+    bw = inp.addDropDownCommandInput("bauweise", "Bauweise", adsk.core.DropDownStyles.TextListDropDownStyle)
+    bw.tooltip = ("Fusion-Blechfunktion: Flansch/Umschlag mit Fusions Blech-Werkzeugen (Fusion-Abwicklung). Eigene Geometrie: exakter Querschnitt "
+                  "(Kreisbögen + Linien) entlang einer GERADEN Kante – Aufkantung, Falz, Doppelfalz in einem Vorgang, eigene exakte Abwicklung.")
+    bw.listItems.add("Fusion-Blechfunktion (nativ)", g_.get("bauweise", "nativ") != "eigen")
+    bw.listItems.add("Eigene Geometrie (exaktes Profil, auch gerade Kante auf Zylinder/Kegel)", g_.get("bauweise") == "eigen")
+    inp.addBoolValueInput("prototypen", "Prototypen gekrümmter Flächen zulassen (nur nach bestandenem Live-Test)", True, "", bool(g_.get("prototypenFreigegeben")))
     inp.addGroupCommandInput("parameter", "Parameter")
     ex = inp.addBoolValueInput("experte", "Expertenmodus", True, "", e["ui"]["mode"] == "experte")
     ex.tooltip = help_content.TOOLTIPS["experte"]
@@ -103,6 +110,16 @@ def _kurzinfo(inp):
         inp.itemById("kurzinfo").text = "<br>".join(teile)
     except Exception:
         logger.ausnahme("Kurzinfo")
+
+
+def _bauweise(inp):
+    d = inp.itemById("bauweise")
+    return "eigen" if d is not None and d.selectedItem is not None and d.selectedItem.index == 1 else "nativ"
+
+
+def _prototypen(inp):
+    x = inp.itemById("prototypen")
+    return bool(x.value) if x is not None else False
 
 
 def _material(inp):
@@ -200,7 +217,7 @@ def _plan(inp):
     if fremd:
         return None, "Kante %s liegt nicht auf dem gewählten Körper – bitte nur Kanten dieses Körpers wählen." % ", ".join(map(str, fremd))
     kanten = [fa.kante_beschreiben(k, i) for i, k in enumerate(roh, 1)]
-    plan = operation_plan.erstelle(v, _werte(inp), _material(inp), kanten)
+    plan = operation_plan.erstelle(v, _werte(inp), _material(inp), kanten, _bauweise(inp), _prototypen(inp))
     if angepasst:
         plan["validation"]["warnings"].append("Folge im Expertenmodus angepasst – gilt nur für diese Ausführung%s." % (
             ", wird als neue Vorlage gespeichert" if inp.itemById("speichern").value else ""))
@@ -217,9 +234,10 @@ def _schluessel(inp, mit_kanten=True):
     teile = [kb.selectionCount, kb.selection(0).entity.entityToken if kb.selectionCount else "", sel.selectionCount, inp.itemById("experte").value, inp.itemById("folge").value, inp.itemById("speichern").value]
     if mit_kanten:
         teile += [sel.selection(i).entity.entityToken for i in range(sel.selectionCount)]   # welche Kanten – wirft bei ungültigen Verweisen → kein Treffer
-    for i in ("vorlage", "material"):
+    for i in ("vorlage", "material", "bauweise"):
         d = inp.itemById(i)
-        teile.append(d.selectedItem.index if d.selectedItem is not None else -1)
+        teile.append(d.selectedItem.index if d is not None and d.selectedItem is not None else -1)
+    teile.append(_prototypen(inp))
     for pid in Z.get("param_ids", []):
         x = inp.itemById(pid)
         teile.append(x.expression if x is not None else None)
@@ -350,6 +368,30 @@ def _bauen(inp, ergebnis, frage=None):
     tokens = edge_resolver.merken([z["ref"] for z in plan["targets"] if z["geeignet"]])
     logger.info("Kanten bearbeiten", vorlage=plan["templateId"], version=plan["templateVersion"], kanten=len(tokens), folge=short_syntax.als_text(plan["operations"]))
     ops = plan["operations"]
+    if plan.get("bauweise") == "eigen":
+        # Eigene Geometrie: je Kante EIN exakter Querschnitt (Aufkantung + Falz/Doppelfalz in einem Vorgang); keine Gehrung zwischen Kanten (noch nicht umgesetzt)
+        mat = plan.get("material") or {}
+        if len(tokens) > 1:
+            ergebnis.warnungen.append("Eigene Geometrie: mehrere Kanten werden je Kante gebaut – Gehrung zwischen eigenen Profilen ist noch nicht umgesetzt (Ecken stumpf).")
+        alle = []          # ATOMAR über alle Kanten: scheitert eine, werden auch die schon gebauten zurückgenommen
+        for nr, tok in enumerate(tokens, 1):
+            try:
+                kante = edge_resolver.aufloesen(tok)
+                body_name = kante.body.name
+                hinw = []
+                feats = fa.eigene_folge(kante, ops, t, mat.get("innerRadius"), mat.get("kFactor"), markierung, hinw, _prototypen(inp))
+                alle.extend(feats)
+                ergebnis.warnungen += ["Kante %d: %s" % (nr, h) for h in hinw]
+                ergebnis.ausgefuehrt.append("Kante %d: eigene Geometrie, %d Objekt(e)" % (nr, len(feats)))
+                ergebnis.geometrie.append(body_name)
+            except fa.AdapterFehler as e:
+                probleme = fa.entfernen_bericht(alle)
+                ergebnis.fehler.append("Kante %d: %s%s" % (nr, e, ("" if not alle else " – die bereits gebauten Kanten wurden ebenfalls zurückgenommen.") if not probleme else
+                                                           " – ACHTUNG: frühere Kanten nicht vollständig zurückgenommen (%s)." % "; ".join(probleme)))
+                ergebnis.zurueckgesetzt = bool(getattr(e, "rueckbau_ok", True) and not probleme)
+                ergebnis.ausgefuehrt = [a for a in ergebnis.ausgefuehrt if "eigene Geometrie" not in a]
+                break
+        return plan
     try:
         gruppen = fa.gruppen_bilden([z["ref"] for z in plan["targets"] if z["geeignet"]])
     except Exception:
