@@ -93,3 +93,16 @@ class BauplanEigeneGeometrie(unittest.TestCase):
         self.assertTrue(op.ist_ausfuehrbar(p), "Regression: native Bauweise auf ebener gerader Kante unverändert")
         op, p = self.plan(bauweise="nativ", blech=False, profilteil=True)
         self.assertFalse(op.ist_ausfuehrbar(p))
+
+
+class DokuSynchron(unittest.TestCase):
+    def test_statusdokument_aktuell(self):
+        import os
+        import sys
+        sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs"))
+        import status_tabellen as st
+        with open(st.PFAD, encoding="utf-8") as f:
+            t = f.read()
+        self.assertEqual(st.aktualisieren(t), t, "Matrix/Analyse geändert → python3 docs/status_tabellen.py ausführen")
+        for name in st.BLOECKE:
+            self.assertIn("<!-- AUTO:%s -->" % name, t)

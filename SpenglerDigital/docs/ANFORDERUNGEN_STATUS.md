@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «Korrekturauftrag gekrümmte Flächen – Status je Funktion» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «Spengler-Kantenwerkzeug – Status» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -461,3 +461,229 @@ die lokale Normale am Kegel ist nicht radial (Halbwinkel) – ein «Versatz» mu
 werden. Doppelt gekrümmt (Kugel, Torus) – Gausssche Krümmung ≠ 0, keine exakte Abwicklung; Flansch/Umschlag ohne eindeutige Geometrie. Freiform –
 Abwickelbarkeit nur über Stichproben, ausgefallene Punkte = unsicher; Bearbeitungen nicht definiert. Prototypen sind im normalen Bau GESPERRT und
 werden erst nach bestandenem Live-Test (und fachlicher Prüfung) in `core/unterstuetzung.py` freigegeben.
+
+## Spengler-Kantenwerkzeug – Status (5. 11. 2026, AKTUELL)
+Ausgangs-HEAD `46ba14e`. Kein Release, Version 0.4.49, main unberührt. EIN Werkzeug: das bestehende «Kanten bearbeiten» (Befehls-ID unverändert, Vorlagen
+und Kurzschrift unverändert kompatibel) mit Bauweise *Fusion-Blechfunktion* oder *Eigene Geometrie*. «Abwicklung & DXF» bleibt separat und nutzt für
+Profilteile die eigene Abwicklung. **Fusion-Live-Tests: 0 ausgeführt** – alles unten ist höchstens IMPLEMENTIERT – NICHT LIVE GETESTET.
+
+| Funktion | Status |
+|---|---|
+| Aufkantung / Einfachfalz / Doppelfalz als EIN Profil (eigene Geometrie, ebene gerade Kante) | IMPLEMENTIERT – NICHT LIVE GETESTET |
+| Dasselbe an gerader Mantelkante Zylinder/Kegel (Prototyp 2/5) | IMPLEMENTIERT – NICHT LIVE GETESTET, gesperrt (Prototypen-Schalter) |
+| Eigene Abwicklung + DXF + Rückvergleich 2D/3D für Profilteile | IMPLEMENTIERT – NICHT LIVE GETESTET |
+| Analyse je Kante im Bauplan (Kantenart, Fläche, Klasse a–e, Abwicklungsaussicht) | IMPLEMENTIERT – NICHT LIVE GETESTET |
+| Gehrung zwischen eigenen Profilen | NICHT IMPLEMENTIERT (Klasse b, zu prototypisieren) |
+| Versatz in der eigenen Profilkette | NICHT IMPLEMENTIERT (nativ vorhanden) |
+| Aufkantung an Kreisbogen-/Kreiskante | NICHT IMPLEMENTIERT – mathematisch nicht exakt abwickelbar (Klasse d); Alternativen nur als bewusste Variante |
+| Ellipse / Spline / Kette aus Linien und Bögen | NICHT IMPLEMENTIERT (d bzw. c) |
+
+**Mathematische Machbarkeit und Wahl des ersten Prototyps:**
+
+<!-- AUTO:prototyp -->
+| Nr. | Kandidat | Flächen | exakt abwickelbar | Fertigung | eigener Aufbau | Abwicklung/Validierung |
+|---|---|---|---|---|---|---|
+| 1 | Kreisbogenkante auf ebener Grundfläche, 90°-Aufkantung | Grundfläche eben (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Zylinder (K = 0) | **nein** | Bördeln/Aufhalsen mit Streckung bzw. Stauchung des Randes – oder segmentiert mit Einschnitten | möglich (Drehung des Querschnitts um die Kreisachse), aber Ergebnis nicht exakt abwickelbar | keine exakte Abwicklung; Alternative: Zargenstreifen (Zylinder, exakt) + Naht oder Freistellungen – nur als bewusst gewählte Variante |
+| 2 | Gerade Mantelkante eines zylindrischen Blechsegments | Grundfläche Zylinder (K = 0), Biegezone Zylinder mit Achse = Kante (K = 0), Schenkel eben (K = 0) | ja | Rundbiegen des Segments, Abkanten an der geraden Kante – Spenglerpraxis (z. B. Rinnen-/Rohrhalbschalen mit Abkantung) | möglich: Querschnitt (Kreisbögen + Linien) senkrecht zur Kante, Extrusion entlang der Kante | exakt: Länge = Σ Schenkel + Σ (ri + k·t)·|α| (Segment selbst: (R + k·t)·φ), Breite = Kantenlänge; Rückvergleich über Volumen und Radien |
+| 3 | Gekrümmte (Kreis-)Kante auf zylindrischer Fläche (Stirnkante eines Rohrs) | Grundfläche Zylinder (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Kreisring/Kegel (K = 0) | **nein** | Bördeln mit Streckung (Kragen) – nicht verzerrungsfrei | möglich (Drehkörper), aber nicht exakt abwickelbar | keine exakte Abwicklung |
+| 4 | Kreisförmige Kante eines flachen Rundblechs (Ronde mit Rand) | Ronde eben (K = 0), Biegezone Torus (K ≠ 0), Rand Zylinder (K = 0) | **nein** | Drücken/Bördeln, Rand streckt/staucht | möglich (Drehkörper, vorhanden: «Rundblech»), nicht exakt abwickelbar | keine exakte Abwicklung; Rundblech-Werkzeug weist Umformung aus |
+| 5 | Gerade Mantellinie eines konischen Blechs | Grundfläche Kegel (K = 0), Biegezone Zylinder um die Mantellinie (K = 0), Schenkel eben (K = 0) | ja | Kegel rollen, an der Mantellinie abkanten | Profil entlang der Mantellinie möglich (Tangentialebene längs der Mantellinie konstant); das konische Grundblech selbst lässt sich nicht als Querschnitts-Extrusion bauen | exakt (Kegelabwicklung Kreisringsektor + Profil-Zugabe); eigene Kegelabwicklung noch nicht umgesetzt |
+
+**Erster Prototyp: Nr. 2 – Gerade Mantelkante eines zylindrischen Blechsegments.** Begründung: alle Flächen K = 0 (exakt abwickelbar), Grundsegment und Aufkantung entstehen aus EINEM Querschnitt (Kreisbögen + Linien) senkrecht zur geraden Kante, die eigene Abwicklung ist damit geschlossen rechenbar und über Volumen/Radien gegen das 3D-Modell prüfbar. Nr. 1 (Bogenkante auf ebenem Blech) ist wegen der Torus-Biegezone NICHT exakt abwickelbar und wird nicht als Erfolg umgesetzt; als konstruktive Sondervarianten kommen nur bewusst wählbare Segmentierung/Freistellung oder ein separater Zargenstreifen in Frage.
+Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = 2.00e-03 1/mm² ≫ Toleranz 1e-09.
+<!-- /AUTO:prototyp -->
+
+**Support-Matrix Kante × Fläche × Bearbeitung (nativ / eigene Geometrie / Klasse):**
+
+<!-- AUTO:kantenwerkzeug -->
+| Bearbeitung | Fläche | Kante | nativ (Fusion) | eigene Geometrie | Klasse |
+|---|---|---|---|---|---|
+| Flansch | eben | gerade Kante | implementiert | eingeschränkt | a |
+| Flansch | eben | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Flansch | eben | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Flansch | eben | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Flansch | Zylinder | gerade Kante | Prototyp (gesperrt) | Prototyp (gesperrt) | b |
+| Flansch | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Zylinder | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Zylinder | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Flansch | Kegel | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Flansch | Kegel | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Kegel | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Kegel | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Kegel | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Kegel | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Flansch | einfach gekrümmt | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Flansch | einfach gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Flansch | einfach gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Flansch | einfach gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | einfach gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | einfach gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Flansch | doppelt gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Flansch | doppelt gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Flansch | doppelt gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Flansch | doppelt gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | doppelt gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | doppelt gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Flansch | Freiform | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Freiform | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Freiform | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Freiform | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Flansch | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | eben | gerade Kante | implementiert | eingeschränkt | a |
+| Umschlag | eben | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | eben | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | eben | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | Zylinder | gerade Kante | Prototyp (gesperrt) | Prototyp (gesperrt) | b |
+| Umschlag | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Zylinder | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Zylinder | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | Kegel | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Umschlag | Kegel | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Kegel | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Kegel | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Kegel | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Kegel | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | einfach gekrümmt | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Umschlag | einfach gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Umschlag | einfach gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Umschlag | einfach gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | einfach gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | einfach gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | doppelt gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | doppelt gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | doppelt gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | doppelt gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | doppelt gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | doppelt gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Umschlag | Freiform | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Freiform | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Freiform | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Freiform | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Umschlag | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | eben | gerade Kante | eingeschränkt | eingeschränkt | a |
+| Doppelfalz | eben | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | eben | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | eben | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | Zylinder | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Doppelfalz | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Zylinder | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Zylinder | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | Kegel | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Doppelfalz | Kegel | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Kegel | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Kegel | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Kegel | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Kegel | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | einfach gekrümmt | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
+| Doppelfalz | einfach gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Doppelfalz | einfach gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Doppelfalz | einfach gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | einfach gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | einfach gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | doppelt gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | doppelt gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | doppelt gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | doppelt gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | doppelt gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | doppelt gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Doppelfalz | Freiform | gerade Kante | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Freiform | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Freiform | Kreis | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Freiform | Ellipse | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
+| Doppelfalz | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
+| Mehrkantflansch mit Gehrung | eben | gerade Kante | eingeschränkt | nicht unterstützt | a |
+| Mehrkantflansch mit Gehrung | eben | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | eben | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | eben | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Zylinder | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Kegel | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Mehrkantflansch mit Gehrung | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | eben | gerade Kante | implementiert | nicht unterstützt | a |
+| Versatz | eben | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | eben | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | eben | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Zylinder | gerade Kante | Prototyp (gesperrt) | nicht unterstützt | e |
+| Versatz | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Zylinder | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Zylinder | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Kegel | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | einfach gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | doppelt gekrümmt | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | gerade Kante | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | Kreisbogen | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | Kreis | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | Ellipse | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
+| Versatz | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
+
+Klassen: **a** native Fusion-Operation unterstützt; **b** eigene exakte Geometrie möglich; **c** nur mit konstruktiver Änderung (Freistellung/Segmentierung); **d** mathematisch nicht exakt abwickelbar; **e** technisch ungeklärt. «implementiert» heisst NICHT live getestet.
+<!-- /AUTO:kantenwerkzeug -->
+
+**Parametrik und Editierbarkeit:** native Bauweise – Fusion-Features (Flansch/Saum) mit ihren Parametern, nachträglich in Fusion änderbar. Eigene Geometrie –
+Konstruktionsebene «an der Kante» + nicht bemasste Skizze + Extrusion (Vereinigen): in der Zeitleiste nachvollziehbar, aber NICHT vollständig parametrisch
+(Masse über erneutes Anwenden); Referenz auf die Kante über die Ebene; ändert sich vorgelagerte Geometrie, kann die Ebene die Kante verlieren (Fusion meldet
+das in der Zeitleiste). Das Profil des Teils steht als Attribut am Körper (für die eigene Abwicklung); wird der Körper danach anders verändert, verweigert
+die eigene Abwicklung über den Rückvergleich die Ausgabe.
