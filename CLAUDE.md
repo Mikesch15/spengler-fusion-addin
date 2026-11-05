@@ -9,4 +9,5 @@
 - Updates: Version in `spengler_cad/__init__.py` + `SpenglerDigital.manifest`; `python3 werkzeug/release_sql.py release <v> "<Text>"`
   → SQL per Supabase ausführen → `… bestaetigen <v>`. ZIP-Grundinstallation = `releases/basis.json`.
 - Cloud: Supabase der Spengler-Digital-App (Repo Spengler---Digital-V1 nur bei Bedarf anhängen, z. B. Zuschnitt `js/29`).
+- Fertige Änderungen IMMER veröffentlichen: Push verifizieren, dann Release-Knopf (`release.yml`, version auto) – Ansage 5.11.2026; nur wenn ein Auftrag es ausdrücklich verbietet, nicht.
 - Jede Antwort endet mit Statusblock (✅ Fertig / ⏳ Läuft / ❓ Von dir). Kein PR ohne Auftrag.
