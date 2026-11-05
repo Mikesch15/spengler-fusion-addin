@@ -46,9 +46,11 @@ def _detail_starr(ctx, ref, flaeche, standoff=2.0):
     comp = fa.quader_komponente(ctx.design.rootComponent, "Live-Test Detail starr", 10.0, 10.0, 5.0)
     occ = fa.occurrence_von(comp)
     occ.transform = fa.matrix_fusion(frames.matrix(ziel))
-    a = fa.abstand_mm(occ, flaeche)
+    gruende = []
+    a = fa.abstand_mm(occ, flaeche, gruende)
     if a is None:
-        raise _lt()._Warnung("Abstand Detail↔Fläche nicht messbar.")
+        # Ohne Messung ist die Ausrichtung NICHT verifiziert – das zählt als Fehler, nicht als «PASS mit Hinweis»
+        raise _lt()._Falsch("Detail starr: Abstand Detail↔Fläche nicht messbar – Ausrichtung NICHT verifiziert (%s)." % ("; ".join(gruende)[:300] or "?"))
     if abs(a - standoff) > 0.05:
         raise _lt()._Falsch("Detail starr: Abstand %.3f mm statt %.2f mm – Ausrichtung an der lokalen Normale stimmt nicht." % (a, standoff))
     return "Detail starr tangential: Abstand %.3f mm (Soll %.2f)" % (a, standoff)
@@ -223,9 +225,42 @@ def t_doppelfalz(ctx):
 R_SEG, WINKEL_SEG, BREITE_SEG, T_SEG = 100.0, 90.0, 80.0, 1.0
 
 
+FIXTURE_GEROLLT = {}       # {"ok": bool, "grund": str} – gesetzt vom Schritt t_fixture_gerollt, gilt für diesen Testlauf
+
+
+def _segment_bauen(name):
+    comp = fa.neue_komponente(name)
+    try:
+        return fa.blech_gerollt(comp, R_SEG, WINKEL_SEG, BREITE_SEG, T_SEG)
+    except fa.AdapterFehler as e:
+        if not fa.komponente_entfernen(comp):
+            raise fa.AdapterFehler(str(e) + " – leere Komponente «%s» nicht entfernt" % name, rueckbau_ok=False)
+        raise
+
+
 def _segment(name):
-    """Fixture 2/5: gerolltes Blechsegment R 100, 90°, Breite 80, Dicke 1 (Konturflansch) – Zylinder mit geraden UND gekrümmten Kanten."""
-    return fa.blech_gerollt(fa.neue_komponente(name), R_SEG, WINKEL_SEG, BREITE_SEG, T_SEG)
+    """Fixture 2/5: gerolltes Blechsegment R 100, 90°, Breite 80, Dicke 1 (Konturflansch) – Zylinder mit geraden UND gekrümmten Kanten.
+    Ist der Testkörper in diesem Lauf nicht erzeugbar (Schritt «Testkörper gerolltes Blech»), wird der abhängige Test NICHT GETESTET gemeldet –
+    nicht viermal derselbe Fehler, und nie als bestanden."""
+    if FIXTURE_GEROLLT.get("ok") is False:
+        raise _lt()._Uebersprungen("Testkörper «gerolltes Blech» per API nicht erzeugbar – siehe Schritt «Testkörper gerolltes Blech (Konturflansch)»: "
+                                   + FIXTURE_GEROLLT.get("grund", "")[:200])
+    return _segment_bauen(name)
+
+
+def t_fixture_gerollt(ctx):
+    """Testkörper gerolltes Blech (Konturflansch R 100 / 90° / 80 / 1 mm) einmal erzeugen und prüfen: echter Blechkörper, zwei Zylinderflächen mit
+    Radiusdifferenz = Dicke. Scheitert er, meldet der Schritt die Fusion-Signaturen und Antworten (Ursachenanalyse) und die abhängigen Prototyp-Tests
+    werden NICHT GETESTET. Modell nach dem Fehler: Komponente wieder entfernt."""
+    lt = _lt()
+    FIXTURE_GEROLLT.clear()
+    try:
+        body = _segment_bauen("Live-Test Testkörper gerollt")
+    except fa.AdapterFehler as e:
+        FIXTURE_GEROLLT.update(ok=False, grund=str(e))
+        raise lt._Falsch("Testkörper nicht erzeugt (Rückbau %s): %s" % ("ok" if getattr(e, "rueckbau_ok", True) else "UNVOLLSTÄNDIG", e))
+    FIXTURE_GEROLLT.update(ok=True)
+    return "Gerolltes Blech erzeugt: Radien %s mm, Blechkörper %s" % (fa.zylinderradien_mm(body), getattr(body, "isSheetMetal", None))
 
 
 def _mantelkanten(body):
@@ -423,6 +458,7 @@ SCHRITTE = [
     ("Gekrümmt: Torus – nicht abwickelbar erkannt", t_torus, False),
     ("Gekrümmt: Übergang Zylinder → Kegel (Abwickelbarkeit)", t_zylinder_kegel, False),
     ("Gekrümmt: Teilkegel – Grenzen (Matrix, Fusion-Anfrage)", t_kegel_grenzen, False),
+    ("Testkörper gerolltes Blech (Konturflansch)", t_fixture_gerollt, False),
     ("PROTOTYP: Flansch an gerader Kante eines gerollten Zylinderblechs", t_proto_flansch_zylinder, False),
     ("PROTOTYP: Umschlag an gerader Kante eines gerollten Zylinderblechs", t_proto_umschlag_zylinder, False),
     ("PROTOTYP: Versatz als Bogenlänge am Zylinderblech", t_proto_versatz_zylinder, False),

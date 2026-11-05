@@ -41,3 +41,11 @@ def bewerte_eckspalt(abstand_mm, dicke_mm, toleranz_mm=None):
     if abstand_mm <= tol:
         return "ok", "Eckspalt %.2f mm (≤ %.2f mm) – Gehrung geschlossen." % (abstand_mm, tol)
     return "fehler", "Eckspalt %.2f mm – grösser als %.2f mm, die Ecke ist offen." % (abstand_mm, tol)
+
+
+def diagnose(kandidaten, e1, e2, nb, ecke, n_max=8):
+    """Kurztext der eckennächsten ebenen Flächen: Abstand zur Ecke, |n·nb|, |n·e1|, |n·e2| – zeigt, WARUM keine Gehrungsfläche erkannt wurde
+    (z. B. stumpfe Ecke: Stirnfläche ⟂ einer Kante, |n·e| = 1)."""
+    z = sorted(kandidaten, key=lambda k: _abstand(k[2], ecke))[:n_max]
+    return "; ".join("d %.1f mm, nb %.2f, e1 %.2f, e2 %.2f" % (_abstand(c, ecke), abs(_skal(n, nb)), abs(_skal(n, e1)), abs(_skal(n, e2)))
+                     for _i, n, c in z) or "keine"

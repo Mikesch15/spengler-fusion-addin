@@ -280,7 +280,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 
 Für jeden Test erfassen: Voraussetzungen/Ausgangszustand · Bedienungsschritte · erwartetes Ergebnis · tatsächliches Ergebnis · **bestanden / nicht bestanden
 / nicht durchführbar** · Fusion-Version (Hilfe → Über) und Betriebssystem · bei Fehlern Bildschirmfoto und Protokoll (Palette → Sicherung → «Protokoll
-öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.57 oder neuer.
+öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.59 oder neuer.
 
 **Vorbereitung (für alle Tests):** Materialprofil mit Dicke 1.0 mm, Innenradius 1.0 mm und K-Faktor (z. B. 0.44) anlegen; Auftrag wählen (falls
 «Auftrag erforderlich» eingestellt ist); Vorlage mit genau einem Flansch 90° / 20 mm (Kurzschrift im Expertenmodus z. B. `90 20`).
@@ -318,6 +318,11 @@ Erwartet: genau diese Zeile (✓ PASS). Nicht bestanden: «ANDERER Fehler», «V
 Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).
 
 **Test 6 – entfällt ab 0.4.57** (es wird keine Prüf-Abwicklung mehr angelegt oder gelöscht).
+
+**Ab 0.4.59 im Live-Test zusätzlich:** Schritt «Rückbau bei provoziertem Fehler» führt ALLE Proben aus (Root 1.0 mm, neue Komponente 0.65 mm, Gruppe) und
+nennt bei «UNVOLLSTÄNDIG» das Restobjekt; Schritt «Testkörper gerolltes Blech (Konturflansch)» – scheitert er, stehen die vier Prototyp-Schritte auf
+NICHT GETESTET; Gehrung ohne gefundene Gehrungsflächen = Warnung mit Flächendiagnose; Abstand Detail↔Fläche nicht messbar = FEHLER. Abnahme Rückbau:
+beide Rückbau-Schritte bei zwei Läufen hintereinander grün.
 
 **Abgabe:** Bericht 97.002 (automatisch bei «Ergebnis senden») bzw. `livetest.txt` aus dem Datenordner, dazu je Test 1–4 eine Zeile «bestanden / nicht
 bestanden / nicht durchführbar», Fusion-Version, Betriebssystem, Bildschirmfotos und die DXF aus Test 3. Ein bestandener Live-Test ist KEINE

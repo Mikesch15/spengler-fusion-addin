@@ -59,6 +59,9 @@ def _namen(obj):
         return []
 
 
+LETZTE_FLANSCH_EINGABE = {}      # Diagnose für den Live-Test: zuletzt an der EdgeFlangeInput zurückgelesene Werte
+
+
 def setze(obj, namen, wert):
     """Erste vorhandene Eigenschaft/Methode setzen → Name oder None. Protokolliert Fehlversuche."""
     for n in namen:
@@ -505,6 +508,10 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
             raise AdapterFehler("Die Flanschrichtung (nach hinten) lässt sich nicht einstellen – abgebrochen.")
     if len(kanten) > 1:
         setze(inp, ["isMiteredCorners"], True)
+        try:
+            LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = getattr(inp, "isMiteredCorners", None)   # an der EINGABE zurückgelesen (Feature gibt es nicht her)
+        except Exception:
+            LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = None
     if bezug:
         if not setze(inp, ["heightDatumType"], getattr(adsk.fusion.FlangeHeightDatumTypes, BEZUEGE[bezug])):
             raise AdapterFehler("Der Massbezug «%s» lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % bezug)
@@ -704,6 +711,26 @@ def _flatpattern_lesen(comp):
         return None, False
 
 
+def _ist_regel(o):
+    return type(o).__name__ == "SheetMetalRule" or (hasattr(o, "thickness") and hasattr(o, "kFactor"))
+
+
+def _regel_in_design(name):
+    """True/False: Regel dieses Namens steht in den Design-Blechregeln; None: nicht lesbar. Nicht live geprüft."""
+    try:
+        r = design().designSheetMetalRules
+        return any(r.item(i).name == name for i in range(r.count))
+    except Exception:
+        return None
+
+
+def _regel_verwendet(o):
+    try:
+        return " (Regel wird noch verwendet)" if getattr(o, "isUsed", False) else ""
+    except Exception:
+        return ""
+
+
 def _loeschen(o):
     """Ein Fusion-Objekt löschen und das Ergebnis PRÜFEN. → None = weg (oder war schon weg), sonst Problemtext mit Objektname/-typ.
     deleteMe() → False gilt als Fehlschlag (nicht als Erfolg); ein Objekt, das danach noch gültig ist, ebenso. Nicht live geprüft."""
@@ -715,10 +742,24 @@ def _loeschen(o):
     except Exception:
         pass
     name = _objektname(o)
+    regel = _ist_regel(o)
+    try:
+        regel_name = o.name if regel else None
+    except Exception:
+        regel_name = None
     try:
         r = o.deleteMe()
     except Exception as e:
-        return "%s: Löschen fehlgeschlagen (%s)" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1][:120])
+        return "%s: Löschen fehlgeschlagen (%s)%s" % (name, (str(e).strip().splitlines() or [type(e).__name__])[-1][:120], _regel_verwendet(o) if regel else "")
+    if regel and regel_name:
+        # Blechregeln: Nachweis über die Liste der Design-Regeln (isValid allein ist bei Regeln nicht belastbar) – siehe Rückbau-Analyse 0.4.59
+        da = _regel_in_design(regel_name)
+        if da is False:
+            if r is False:
+                logger.info("Blechregel: deleteMe() meldete False, die Regel fehlt aber in den Design-Regeln – gilt als entfernt", regel=regel_name)
+            return None
+        if da is True:
+            return "%s: nach dem Löschen noch in den Design-Regeln%s%s" % (name, " (deleteMe() meldet False)" if r is False else "", _regel_verwendet(o))
     if r is False:
         return "%s: deleteMe() meldet False (nicht gelöscht)" % name
     try:
@@ -1619,32 +1660,51 @@ def ecke_daten(kanten):
 
 
 def gehrung_eckspalt(feat, daten, dicke_mm):
-    """Gemeinsamen Flansch an einer Ecke GEOMETRISCH prüfen (nicht nur Volumen): Gehrungsflächen des Features suchen (core/gehrung) und ihren kleinsten
+    """Gemeinsamen Flansch an einer Ecke GEOMETRISCH prüfen (nicht nur Volumen): Gehrungsflächen suchen (core/gehrung) und ihren kleinsten
     Abstand mit Fusions MeasureManager messen. daten = ecke_daten(kanten) VOR dem Bau. → ('ok'|'fehler'|'unbekannt', Text).
-    Nicht live geprüft (Annahme: die Gehrungsflächen sind ebene Stirnflächen der Flansche, Normale in der Blechebene, gleicher Winkel zu beiden Kanten)."""
+    Gesucht wird zuerst unter den Flächen des Features, sonst unter den ebenen Flächen des ganzen Körpers in Eckennähe (Live 0.4.57: 0 Treffer
+    unter den Feature-Flächen). Findet sich nichts, nennt der Text die eckennahen ebenen Flächen mit ihren Winkeln – für die Ursachenanalyse.
+    Nicht live geprüft (Annahme: Gehrungsflächen sind ebene Stirnflächen, Normale in der Blechebene, gleicher Winkel zu beiden Kanten)."""
     from ..core import gehrung
     if not daten:
         return "unbekannt", "Die Ecke der Kanten war nicht lesbar."
-    try:
-        kandidaten = []
-        for f in feat.faces:
+
+    def ebene(flaechen):
+        out = []
+        for f in flaechen:
             try:
                 if not isinstance(f.geometry, adsk.core.Plane):
                     continue
                 c = f.centroid
-                kandidaten.append((f, tuple(flaechennormale(f)), (c.x, c.y, c.z)))
+                out.append((f, tuple(flaechennormale(f)), (c.x * 10.0, c.y * 10.0, c.z * 10.0)))
             except Exception:
                 continue
-        gw = gehrung.gehrungsflaechen([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], daten["ecke"])
+        return out
+    try:
+        ecke_mm = tuple(x * 10.0 for x in daten["ecke"])
+        quelle, kandidaten = "Feature", ebene(feat.faces)
+        gw = gehrung.gehrungsflaechen([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm)
         if len(gw) < 2:
-            return "unbekannt", "Gehrungsflächen nicht eindeutig gefunden (%d) – Ecke bitte ansehen." % len(gw)
+            koerper = []
+            try:
+                koerper = list(feat.bodies)
+            except Exception:
+                pass
+            quelle = "Körper"
+            kandidaten = ebene(f for b in koerper for f in b.faces)
+            gw = gehrung.gehrungsflaechen([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm,
+                                          reichweite_mm=60.0)
+        if len(gw) < 2:
+            return "unbekannt", "Gehrungsflächen nicht eindeutig gefunden (%d) – Ecke bitte ansehen. Eckennahe ebene Flächen: %s" % (
+                len(gw), gehrung.diagnose([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm))
         mm = app().measureManager
         bester = None
         for i in range(len(gw)):
             for j in range(i + 1, len(gw)):
                 d = mm.measureMinimumDistance(kandidaten[gw[i]][0], kandidaten[gw[j]][0]).value * 10.0
                 bester = d if bester is None else min(bester, d)
-        return gehrung.bewerte_eckspalt(bester, dicke_mm)
+        s_, t_ = gehrung.bewerte_eckspalt(bester, dicke_mm)
+        return s_, "%s (%d Gehrungsflächen aus %s)" % (t_, len(gw), quelle)
     except Exception as e:
         return "unbekannt", "Eckspalt nicht messbar (%s)." % ((str(e).strip().splitlines() or [type(e).__name__])[-1][:100])
 
@@ -2212,6 +2272,20 @@ def zylinderradien_mm(body):
     return sorted(set(r))
 
 
+def _signatur(fn):
+    """Tatsächliche Signatur einer Fusion-API-Methode (Python-Hülle in adsk/fusion.py) – für die Ursachenanalyse im Live-Test."""
+    import inspect
+    try:
+        s = str(inspect.signature(fn))
+    except Exception:
+        s = "?"
+    try:
+        d = " ".join((getattr(fn, "__doc__", "") or "").split())[:240]
+    except Exception:
+        d = ""
+    return s + ((" – " + d) if d else "")
+
+
 def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
     """PROTOTYP (Korrekturauftrag Phase 3/8): gerolltes Blechsegment als ECHTER Blechkörper – Konturflansch aus einem offenen Kreisbogen
     (Radius auf der Skizzenseite, Bogenwinkel) über die Breite entlang Y, Blechregel mit Soll-Dicke. Fusions API für den Konturflansch ist
@@ -2239,18 +2313,34 @@ def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
             antworten, feat = [], None
             breite = _vi_mm(breite_mm)
             formen = []
-            try:
-                formen.append(("Path", adsk.fusion.Path.create(bogen, adsk.fusion.ChainedCurveOptions.noChainedCurves)))
-            except Exception as e:
-                antworten.append("Path: %s" % ((str(e).strip().splitlines() or ["?"])[-1][:100]))
-            oc = adsk.core.ObjectCollection.create()
-            oc.add(bogen)
-            formen += [("Bogen", bogen), ("ObjectCollection", oc), ("Liste", [bogen])]
+            # Live 0.4.57: Path.create(native Kurve) → «getObjectPath(sketchCurve …)» in einer AKTIVIERTEN Unterkomponente. Deshalb zusätzlich die
+            # Kurve im Kontext der Occurrence (Proxy). Alle Formen werden versucht, alle Antworten gemeldet (Ursachenanalyse, nicht live geprüft).
+            occ = _occurrence_von(comp)
+            kurven = [("Bogen", bogen)]
+            if occ is not None:
+                try:
+                    kurven.append(("Bogen-Proxy", bogen.createForAssemblyContext(occ)))
+                except Exception as e:
+                    antworten.append("Proxy: %s" % ((str(e).strip().splitlines() or ["?"])[-1][:100]))
+            for kn, k in kurven:
+                try:
+                    formen.append(("Path(%s)" % kn, adsk.fusion.Path.create(k, adsk.fusion.ChainedCurveOptions.noChainedCurves)))
+                except Exception as e:
+                    antworten.append("Path(%s): %s" % (kn, (str(e).strip().splitlines() or ["?"])[-1][:100]))
+            pfade = [(n, f) for n, f in formen]
+            for kn, k in kurven:
+                oc = adsk.core.ObjectCollection.create()
+                oc.add(k)
+                formen += [(kn, k), ("ObjectCollection(%s)" % kn, oc), ("Liste(%s)" % kn, [k])]
+            formen += [("Liste(%s)" % n, [f]) for n, f in pfade]
             for methode in ("createContourFlangeInput", "createBaseFlangeInput"):
                 fn = getattr(ff, methode, None)
                 if fn is None:
                     antworten.append("%s fehlt" % methode)
                     continue
+                sig = _signatur(fn)
+                antworten.insert(0, "Signatur %s: %s" % (methode, sig))
+                logger.info("API-Signatur", methode=methode, signatur=sig)
                 for name, arg in formen:
                     for mit_breite in (True, False):
                         try:
@@ -2275,7 +2365,8 @@ def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
                 if feat is not None:
                     break
             if feat is None or comp.bRepBodies.count <= vorher:
-                raise AdapterFehler("Fusion hat kein gerolltes Blech erzeugt (Konturflansch per API nicht möglich?). Antworten: " + " | ".join(antworten[:12]))
+                raise AdapterFehler("Fusion hat kein gerolltes Blech erzeugt – Konturflansch mit keiner der versuchten Aufrufformen möglich "
+                                    "(Ursache offen: API-Verwendung oder in dieser Fusion-Version nicht unterstützt). Antworten: " + " | ".join(antworten[:24]))
             _testfehler("gerollt_feature")
             body = comp.bRepBodies.item(comp.bRepBodies.count - 1)
             radien = zylinderradien_mm(body)
@@ -3264,13 +3355,46 @@ def kollision_pruefen(occ, andere_koerper):
         return {"art": "grob", "treffer": [(n, None) for n in kollision(occ, andere_koerper)]}
 
 
-def abstand_mm(a, b):
-    """Kleinster Abstand zweier Fusion-Objekte (Körper, Occurrence, Fläche) in mm über den MeasureManager; 0 = Berührung oder Überschneidung.
-    None = nicht messbar. Nicht live geprüft."""
+def _messobjekte(o):
+    """MeasureManager misst BRep-Objekte, KEINE Occurrence (Live 0.4.57: «Abstand Detail↔Fläche nicht messbar»). Occurrence → ihre Körper (Proxys im
+    Baugruppenkontext); Fläche/Körper einer Unterkomponente ohne Kontext → zusätzlich als Proxy über deren Occurrence."""
+    if o is None:
+        return []
+    if hasattr(o, "transform") and hasattr(o, "bRepBodies") and hasattr(o, "component"):
+        try:
+            return [o.bRepBodies.item(i) for i in range(o.bRepBodies.count)]
+        except Exception:
+            return []
+    out = [o]
     try:
-        return app().measureManager.measureMinimumDistance(a, b).value * 10.0
+        if getattr(o, "assemblyContext", None) is None:
+            comp = o.body.parentComponent if hasattr(o, "body") else getattr(o, "parentComponent", None)
+            occ = _occurrence_von(comp) if comp is not None else None
+            if occ is not None:
+                out.insert(0, o.createForAssemblyContext(occ))
     except Exception:
+        pass
+    return out
+
+
+def abstand_mm(a, b, gruende=None):
+    """Kleinster Abstand zweier Fusion-Objekte (Körper, Occurrence, Fläche) in mm über den MeasureManager; 0 = Berührung oder Überschneidung.
+    None = nicht messbar; die Fusion-Antworten stehen dann in `gruende` (Liste, optional). Nicht live geprüft."""
+    gruende = gruende if gruende is not None else []
+    xa, xb = _messobjekte(a), _messobjekte(b)
+    if not xa or not xb:
+        gruende.append("keine messbaren Objekte (%s / %s)" % (type(a).__name__, type(b).__name__))
         return None
+    bester = None
+    for x in xa:
+        for y in xb:
+            try:
+                v = app().measureManager.measureMinimumDistance(x, y).value * 10.0
+            except Exception as e:
+                gruende.append("%s↔%s: %s" % (type(x).__name__, type(y).__name__, (str(e).strip().splitlines() or ["?"])[-1][:100]))
+                continue
+            bester = v if bester is None else min(bester, v)
+    return bester
 
 
 def kollision(occ, andere_koerper):

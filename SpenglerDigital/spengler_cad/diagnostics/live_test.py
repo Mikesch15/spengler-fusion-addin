@@ -68,15 +68,29 @@ def _zustand(root):
     except Exception:
         vol = None
     d = fa.design()
-    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": summe("sketches"), "koerper": summe("bRepBodies"), "vol": vol,
+
+    def regelnamen():
+        r = d.designSheetMetalRules
+        return tuple(sorted(r.item(i).name for i in range(r.count)))
+
+    def abwicklungen():
+        n = 0
+        for c in alle(root):
+            fp, lesbar = fa._flatpattern_lesen(c)
+            if not lesbar:
+                return None                                 # beschädigt/unlesbar → nicht messbar, nie «unverändert»
+            n += 1 if fp else 0
+        return n
+    return {"zeitleiste": fa.zeitleiste_stand(), "konstruktionspunkte": summe("constructionPoints"), "abwicklungen": zahl(abwicklungen),
+            "blechregel_namen": zahl(regelnamen), "skizzen": summe("sketches"), "koerper": summe("bRepBodies"), "vol": vol,
             "konstruktionsebenen": summe("constructionPlanes"), "konstruktionsachsen": summe("constructionAxes"),
             "occurrences": zahl(lambda: root.allOccurrences.count), "komponenten": zahl(lambda: d.allComponents.count),
             "parameter": zahl(lambda: d.userParameters.count), "blechregeln": zahl(lambda: d.designSheetMetalRules.count),
             "canvases": zahl(lambda: root.canvases.count)}
 
 
-ZUSTAND_GLEICH = ("zeitleiste", "skizzen", "koerper", "konstruktionsebenen", "konstruktionsachsen", "occurrences", "komponenten",
-                  "parameter", "blechregeln", "canvases")
+ZUSTAND_GLEICH = ("zeitleiste", "skizzen", "koerper", "konstruktionsebenen", "konstruktionsachsen", "konstruktionspunkte", "occurrences",
+                  "komponenten", "parameter", "blechregeln", "blechregel_namen", "abwicklungen", "canvases")
 
 
 def _oberflaeche(body, seite="oben"):
@@ -225,6 +239,21 @@ def t_blech_ungueltig(ctx):
     return "; ".join(erg) + "; keine Teilgeometrie"
 
 
+def proben_sammeln(proben):
+    """Mehrere Rückbau-Proben NACHEINANDER vollständig ausführen (früher brach der Schritt bei der ersten fehlgeschlagenen Probe ab, die übrigen
+    liefen gar nicht). → Text; scheitert mindestens eine, _Falsch mit ALLEN Ergebnissen. proben: [(stelle, aufruf)] mit aufruf() → Text."""
+    zeilen, falsch = [], False
+    for stelle, aufruf in proben:
+        try:
+            zeilen.append(aufruf())
+        except _Falsch as e:
+            falsch = True
+            zeilen.append("✗ " + str(e))
+    if falsch:
+        raise _Falsch("\n".join(zeilen))
+    return "\n".join(zeilen)
+
+
 def _rueckbau_probe(ctx, stelle, bauen):
     """Fehler an einer Stelle absichtlich auslösen und den Modellzustand vor/nach vergleichen (Rückbau-Akzeptanztest)."""
     vorher = _zustand(ctx.design.rootComponent)
@@ -254,11 +283,11 @@ def _rueckbau_probe(ctx, stelle, bauen):
 
 def t_rueckbau(ctx):
     """Provozierte Fehler nach Skizze bzw. Extrusion des Versatzes und nach dem Basisflansch: danach darf nichts übrig sein."""
-    erg = []
+    proben = []
     for stelle in ("versatz_skizze", "versatz_extrusion"):
-        erg.append(_rueckbau_probe(ctx, stelle, lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=5.0)], ctx.dicke, {"livetest": 1}, [])))
-    erg.append(_rueckbau_probe(ctx, "folge_nach_schritt", lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH)], ctx.dicke, {"livetest": 1}, [])))
-    erg.append(_rueckbau_probe(ctx, "grundblech_feature", lambda: fa.grundblech_bauen(ctx.root, LAENGE, BREITE, 1.0)))
+        proben.append((stelle, lambda s=stelle: _rueckbau_probe(ctx, s, lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=5.0)], ctx.dicke, {"livetest": 1}, []))))
+    proben.append(("folge_nach_schritt", lambda: _rueckbau_probe(ctx, "folge_nach_schritt", lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH)], ctx.dicke, {"livetest": 1}, []))))
+    proben.append(("grundblech_feature (Root, 1.0 mm)", lambda: "[Root 1.0 mm] " + _rueckbau_probe(ctx, "grundblech_feature", lambda: fa.grundblech_bauen(ctx.root, LAENGE, BREITE, 1.0))))
     # Neue Komponente mit NEUER Blechregel (0.65 mm): nach dem Fehler darf weder Komponente noch Regel übrig sein (Blechregeln im Zustand)
     def neu_mit_regel():
         comp = fa.neue_komponente("Live-Test Rückbau Regel")
@@ -268,9 +297,9 @@ def t_rueckbau(ctx):
             if not fa.komponente_entfernen(comp):
                 raise fa.AdapterFehler(str(e) + " – Komponente nicht entfernt", rueckbau_ok=False)
             raise
-    erg.append(_rueckbau_probe(ctx, "grundblech_feature", neu_mit_regel))
-    erg.append(_rueckbau_probe(ctx, "gruppe_nach_versatz", lambda: fa.folge_anbringen_gruppe(_eckkanten(ctx), [_op("flansch", 90, FLANSCH, versatz=-5.0)], ctx.dicke, {"livetest": 1}, [])))
-    return "\n".join(erg)
+    proben.append(("grundblech_feature (neue Komponente, neue Regel 0.65 mm)", lambda: "[neue Komponente 0.65 mm] " + _rueckbau_probe(ctx, "grundblech_feature", neu_mit_regel)))
+    proben.append(("gruppe_nach_versatz", lambda: _rueckbau_probe(ctx, "gruppe_nach_versatz", lambda: fa.folge_anbringen_gruppe(_eckkanten(ctx), [_op("flansch", 90, FLANSCH, versatz=-5.0)], ctx.dicke, {"livetest": 1}, []))))
+    return proben_sammeln(proben)
 
 
 def _detail_datei(ctx):
@@ -395,7 +424,11 @@ def t_gehrung_flansch(ctx):
     ratio = messung.pruefe_flansch(vor, gemeinsam, 90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kanten[0]) + _laenge_mm(kanten[1]))
     if ratio[0] == "fehler":
         s, t = "fehler", "Gemeinsamer Flansch: " + ratio[1]
-    return _bewerten((s, "isMiteredCorners=%s; %s" % (mit, t)))
+    eingabe = fa.LETZTE_FLANSCH_EINGABE.get("isMiteredCorners")
+    # Volumen-/Flächenvergleich ist nur ein Indiz: ohne GEOMETRISCH nachgewiesene Gehrungsflächen (bew == ok) gilt die Ecke als NICHT verifiziert
+    if bew != "ok" and s == "ok":
+        s = "warnung"
+    return _bewerten((s, "isMiteredCorners: Feature=%s, Eingabe=%s; %s" % (mit, eingabe, t)))
 
 
 def _gruppe(ctx, ops, name, features_soll=None, erwartete_hinweise=()):
@@ -548,6 +581,10 @@ class _Warnung(Exception):
     """Schritt lief, aber das Ergebnis ist auffällig."""
 
 
+class _Uebersprungen(Exception):
+    """Schritt NICHT getestet (z. B. Testkörper nicht erzeugbar) – mit Grund; zählt nie als bestanden."""
+
+
 class _Falsch(Exception):
     """Schritt lief ohne Fusion-Fehler, aber das gemessene Ergebnis ist geometrisch falsch."""
 
@@ -631,6 +668,8 @@ def ausfuehren(fortschritt=None):
                 else:
                     ctx = _Ctx(design, root, None, 1.0)
                 detail = funktion(ctx) or ""
+            except _Uebersprungen as w:
+                status, detail = "uebersprungen", str(w)
             except _Warnung as w:
                 status, detail = "warnung", str(w)
             except _Falsch as w:

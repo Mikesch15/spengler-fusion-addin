@@ -20,11 +20,11 @@ def _senden(ergebnisse, text, marke=0, cloud=None):
     c = cloud or Cloud(paths.daten_ordner(), timeout=20)
     if not c.angemeldet:
         return False
-    auff = bericht.auffaelliges(ergebnisse)
+    kopf = text.splitlines()[0] if text else ""
     c.test_speichern({"test_id": bericht.TEST_ID, "text": "Live-Test %s: %s" % (VERSION, bericht.kurz(ergebnisse)),
                       "status": bericht.gesamtstatus(ergebnisse),
-                      "notiz": logger.maskiere(("; ".join("%s: %s" % (e["name"], (e.get("detail") or "").splitlines()[0] if e.get("detail") else "") for e in auff))[:4000] or "Alles ok."),
-                      "protokoll": (logger.maskiere(text) + "\n\n--- Protokoll (nur seit Teststart) ---\n" + logger.seit(marke))[-19000:], "addin_version": VERSION,
+                      "notiz": logger.maskiere(bericht.cloud_notiz(ergebnisse))[:bericht.NOTIZ_MAX],
+                      "protokoll": logger.maskiere(bericht.cloud_protokoll(ergebnisse, kopf, logger.seit(marke)))[:bericht.PROTOKOLL_MAX], "addin_version": VERSION,
                       "fusion_version": logger.fusion_version(),
                       "geaendert_am": datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds")})
     return True

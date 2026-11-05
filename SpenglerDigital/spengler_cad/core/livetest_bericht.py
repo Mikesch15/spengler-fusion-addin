@@ -46,3 +46,32 @@ def meldung(ergebnisse):
     if not a:
         return "Alle %d geprüften Funktionen haben in Fusion funktioniert." % len(ergebnisse)
     return "Auffällig (%d):\n" % len(a) + "\n".join("%s %s – %s" % (SYMBOL[e["status"]], e["name"], ((e.get("detail") or "").strip().splitlines() or [""])[0][:160]) for e in a)
+
+
+NOTIZ_MAX, PROTOKOLL_MAX = 4000, 19800           # Grenzen der Cloud-Tabelle cad_testergebnisse (CHECK 4000 / 20000)
+
+
+def cloud_notiz(ergebnisse, je_schritt=260, grenze=NOTIZ_MAX):
+    """Kurzfassung für das Notizfeld: JEDER auffällige Schritt bekommt Platz (je höchstens `je_schritt` Zeichen) – früher füllte ein langer
+    Schritt (gerolltes Blech) die 4000 Zeichen und spätere Schritte fehlten."""
+    teile = []
+    for e in auffaelliges(ergebnisse):
+        d = " / ".join(x.strip() for x in (e.get("detail") or "").strip().splitlines() if x.strip())
+        teile.append(("%s %s: %s" % (SYMBOL.get(e.get("status"), "?"), e.get("name", ""), d))[:je_schritt])
+    return ("; ".join(teile) or "Alles ok.")[:grenze]
+
+
+def cloud_protokoll(ergebnisse, kopf, log, grenze=PROTOKOLL_MAX):
+    """Protokollfeld: ZUERST die vollständigen Details aller auffälligen Schritte, dann die Liste aller Schritte, zuletzt das Protokoll im
+    restlichen Platz (dessen Ende, mit den Fehler-Traces). Früher: Bericht + Protokoll, vorne abgeschnitten – der Bericht ging verloren."""
+    a = auffaelliges(ergebnisse)
+    zeilen = [kopf, "Ergebnis: " + kurz(ergebnisse), "", "=== Auffällige Schritte (vollständig) ==="]
+    for e in a:
+        zeilen.append("%s %s %s" % (SYMBOL.get(e.get("status"), "?"), WORT.get(e.get("status"), "?"), e.get("name", "")))
+        zeilen.extend("      " + x for x in (e.get("detail") or "").strip().splitlines())
+    zeilen += ["", "=== Alle Schritte ==="]
+    zeilen += ["%s %d. %s" % (SYMBOL.get(e.get("status"), "?"), i, e.get("name", "")) for i, e in enumerate(ergebnisse, 1)]
+    bericht = "\n".join(z for z in zeilen if z is not None)[: grenze - 200]
+    rest = grenze - len(bericht) - 60
+    log = log or ""
+    return bericht + "\n\n--- Protokoll (Ende, nur seit Teststart) ---\n" + (log[-rest:] if rest > 0 else "")
