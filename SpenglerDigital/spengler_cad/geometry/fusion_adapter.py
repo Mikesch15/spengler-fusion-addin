@@ -932,6 +932,113 @@ def versatz_text(versatz_mm):
     return gr.versatz_definition(gr.referenz("eben", (0, 0, 0), (0, 0, 1), (1, 0, 0), "linie"), versatz_mm, "tangential")[1]
 
 
+def versatz_zylinder(edge, versatz_mm, dicke_mm):
+    """PROTOTYP (Korrekturauftrag Phase 5): Versatz einer GERADEN Kante parallel zur Achse eines gerollten Blechs als BOGENLÄNGE entlang des Mantels
+    (tangential in der Fläche, nicht global): + = Streifen abschneiden, − = anfügen. Exakt per Drehung eines Rechtecks (Ebene durch Achse und Kante)
+    um die Zylinderachse um Δφ = Versatz / Radius der Bezugsfläche. Prüfung: Volumenänderung = Versatz × Kantenlänge × Dicke, neue Kante parallel zur
+    Achse am gedrehten Ort. Eigene Konstruktionsachse/-ebene/Skizze/Feature werden bei jedem Fehler zurückgebaut. → (erzeugte Objekte, neue Kante).
+    NICHT live geprüft."""
+    import math
+    f = bezugsflaeche(edge)
+    if f is None or flaechentyp(f) != "zylinder":
+        raise AdapterFehler("Zylinder-Versatz: Die Bezugsfläche der Kante ist kein Zylinder.")
+    if _kurventyp(edge) != "linie":
+        raise AdapterFehler("Zylinder-Versatz nur an einer GERADEN Kante (Mantellinie).")
+    cyl = f.geometry
+    o, a = _v(cyl.origin), _einheit(_v(cyl.axis))
+    p0, p1 = _v(edge.startVertex.geometry), _v(edge.endVertex.geometry)
+    richt = _einheit(_plus(p1, p0, 1.0, -1.0))
+    if abs(abs(_skal(richt, a)) - 1.0) > 1e-4:
+        raise AdapterFehler("Zylinder-Versatz: Die Kante liegt nicht parallel zur Zylinderachse – Versatz nicht eindeutig.")
+    R = cyl.radius
+    t = dicke_mm / 10.0
+    dphi = (versatz_mm / 10.0) / R
+    comp = edge.body.parentComponent
+    koerper = edge.body
+    rb = Rueckbau("Zylinder-Versatz")
+    try:
+        ai = comp.constructionAxes.createInput()
+        ai.setByCylinderOrConeOrTorus(f)
+        achse = rb.merke(comp.constructionAxes.add(ai))
+        pi = comp.constructionPlanes.createInput()
+        pi.setByTwoEdges(achse, edge)
+        ebene = rb.merke(comp.constructionPlanes.add(pi))
+        sk = rb.merke(comp.sketches.add(ebene))
+        _testfehler("versatz_zyl_skizze")
+        w = _plus(p0, o, 1.0, -1.0)
+        radial = _einheit(_plus(w, a, 1.0, -_skal(w, a)))
+        aussen = _skal(flaechennormale(f, edge.startVertex.geometry), radial) > 0
+        r_lo, r_hi = (R - t - 0.002, R + 0.002) if aussen else (R - 0.002, R + t + 0.002)
+        s0, s1 = _skal(_plus(p0, o, 1.0, -1.0), a), _skal(_plus(p1, o, 1.0, -1.0), a)
+        lo, hi = min(s0, s1) - 0.01, max(s0, s1) + 0.01
+
+        def P(axial, rad):
+            q = _plus(_plus(o, a, 1.0, axial), radial, 1.0, rad)
+            return sk.modelToSketchSpace(adsk.core.Point3D.create(*q))
+        sk.sketchCurves.sketchLines.addTwoPointRectangle(P(lo, r_lo), P(hi, r_hi))
+        prof = sk.profiles.item(0)
+        rv = comp.features.revolveFeatures
+        vol0 = koerper.volume
+        soll = abs(versatz_mm / 10.0) * abs(s1 - s0) * t
+        feat, versuche = None, []
+        for vz in (1.0, -1.0):
+            op_ = adsk.fusion.FeatureOperations.CutFeatureOperation if versatz_mm > 0 else adsk.fusion.FeatureOperations.JoinFeatureOperation
+            ri = rv.createInput(prof, achse, op_)
+            ri.setAngleExtent(False, adsk.core.ValueInput.createByReal(vz * abs(dphi)))
+            try:
+                ri.participantBodies = [koerper]
+            except Exception:
+                pass
+            try:
+                f_ = rv.add(ri)
+            except Exception as e:
+                versuche.append("Richtung %+g: %s" % (vz, (str(e).strip().splitlines() or ["?"])[-1][:100]))
+                continue
+            k_neu = _koerper_nach(comp, koerper, f_, vol0 + (soll if versatz_mm < 0 else -soll), 0.5 * soll)
+            delta = (k_neu.volume - vol0) if k_neu is not None else None
+            if delta is not None and ((versatz_mm > 0 and -1.5 * soll < delta < -0.5 * soll) or (versatz_mm < 0 and 0.5 * soll < delta < 1.5 * soll)):
+                feat, koerper = rb.merke(f_), k_neu
+                gedreht = vz * abs(dphi)
+                break
+            versuche.append("Richtung %+g: Volumenänderung %s (Soll %+.4f cm³)" % (vz, "–" if delta is None else "%.4f" % delta, soll if versatz_mm < 0 else -soll))
+            p_ = _loeschen(f_)
+            if p_:
+                raise AdapterFehler("Verworfener Versatz-Versuch nicht entfernbar: " + p_)
+        if feat is None:
+            raise AdapterFehler("Zylinder-Versatz nicht möglich (%s)." % "; ".join(versuche))
+        _testfehler("versatz_zyl_feature")
+        # neue Kante: Mantellinie, um ±Δφ um die Achse gedreht (die Seite, auf der das Material jetzt endet)
+        mitte = _plus(p0, p1, 0.5, 0.5)
+        kandidaten = []
+        for sgn in (1.0, -1.0):
+            winkel = sgn * gedreht
+            wm = _plus(mitte, o, 1.0, -1.0)
+            ax_ = _plus(o, a, 1.0, _skal(wm, a))
+            rv_ = _plus(mitte, ax_, 1.0, -1.0)
+            quer = (a[1] * rv_[2] - a[2] * rv_[1], a[2] * rv_[0] - a[0] * rv_[2], a[0] * rv_[1] - a[1] * rv_[0])
+            ziel = _plus(ax_, _plus(tuple(math.cos(winkel) * x for x in rv_), quer, 1.0, math.sin(winkel)), 1.0, 1.0)
+            for k in koerper.edges:
+                try:
+                    if _kurventyp(k) != "linie":
+                        continue
+                    q0, dk = _linie(k)
+                    if abs(abs(_skal(_v(dk), a)) - 1.0) > 1e-4:
+                        continue
+                    wq = _plus(ziel, _v(q0), 1.0, -1.0)
+                    if math.sqrt(_skal(_ohne_komponente(wq, _v(dk)), _ohne_komponente(wq, _v(dk)))) < 0.005:
+                        kandidaten.append(k)
+                except Exception:
+                    continue
+            if kandidaten:
+                break
+        if len(kandidaten) < 1:
+            raise AdapterFehler("Zylinder-Versatz: neue Mantelkante nicht gefunden.")
+        logger.info("Zylinder-Versatz (Prototyp)", versatz_mm=versatz_mm, dphi_grad=math.degrees(dphi), radius_mm=R * 10)
+        return list(rb.objekte), kandidaten[0]
+    except Exception as e:
+        rb.abbrechen(e)
+
+
 def _versatz_anwenden(edge, versatz_mm, dicke_mm):
     """Versatz an EINER Kante → (erzeugte Objekte, neue Kante)."""
     erzeugt, kanten = _versatz_gruppe([edge], versatz_mm, dicke_mm)
@@ -1150,13 +1257,15 @@ def _versatz_gruppe(edges, versatz_mm, dicke_mm):
                                     " – ACHTUNG: Versatz-Teile nicht vollständig entfernt: %s" % "; ".join(probleme)), rueckbau_ok=not probleme)
 
 
-def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None):
+def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None, prototyp=False):
+    """prototyp=True NUR im Live-Test: gesperrte Prototyp-Fälle der Matrix (z. B. gerade Kante auf Zylinder) werden an Fusion gegeben."""
+    extra = {"fusion_fragen": True} if prototyp else {}
     if op["typ"] == "umschlag":
-        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm)
-    return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt, op.get("bezug"), op.get("lage"))
+        return umschlag(edge, op["laenge"], gespiegelt, op.get("radius"), op.get("lage"), dicke_mm, **extra)
+    return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt, op.get("bezug"), op.get("lage"), **extra)
 
 
-def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
+def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, prototyp=False):
     """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler.
     Hinweise (z. B. mögliche Einschnitte an runden Kanten, automatisch umgekehrte Richtungen) werden in die übergebene Liste geschrieben.
     Richtungsprüfung ab Schritt 2 (nach Fusion-Standard bei Schritt 1) – NICHT live geprüft."""
@@ -1193,7 +1302,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                     token = None
                 phase = "Schritt %d" % i
             try:
-                feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm)
+                feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm, prototyp)
             except AdapterFehler as ex_versatz:
                 # Versetzte Kante von Fusion abgelehnt: dieselbe Stirnfläche hat noch eine Kante auf dem anderen Niveau (Blech oben/unten) – damit versuchen.
                 feat = None
@@ -1204,7 +1313,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                         continue
                     _kante_sonde(k_alt, "Ersatzkante %d" % nr_alt)
                     try:
-                        feat = _schritt_bauen(k_alt, op, gespiegelt, dicke_mm)
+                        feat = _schritt_bauen(k_alt, op, gespiegelt, dicke_mm, prototyp)
                         aktuell = k_alt
                         logger.info("Flansch an der Ersatzkante der Stirnfläche gebaut", ersatz=nr_alt)
                         hinweise.append("Schritt %d: Fusion lehnte die versetzte Kante ab – die Kante auf dem anderen Niveau der Stirnfläche wurde verwendet." % i)
@@ -1240,7 +1349,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                     if p_:
                         raise AdapterFehler("Der falsch gerichtete Schritt liess sich nicht entfernen: " + p_)
                     aktuell = _kante_aufloesen(token, aktuell) if token else aktuell
-                    feat = _schritt_bauen(aktuell, op, True, dicke_mm)
+                    feat = _schritt_bauen(aktuell, op, True, dicke_mm, prototyp)
                     erzeugt.append(feat)
                     neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
                     nochmal = richtung_stimmt(lauf, op["winkel"], _gemessen(aktuell, neu, rahmen[0]) or gemessen, rahmen[1], v)
@@ -1401,6 +1510,38 @@ def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, di
     probleme += _koerper_kontrolle(comp, koerper_vorher)
     return probleme + _volumen_kontrolle(comp, vol0, sum(laengen_cm) * (hoehe_mm / 10.0) * (dicke_mm / 10.0), 0.6, 1.5,
                                          "Flansch fehlt, Spalt oder Überlappung?")
+
+
+def kante_entlang_pruefen(alt_rahmen, neue_kante, hoehe_mm, dicke_mm, ri_mm=None, n=5):
+    """Nach einem Flansch an einer (geraden) Kante einer gekrümmten Fläche: entlang der GANZEN Kante prüfen, dass der Flansch der LOKALEN Normale folgt
+    und überall gleich hoch ist. alt_rahmen = rahmen_entlang(kante) VOR dem Bau; neue_kante = Flanschende (neue_aussenkante). → (ok, Text).
+    Nicht live geprüft."""
+    from ..core import geometrie_referenz as gr
+    ev = neue_kante.evaluator
+    ok, t0, t1 = ev.getParameterExtents()
+    punkte = []
+    for i in range(n):
+        ok, p = ev.getPointAtParameter(t0 + (t1 - t0) * i / (n - 1.0))
+        punkte.append(_punkt_mm(p))
+    # zu jedem alten Stützpunkt den nächsten Punkt der neuen Kante: Richtung und Abstand
+    hoehen, winkel = [], []
+    for r in alt_rahmen:
+        o = r["origin"]
+        q = min(punkte, key=lambda x: sum((a - b) ** 2 for a, b in zip(x, o)) - sum((a - b) * c for a, b, c in zip(x, o, r["x"])) ** 2)
+        d = [a - b for a, b in zip(q, o)]
+        laengs = sum(a * c for a, c in zip(d, r["x"]))
+        quer = [a - laengs * c for a, c in zip(d, r["x"])]
+        h = sum(a * a for a in quer) ** 0.5
+        hoehen.append(h)
+        if h > 1e-6:
+            w = gr.winkel_grad(quer, r["z"])
+            winkel.append(min(w, 180.0 - w))
+    tol = 2 * dicke_mm + (ri_mm if ri_mm is not None else dicke_mm) + 1.0
+    streuung = max(hoehen) - min(hoehen)
+    text = "Flanschhöhe entlang der Kante %.2f … %.2f mm (Soll %.1f ± %.1f), Richtung zur lokalen Normale max. %.2f°" % (
+        min(hoehen), max(hoehen), hoehe_mm, tol, max(winkel) if winkel else -1)
+    gut = streuung <= 0.2 and all(abs(h - hoehe_mm) <= tol for h in hoehen) and winkel and max(winkel) <= 2.0
+    return bool(gut), text
 
 
 def ecke_daten(kanten):
@@ -1968,6 +2109,98 @@ def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
                 rb.objekte.insert(0, regel)            # zuerst angelegt → zuletzt gelöscht (umgekehrte Reihenfolge)
             else:
                 _NACH_KOMPONENTE.append((getattr(comp, "entityToken", None), regel))
+        rb.abbrechen(e)
+
+
+def zylinderradien_mm(body):
+    """Radien (mm) der Zylinderflächen eines Körpers, sortiert."""
+    r = []
+    for f in body.faces:
+        if flaechentyp(f) == "zylinder":
+            try:
+                r.append(round(f.geometry.radius * 10.0, 4))
+            except Exception:
+                pass
+    return sorted(set(r))
+
+
+def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
+    """PROTOTYP (Korrekturauftrag Phase 3/8): gerolltes Blechsegment als ECHTER Blechkörper – Konturflansch aus einem offenen Kreisbogen
+    (Radius auf der Skizzenseite, Bogenwinkel) über die Breite entlang Y, Blechregel mit Soll-Dicke. Fusions API für den Konturflansch ist
+    unklar dokumentiert (Preview); es werden mehrere Aufrufformen versucht und ALLE Antworten gemeldet. Ergebnisprüfung: Blechkörper, zwei
+    Zylinderflächen mit Radiusdifferenz = Dicke. Jeder Fehler baut zurück. → Körper. NICHT live geprüft."""
+    import math
+    if not (radius_mm > 2 * dicke_mm > 0 and 0 < winkel_grad < 360 and breite_mm > 0):
+        raise AdapterFehler("Gerolltes Blech: ungültige Masse (Radius > 2 × Dicke, 0 < Winkel < 360°, Breite > 0).")
+    ff = getattr(comp.features, "flangeFeatures", None)
+    if ff is None:
+        raise AdapterFehler("FlangeFeatures fehlt – kein gerolltes Blech möglich.")
+    rb = Rueckbau("Gerolltes Blech")
+    regel_alt = getattr(comp, "activeSheetMetalRule", None)
+    try:
+        with _Aktiviert(_occurrence_von(comp)):
+            regel, regel_neu = regel_fuer_dicke(comp, dicke_mm)
+            if regel_neu and regel_alt is not None:
+                rb.merke(regel)
+            comp.activeSheetMetalRule = regel
+            vorher = comp.bRepBodies.count
+            sk = rb.merke(comp.sketches.add(comp.xZConstructionPlane))
+            mitte = adsk.core.Point3D.create(0, 0, 0)
+            start = adsk.core.Point3D.create(radius_mm / 10.0, 0, 0)
+            bogen = sk.sketchCurves.sketchArcs.addByCenterStartSweep(mitte, start, math.radians(winkel_grad))
+            antworten, feat = [], None
+            breite = _vi_mm(breite_mm)
+            formen = []
+            try:
+                formen.append(("Path", adsk.fusion.Path.create(bogen, adsk.fusion.ChainedCurveOptions.noChainedCurves)))
+            except Exception as e:
+                antworten.append("Path: %s" % ((str(e).strip().splitlines() or ["?"])[-1][:100]))
+            oc = adsk.core.ObjectCollection.create()
+            oc.add(bogen)
+            formen += [("Bogen", bogen), ("ObjectCollection", oc), ("Liste", [bogen])]
+            for methode in ("createContourFlangeInput", "createBaseFlangeInput"):
+                fn = getattr(ff, methode, None)
+                if fn is None:
+                    antworten.append("%s fehlt" % methode)
+                    continue
+                for name, arg in formen:
+                    for mit_breite in (True, False):
+                        try:
+                            inp = fn(arg, breite) if mit_breite else fn(arg)
+                        except Exception as e:
+                            antworten.append("%s(%s%s): %s" % (methode, name, ", Breite" if mit_breite else "", (str(e).strip().splitlines() or ["?"])[-1][:100]))
+                            continue
+                        if inp is None:
+                            continue
+                        _eigenschaften_einmal("Konturflansch-Eingabe " + methode, inp)
+                        if not mit_breite:
+                            setze(inp, ["distance", "setDistance", "setDistanceExtent", "extent", "width"], breite)
+                        try:
+                            feat = rb.merke(ff.add(inp))
+                        except Exception as e:
+                            antworten.append("%s(%s) add: %s" % (methode, name, (str(e).strip().splitlines() or ["?"])[-1][:100]))
+                            continue
+                        if feat is not None:
+                            break
+                    if feat is not None:
+                        break
+                if feat is not None:
+                    break
+            if feat is None or comp.bRepBodies.count <= vorher:
+                raise AdapterFehler("Fusion hat kein gerolltes Blech erzeugt (Konturflansch per API nicht möglich?). Antworten: " + " | ".join(antworten[:12]))
+            _testfehler("gerollt_feature")
+            body = comp.bRepBodies.item(comp.bRepBodies.count - 1)
+            radien = zylinderradien_mm(body)
+            probleme = koerper_pruefen(body)
+            if getattr(body, "isSheetMetal", None) is False:
+                probleme.append("kein Blechkörper")
+            if len(radien) != 2 or abs(abs(radien[1] - radien[0]) - dicke_mm) > 0.005:
+                probleme.append("Zylinderradien %s statt Radiusdifferenz %.2f mm" % (radien, dicke_mm))
+            if probleme:
+                raise AdapterFehler("Gerolltes Blech fehlerhaft: " + "; ".join(probleme))
+            logger.info("Gerolltes Blech erzeugt (Prototyp)", radien=radien, winkel=winkel_grad, breite=breite_mm)
+            return body
+    except Exception as e:
         rb.abbrechen(e)
 
 

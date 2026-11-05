@@ -409,3 +409,39 @@ class RegelRueckbau(_Patch):
         self.assertTrue(cm.exception.rueckbau_ok)
         self.assertIs(c.activeSheetMetalRule, alt)
         self.assertFalse(d.designSheetMetalRules.item(0).isValid, "neue Regel sofort gelöscht")
+
+
+class PrototypenZylinder(_Patch):
+    """Prototypen auf gerolltem Zylinderblech: Vorbedingungen werden VOR dem Modellieren geprüft – Attrappen, KEIN Fusion-Test (die Geometrie selbst
+    prüft nur der Live-Test)."""
+    def test_gerolltes_blech_ungueltige_masse(self):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Rolle")
+        for r, w, b in ((1.0, 90, 80), (100, 0, 80), (100, 360, 80), (100, 90, 0)):
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                fa.blech_gerollt(c, r, w, b, 1.0)
+            self.assertIn("ungültige Masse", str(cm.exception))
+        self.assertEqual(c.skizzen.count, 0)
+
+    def test_versatz_zylinder_nur_auf_zylinder_und_parallel(self):
+        fa = _fa()
+        k = type("K", (), {})()
+        self.patche(bezugsflaeche=lambda e: object(), flaechentyp=lambda f: "eben")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.versatz_zylinder(k, 5.0, 1.0)
+        self.assertIn("kein Zylinder", str(cm.exception))
+        self.patche(flaechentyp=lambda f: "zylinder", _kurventyp=lambda e: "bogen")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.versatz_zylinder(k, 5.0, 1.0)
+        self.assertIn("GERADEN Kante", str(cm.exception))
+
+    def test_prototyp_im_normalen_bau_gesperrt(self):
+        fa = _fa()
+        f = type("F", (), {"area": 10.0})()
+        k = type("K", (), {"faces": [f]})()
+        self.patche(flaechentyp=lambda f_: "zylinder", _kurventyp=lambda e: "linie")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.matrix_sperre("flansch", [k])
+        self.assertIn("gesperrter Prototyp", str(cm.exception))
+        self.assertTrue(fa.matrix_sperre("flansch", [k], prototyp_erlaubt=True), "im Live-Test erlaubt, mit Hinweis")

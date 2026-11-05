@@ -220,6 +220,166 @@ def t_doppelfalz(ctx):
     return t
 
 
+# ------------------------------------------------------------------ Prototyp: Bearbeitung auf gerolltem Zylindersegment (echter Blechkörper)
+R_SEG, WINKEL_SEG, BREITE_SEG, T_SEG = 100.0, 90.0, 80.0, 1.0
+
+
+def _segment(name):
+    """Fixture 2/5: gerolltes Blechsegment R 100, 90°, Breite 80, Dicke 1 (Konturflansch) – Zylinder mit geraden UND gekrümmten Kanten."""
+    return fa.blech_gerollt(fa.neue_komponente(name), R_SEG, WINKEL_SEG, BREITE_SEG, T_SEG)
+
+
+def _mantelkanten(body):
+    """Freie gerade Kanten parallel zur Achse (Länge = Breite) auf der grösseren Zylinderfläche."""
+    zyl = max(_flaechen_vom_typ(body, "zylinder"), key=lambda f: f.area)
+    out = []
+    for e in zyl.edges:
+        if fa._kurventyp(e) == "linie" and abs(e.length * 10 - BREITE_SEG) < 0.1:
+            out.append(e)
+    return zyl, out
+
+
+def _ohne_reste(ctx, was, aktion):
+    """Grenzfall/Negativfall: Ergebnis egal (gebaut und geprüft ODER sauber abgelehnt) – aber das Modell darf danach nichts Halbes enthalten."""
+    lt = _lt()
+    vorher = lt._zustand(ctx.design.rootComponent)
+    try:
+        r = aktion()
+        txt = "%s: gebaut (%s)" % (was, r)
+    except fa.AdapterFehler as e:
+        txt = "%s: sauber abgelehnt (%s)" % (was, str(e).splitlines()[0][:140])
+        nachher = lt._zustand(ctx.design.rootComponent)
+        abw, offen = messung.zustand_vergleich(vorher, nachher, lt.ZUSTAND_GLEICH)
+        if abw or offen:
+            raise lt._Falsch(txt + " – aber Reste im Modell: %s %s" % (abw, offen))
+    return txt
+
+
+def t_proto_flansch_zylinder(ctx):
+    """Phase 3, Live-Testfälle 2/4/5/6: Flansch an GERADER Mantelkante eines gerollten Zylinderblechs (Prototyp, Fusion-native EdgeFlange), geprüft
+    entlang der GANZEN Kante (Höhe, Richtung = lokale Normale); Negativ: Bogenkante; Grenzfall: Höhe 2 mm; Rückbau mit eingeschleustem Fehler."""
+    lt = _lt()
+    body = _segment("Live-Test Zylindersegment Flansch")
+    zyl, kanten = _mantelkanten(body)
+    if not kanten:
+        raise lt._Falsch("Zylindersegment ohne freie gerade Mantelkante.")
+    t = ["Segment: Zylinderradien %s mm" % fa.zylinderradien_mm(body)]
+    ref = fa.referenz_aus_fusion(face=zyl, edge=kanten[0])
+    t.append("Klasse %s/%s (Matrix: %s)" % (gr.klasse(ref) + (fa_stand("flansch", ref),)))
+    alt = fa.rahmen_entlang(kanten[0], zyl)
+    feat = fa.flansch(kanten[0], 90, 20, fusion_fragen=True)
+    neu = fa.neue_aussenkante(feat, kanten[0], 20, T_SEG)
+    ok, txt = fa.kante_entlang_pruefen(alt, neu, 20, T_SEG)
+    t.append("Flansch 20 mm: " + txt)
+    if not ok:
+        raise lt._Falsch("\n".join(t))
+    bogen = [e for e in comp_body(body).edges if fa._kurventyp(e) in ("bogen", "kreis")]
+    if bogen:
+        t.append(_ohne_reste(ctx, "Negativ: Flansch an Kreisbogenkante", lambda: fa.flansch(bogen[0], 90, 20)))
+    _, kanten2 = _mantelkanten(comp_body(body))
+    rest = [k for k in kanten2 if fa.bezugsflaeche(k) is not None]
+    if rest:
+        t.append(_ohne_reste(ctx, "Grenzfall: Flansch 2 mm", lambda: fa.flansch(rest[-1], 90, 2.0, fusion_fragen=True)))
+    seg2 = _segment("Live-Test Zylindersegment Rückbau")
+    _, k3 = _mantelkanten(seg2)
+    t.append(lt._rueckbau_probe(ctx, "folge_nach_schritt", lambda: fa.folge_anbringen(k3[0], [lt._op("flansch", 90, 20)], T_SEG, {"livetest": 1}, [], prototyp=True)))
+    return "\n".join(t)
+
+
+def comp_body(body):
+    """Körper nach einem Feature neu holen (alte Referenz kann ungültig sein)."""
+    try:
+        return body.parentComponent.bRepBodies.item(0) if not body.isValid else body
+    except Exception:
+        return body
+
+
+def fa_stand(op, ref):
+    from ..core import unterstuetzung as u
+    f, k = gr.klasse(ref)
+    return u.STAND_TEXT[u.stand(op, f, k)[0]]
+
+
+def t_proto_umschlag_zylinder(ctx):
+    """Phase 4: Umschlag an gerader Mantelkante (Prototyp, Fusion-native Hem), Grenzfall kleiner Abstand 0.1 mm, Rückbau."""
+    lt = _lt()
+    body = _segment("Live-Test Zylindersegment Umschlag")
+    zyl, kanten = _mantelkanten(body)
+    t = []
+    alt_vol = body.volume
+    feat = fa.umschlag(kanten[0], 10.0, False, None, None, T_SEG, fusion_fragen=True)     # enthält die Geometriekontrolle je Variante
+    zuwachs = (comp_body(body).volume - alt_vol) * 1000.0
+    t.append("Umschlag 10 mm gebaut (%s), Volumen +%.0f mm³ (Soll ca. %.0f)" % (type(feat).__name__, zuwachs, BREITE_SEG * 10 * T_SEG))
+    _, rest = _mantelkanten(comp_body(body))
+    if rest:
+        t.append(_ohne_reste(ctx, "Grenzfall: offener Umschlag Abstand 0.1 mm", lambda: fa.umschlag(rest[-1], 10.0, False, 0.1, None, T_SEG, nur_erste_bauart=True, fusion_fragen=True)))
+    seg2 = _segment("Live-Test Zylindersegment Umschlag Rückbau")
+    _, k3 = _mantelkanten(seg2)
+    t.append(lt._rueckbau_probe(ctx, "folge_nach_schritt", lambda: fa.folge_anbringen(k3[0], [lt._op("umschlag", 180, 10)], T_SEG, {"livetest": 1}, [], prototyp=True)))
+    return "\n".join(t)
+
+
+def t_proto_versatz_zylinder(ctx):
+    """Phase 5: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse): +5 und −5 mm, Rückbau an beiden Teststellen."""
+    lt = _lt()
+    t = []
+    for v in (5.0, -5.0):
+        body = _segment("Live-Test Zylindersegment Versatz %+g" % v)
+        _, kanten = _mantelkanten(body)
+        vol0 = body.volume
+        erz, neu = fa.versatz_zylinder(kanten[0], v, T_SEG)
+        dv = (comp_body(body).volume - vol0) * 1000.0
+        soll = -v * BREITE_SEG * T_SEG
+        t.append("%+g mm: Volumen %+.0f mm³ (Soll %+.0f), neue Mantelkante %.1f mm lang, %d Objekte" % (v, dv, soll, neu.length * 10, len(erz)))
+        if abs(dv - soll) > 0.25 * abs(soll):
+            raise lt._Falsch("\n".join(t))
+    for stelle in ("versatz_zyl_skizze", "versatz_zyl_feature"):
+        seg = _segment("Live-Test Zylindersegment Versatz-Rückbau")
+        _, k = _mantelkanten(seg)
+        t.append(lt._rueckbau_probe(ctx, stelle, lambda: fa.versatz_zylinder(k[0], 5.0, T_SEG)))
+    return "\n".join(t)
+
+
+def t_kegel_grenzen(ctx):
+    """Fixture 6: Teilkegel mit gerader Mantellinie (kein Blechkörper – ein gerolltes Kegelblech ist per API nicht erzeugbar): Matrix lehnt Flansch und
+    Versatz ab; Fusion wird für den Flansch ausdrücklich angefragt (Ergebnis dokumentiert)."""
+    comp = fa.neue_komponente("Live-Test Teilkegel")
+    body = fa.drehkoerper(comp, [(100, 0), (101, 0), (61, 80), (60, 80)], "Live-Test Teilkegel", 90.0).bodies.item(0)
+    gerade = [e for e in body.edges if fa._kurventyp(e) == "linie" and fa.bezugsflaeche(e) is not None and fa.flaechentyp(fa.bezugsflaeche(e)) == "kegel"]
+    if not gerade:
+        raise _lt()._Falsch("Teilkegel ohne gerade Mantellinie auf der Kegelfläche.")
+    t = []
+    try:
+        fa.matrix_sperre("flansch", [gerade[0]])
+        raise _lt()._Falsch("Matrix lässt Flansch auf Kegel durch.")
+    except fa.AdapterFehler as e:
+        t.append("Matrix lehnt ab: %s" % str(e)[:120])
+    t.append(_fusion_frage("Flansch an Kegel-Mantellinie (kein Blechkörper)", lambda: fa.flansch(gerade[0], 90, 20, fusion_fragen=True)))
+    return "\n".join(t)
+
+
+def t_torus(ctx):
+    """Fixture 7: Torus (Kreis-Querschnitt gedreht) – doppelt gekrümmt, nie exakt abwickelbar."""
+    comp = fa.neue_komponente("Live-Test Torus")
+    body = fa.drehkoerper(comp, [(160, 0, 150, 10), (140, 0, 150, -10)], "Live-Test Torus").bodies.item(0)
+    typen = sorted({fa.flaechentyp(f) for f in body.faces})
+    art, grund = fa.abwickelbarkeit_koerper(body)
+    if "torus" not in typen or art != "nicht":
+        raise _lt()._Falsch("Torus: Typen %s, Abwickelbarkeit «%s» (erwartet torus / nicht)." % (typen, art))
+    return "Typen %s; «nicht abwickelbar»: %s" % (", ".join(typen), grund)
+
+
+def t_zylinder_kegel(ctx):
+    """Fixture 9: Übergang Zylinder → Kegel in einem Körper: alle Flächen werden gemeinsam beurteilt (exakt abwickelbar), Flächentypen erkannt."""
+    comp = fa.neue_komponente("Live-Test Zylinder-Kegel")
+    body = fa.drehkoerper(comp, [(100, 0), (101, 0), (101, 40), (81, 80), (80, 80), (100, 40)], "Live-Test Zylinder-Kegel").bodies.item(0)
+    typen = sorted({fa.flaechentyp(f) for f in body.faces})
+    art, grund = fa.abwickelbarkeit_koerper(body)
+    if not {"zylinder", "kegel"} <= set(typen) or art != "exakt":
+        raise _lt()._Falsch("Übergang Zylinder–Kegel: Typen %s, Abwickelbarkeit «%s»." % (typen, art))
+    return "Typen %s; Abwickelbarkeit exakt (%s)" % (", ".join(typen), grund)
+
+
 # (Name, Funktion, braucht Test-Blech) – an live_test.SCHRITTE angehängt
 SCHRITTE = [
     ("Doppelfalz-Testprofil (Aufkantung + 2 Umschläge)", t_doppelfalz, True),
@@ -229,4 +389,10 @@ SCHRITTE = [
     ("Gekrümmt: Kegelschale (Normale, Abwickelbarkeit, Detail starr)", t_kegel, False),
     ("Gekrümmt: gerolltes Blech R20 (Ebene→Zylinder, Abwicklung)", t_gerollt, False),
     ("Gekrümmt: Kugelband – nicht abwickelbar erkannt", t_kugel, False),
+    ("Gekrümmt: Torus – nicht abwickelbar erkannt", t_torus, False),
+    ("Gekrümmt: Übergang Zylinder → Kegel (Abwickelbarkeit)", t_zylinder_kegel, False),
+    ("Gekrümmt: Teilkegel – Grenzen (Matrix, Fusion-Anfrage)", t_kegel_grenzen, False),
+    ("PROTOTYP: Flansch an gerader Kante eines gerollten Zylinderblechs", t_proto_flansch_zylinder, False),
+    ("PROTOTYP: Umschlag an gerader Kante eines gerollten Zylinderblechs", t_proto_umschlag_zylinder, False),
+    ("PROTOTYP: Versatz als Bogenlänge am Zylinderblech", t_proto_versatz_zylinder, False),
 ]
