@@ -122,3 +122,46 @@ class Konturen(unittest.TestCase):
         r = dp.pruefe(dxf(rechteck(100, 60) + [kreis(50, 40, 5)]), 100, 60, erwartete_konturen=1)
         self.assertEqual(r["konturen"], 2)
         self.assertTrue(any("Zusatzprofile" in h for h in r["hinweise"]))
+
+
+class StrengePruefung(unittest.TestCase):
+    """Restpunkt 1: strenge Prüfung für die interne Validierung; der normale Export (pruefe) bleibt unverändert."""
+    def test_gueltig(self):
+        r = dp.pruefe_streng(dxf(rechteck(100, 60) + [linie(0, 20, 100, 20, "BEND_UP")]), 60, 100)
+        self.assertTrue(r["ok"], r)
+
+    def test_offenes_ende_und_doppelte_linie(self):
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60)[:3]), 60, 100)["ok"])
+        self.assertTrue(dp.pruefe(dxf(rechteck(100, 60)[:3]), 60, 100)["ok"], "normaler Export: nur Hinweis wie bisher")
+        r = dp.pruefe_streng(dxf(rechteck(100, 60) + [linie(100, 0, 0, 0)]), 60, 100)
+        self.assertFalse(r["ok"])
+        self.assertIn("doppelte", " ".join(r["probleme"]))
+
+    def test_einheit(self):
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60), insunits=5), 60, 100)["ok"], "cm")
+        r = dp.pruefe_streng(dxf(rechteck(100, 60), insunits=None), 60, 100)
+        self.assertTrue(r["ok"], "fehlende Einheit: mm durch Massvergleich bestätigt")
+        self.assertIn("Vergleich der Aussenmasse", " ".join(r["hinweise"]))
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(10, 6), insunits=None), 60, 100)["ok"], "10× zu klein ohne Einheit")
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60)), None, None)["ok"], "ohne Sollmasse keine strenge Freigabe")
+
+    def test_falsche_aussenmasse(self):
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60)), 70, 100)["ok"])
+
+    def test_loecher_und_zusatzkonturen(self):
+        r = dp.pruefe_streng(dxf(rechteck(100, 60) + [kreis(50, 30, 5)]), 60, 100)
+        self.assertTrue(r["ok"], r)
+        self.assertIn("Löcher", " ".join(r["hinweise"]))
+        aussen_dran = rechteck(100, 60) + [linie(100, 0, 120, 0), linie(120, 0, 120, 10), linie(120, 10, 100, 10), linie(100, 10, 100, 0)]
+        self.assertFalse(dp.pruefe_streng(dxf(aussen_dran), 60, 120)["ok"], "Zusatzkontur ausserhalb/an der Aussenkontur")
+        ueberlappend = rechteck(100, 60) + [linie(10, 0, 40, 0)]               # Linie liegt teilweise auf der Aussenkante
+        r = dp.pruefe_streng(dxf(ueberlappend), 60, 100)
+        self.assertFalse(r["ok"])
+        self.assertIn("überlappender", " ".join(r["probleme"]))
+        unbekannte_biegeebene = rechteck(100, 60) + [linie(0, 20, 100, 20, "LINIE_X")]
+        self.assertFalse(dp.pruefe_streng(dxf(unbekannte_biegeebene), 60, 100)["ok"], "Biegelinie auf unbekannter Ebene → nicht sicher prüfbar")
+
+    def test_spline_nicht_sicher_pruefbar(self):
+        spline = "0\nSPLINE\n8\n0\n10\n0\n20\n0\n"
+        r = dp.pruefe_streng(dxf(rechteck(100, 60) + [spline]), 60, 100)
+        self.assertFalse(r["ok"])

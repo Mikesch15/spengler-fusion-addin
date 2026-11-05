@@ -539,7 +539,7 @@ class BlechSemantikNachEigenerGeometrie(_Patch):
         rb = fa.Rueckbau("t")
         t = fa._native_abwicklung_absichern(object(), object(), rb)
         self.assertIn("bleibt Fusion-Blech", t)
-        self.assertIn("Prüf-Abwicklung wieder entfernt", t)
+        self.assertIn("Prüf-Abwicklung entfernt und Entfernung geprüft", t)
         self.assertFalse(fp.isValid)
         self.assertNotIn(fp, rb.objekte)
         self.assertTrue(os.path.basename(__file__))
@@ -558,3 +558,59 @@ class BlechSemantikNachEigenerGeometrie(_Patch):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa._native_abwicklung_absichern(object(), object(), fa.Rueckbau("t"))
         self.assertIn("DXF der Abwicklung", str(cm.exception))
+
+
+class PruefAbwicklungLebenszyklus(_Patch):
+    """Restpunkt 3: die temporäre Prüf-Abwicklung wird nachweislich entfernt – sonst gilt der Vorgang als fehlgeschlagen. Attrappen, KEIN Fusion-Test."""
+    def _dxf(self, fp_, pfad):
+        from test_dxf_pruefung import dxf as baue, rechteck
+        with open(pfad, "w") as f:
+            f.write(baue(rechteck(100, 60)))
+        return pfad
+
+    def _aufbau(self, fp, neu=True, comp=None):
+        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, neu), abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0},
+                    dxf_abwicklung=self._dxf)
+        return comp or type("C", (), {"flatPattern": None})()
+
+    def test_vorhandene_abwicklung_bleibt(self):
+        fa = _fa()
+        fp = ff.Objekt("vorhanden")
+        comp = self._aufbau(fp, neu=False, comp=type("C", (), {"flatPattern": fp})())
+        rb = fa.Rueckbau("t")
+        fa._native_abwicklung_absichern(comp, object(), rb)
+        self.assertTrue(fp.isValid, "eine vor dem Vorgang vorhandene Abwicklung wird nie gelöscht")
+        self.assertNotIn(fp, rb.objekte)
+
+    def test_loeschfehler_ist_fehlschlag_und_bleibt_im_rueckbau(self):
+        fa = _fa()
+        fp = ff.Objekt("Prüf-Abwicklung", ergebnis=False)                   # deleteMe → False
+        comp = self._aufbau(fp)
+        rb = fa.Rueckbau("t")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._native_abwicklung_absichern(comp, object(), rb)
+        self.assertIn("FEHLGESCHLAGEN", str(cm.exception))
+        self.assertIn(fp, rb.objekte, "der Rückbau versucht es erneut und meldet den Rest")
+        with self.assertRaises(fa.AdapterFehler) as cm2:
+            rb.abbrechen(cm.exception)
+        self.assertFalse(cm2.exception.rueckbau_ok)
+        self.assertIn("Prüf-Abwicklung", str(cm2.exception))
+
+    def test_deleteme_true_aber_noch_vorhanden_ist_fehlschlag(self):
+        fa = _fa()
+        fp = ff.Objekt("Prüf-Abwicklung")
+        comp = self._aufbau(fp, comp=type("C", (), {"flatPattern": "noch da"})())
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._native_abwicklung_absichern(comp, object(), fa.Rueckbau("t"))
+        self.assertIn("noch vorhanden", str(cm.exception))
+
+    def test_fehler_beim_loeschen_selbst(self):
+        fa = _fa()
+        fp = ff.Objekt("Prüf-Abwicklung")
+        comp = self._aufbau(fp)
+        fa.TESTFEHLER.add("eigen_pruefabwicklung_loeschen")
+        self.addCleanup(fa.TESTFEHLER.clear)
+        rb = fa.Rueckbau("t")
+        with self.assertRaises(fa.AdapterFehler):
+            fa._native_abwicklung_absichern(comp, object(), rb)
+        self.assertIn(fp, rb.objekte)

@@ -2508,14 +2508,23 @@ def _native_abwicklung_absichern(comp, body, rb):
     pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_pruef_"), "pruefung.dxf")
     dxf_abwicklung(fp, pfad)
     _testfehler("eigen_validierung_dxf")
-    pr = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"])
+    # STRENGE Prüfung (nicht die Hinweis-Prüfung des normalen Exports): offene Konturen, doppelte Linien, ungeprüfte Kurven, Zusatzkonturen = Fehlschlag
+    pr = dxf_pruefung.pruefe_datei_streng(pfad, m["breite"], m["laenge"])
     if not pr["ok"]:
-        raise AdapterFehler("DXF der Abwicklung nach der eigenen Geometrie fehlerhaft: " + "; ".join(pr["probleme"]))
-    text = "Blechkörper bleibt Fusion-Blech; native Abwicklung %.1f × %.1f mm und DXF geprüft (%s)" % (m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
+        raise AdapterFehler("DXF der Abwicklung nach der eigenen Geometrie besteht die strenge Prüfung nicht: " + "; ".join(pr["probleme"]))
+    text = "Blechkörper bleibt Fusion-Blech; native Abwicklung %.1f × %.1f mm und DXF streng geprüft (%s)" % (
+        m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
     if neu_fp:
-        rb.objekte.remove(fp)
+        # Die Prüf-Abwicklung muss NACHWEISLICH weg sein, bevor die Operation als erfolgreich gilt. Schlägt das fehl, bleibt sie im Rückbau vorgemerkt
+        # und die ganze Operation wird als fehlgeschlagen zurückgebaut (der Rückbau versucht das Löschen erneut und meldet, was übrig bleibt).
+        _testfehler("eigen_pruefabwicklung_loeschen")
         p_ = _loeschen(fp)
-        text += "; Prüf-Abwicklung wieder entfernt" if not p_ else "; Prüf-Abwicklung NICHT entfernt (%s)" % p_
+        noch = getattr(comp, "flatPattern", None)
+        if p_ or noch:
+            raise AdapterFehler("Die temporäre Prüf-Abwicklung liess sich nicht entfernen (%s) – Vorgang als FEHLGESCHLAGEN gewertet." % (
+                p_ or "Abwicklung der Komponente noch vorhanden"))
+        rb.objekte.remove(fp)
+        text += "; temporäre Prüf-Abwicklung entfernt und Entfernung geprüft"
     return text
 
 

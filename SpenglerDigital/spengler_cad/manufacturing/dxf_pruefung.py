@@ -137,3 +137,128 @@ def zusammenfassung(r):
     if r.get("masse"):
         teile.append("%.1f × %.1f mm, %d Elemente" % (r["masse"][0], r["masse"][1], r["elemente"]))
     return ", ".join(teile + r["probleme"] + r["hinweise"])
+
+
+# ------------------------------------------------------------------ STRENGE Prüfung (nur interne Validierung, Restpunkt 1 Review 0.4.49)
+def _kontur_rahmen(elemente):
+    """Begrenzungsrahmen je zusammenhängender Kontur (ohne Biegelinien). → Liste (x0, y0, x1, y1)."""
+    eltern, gruppen, einzeln = {}, {}, []
+
+    def wurzel(k):
+        eltern.setdefault(k, k)
+        while eltern[k] != k:
+            eltern[k] = eltern[eltern[k]]
+            k = eltern[k]
+        return k
+    rest = []
+    for el in elemente:
+        if dxf_lesen.BIEGE.search(el.get("layer", "")):
+            continue
+        enden = [_schluessel(p) for p in _enden(el)]
+        if not enden:
+            einzeln.append(el)
+            continue
+        a = wurzel(enden[0])
+        for b in enden[1:]:
+            eltern[wurzel(b)] = a
+        rest.append((el, enden[0]))
+    for el, k in rest:
+        gruppen.setdefault(wurzel(k), []).append(el)
+    return [dxf_lesen._grenzen(g) for g in gruppen.values()] + [dxf_lesen._grenzen([e]) for e in einzeln]
+
+
+def _ueberlappende_linien(linien, tol=1e-3):
+    """Anzahl Linienpaare, die auf derselben Geraden liegen und sich auf einer Länge > tol überdecken (auch teilweise)."""
+    n = 0
+    for i in range(len(linien)):
+        (ax, ay), (bx, by) = linien[i][0], linien[i][1]
+        L = math.hypot(bx - ax, by - ay)
+        if L < tol:
+            continue
+        ux, uy = (bx - ax) / L, (by - ay) / L
+        for j in range(i + 1, len(linien)):
+            (cx, cy), (dx, dy) = linien[j][0], linien[j][1]
+            if abs((cx - ax) * uy - (cy - ay) * ux) > tol or abs((dx - ax) * uy - (dy - ay) * ux) > tol:
+                continue                                   # nicht auf derselben Geraden
+            t0, t1 = sorted(((cx - ax) * ux + (cy - ay) * uy, (dx - ax) * ux + (dy - ay) * uy))
+            if min(L, t1) - max(0.0, t0) > tol:
+                n += 1
+    return n
+
+
+def pruefe_streng(text, erwartet_breite, erwartet_laenge, toleranz_mm=1.0):
+    """Strenge Freigabeprüfung für die INTERNE Validierung neu erzeugter Geometrie (nicht für normale Exporte – die nutzen pruefe()).
+    Zwingend: lesbar, Elemente vorhanden, Aussenmasse = erwartet (± toleranz_mm), Einheit mm – FEHLT die Einheitenangabe, gilt mm nur, weil die
+    Aussenmasse in mm übereinstimmen (ein cm-/Zoll-Export fiele durch den Massvergleich); keine offenen Enden, keine doppelten Linien, keine
+    ungeprüften Kurven (Spline/Ellipse → «nicht sicher prüfbar»); genau EINE Aussenkontur mit dem Gesamtrahmen, weitere Konturen nur vollständig
+    innerhalb (als Löcher gewertet, nur ihre Lage wird geprüft). Biegelinien werden über den Ebenennamen erkannt (bend/biege/fold/kante) – liegen sie
+    auf einer anders benannten Ebene, erscheinen sie als offene Kontur und die Prüfung lehnt ab (keine falsche Sicherheit).
+    → dict wie pruefe() mit 'streng': True; 'ok' nur, wenn ALLE Kriterien erfüllt sind."""
+    if erwartet_breite is None or erwartet_laenge is None:
+        r = pruefe(text)
+        r.update(ok=False, streng=True)
+        r["probleme"] = r["probleme"] + ["Strenge Prüfung braucht die erwarteten Aussenmasse."]
+        return r
+    r = pruefe(text, erwartet_breite, erwartet_laenge, toleranz_mm)
+    r["streng"] = True
+    probleme, hinweise = list(r["probleme"]), []
+    if r["elemente"]:
+        if r["doppelte"]:
+            probleme.append("%d doppelte Linie(n)." % r["doppelte"])
+        if r["offene_enden"]:
+            probleme.append("Kontur nicht geschlossen (%d offene Enden)." % r["offene_enden"])
+        if any("Spline/Ellipse" in h for h in r["hinweise"]):
+            probleme.append("Kurven (Spline/Ellipse) sind nicht sicher prüfbar.")
+        if r["einheit"] is None:
+            hinweise.append("Keine Einheitenangabe – mm durch den Vergleich der Aussenmasse bestätigt.")
+        try:
+            elemente, _ = dxf_lesen.lesen(text)
+            rahmen = _kontur_rahmen(elemente)
+        except Exception as ex:
+            elemente, rahmen = [], None
+            probleme.append("Konturen nicht bestimmbar (%s)." % ex)
+        # Einfache Konturen: jeder Endpunkt gehört zu genau zwei Elementen (mehr = Verzweigung), keine teilweise überlappenden Linien
+        zaehler = {}
+        linien = []
+        for el in elemente:
+            if dxf_lesen.BIEGE.search(el.get("layer", "")):
+                continue
+            for p_ in _enden(el):
+                zaehler[_schluessel(p_)] = zaehler.get(_schluessel(p_), 0) + 1
+            if el["typ"] == "linie":
+                linien.append(el["p"])
+        verzweigt = sum(1 for n in zaehler.values() if n > 2)
+        if verzweigt:
+            probleme.append("Kontur verzweigt (%d Punkt(e) mit mehr als zwei Enden)." % verzweigt)
+        ueberlapp = _ueberlappende_linien(linien)
+        if ueberlapp:
+            probleme.append("%d Paar(e) teilweise überlappender Linien." % ueberlapp)
+        if rahmen is not None:
+            if not rahmen:
+                probleme.append("Keine Kontur ausser Biegelinien.")
+            else:
+                gx0, gy0, gx1, gy1 = (min(b[0] for b in rahmen), min(b[1] for b in rahmen), max(b[2] for b in rahmen), max(b[3] for b in rahmen))
+                t = 1e-3
+                aussen = [b for b in rahmen if abs(b[0] - gx0) < t and abs(b[1] - gy0) < t and abs(b[2] - gx1) < t and abs(b[3] - gy1) < t]
+                innen = [b for b in rahmen if b not in aussen]
+                if len(aussen) != 1:
+                    probleme.append("%d Konturen bilden den Aussenrahmen (erwartet genau 1)." % len(aussen))
+                fremd = [b for b in innen if not (b[0] > gx0 + t and b[1] > gy0 + t and b[2] < gx1 - t and b[3] < gy1 - t)]
+                if fremd:
+                    probleme.append("%d Zusatzkontur(en) berühren oder überragen die Aussenkontur." % len(fremd))
+                elif innen:
+                    hinweise.append("%d Innenkontur(en) als Löcher gewertet (nur Lage geprüft)." % len(innen))
+                r["konturen"] = len(rahmen)
+    r["probleme"], r["hinweise"] = probleme, hinweise
+    r["ok"] = not probleme
+    return r
+
+
+def pruefe_datei_streng(pfad, erwartet_breite, erwartet_laenge, toleranz_mm=1.0):
+    try:
+        with open(pfad, encoding="utf-8", errors="replace") as f:
+            text = f.read()
+    except OSError as ex:
+        return {"ok": False, "streng": True, "probleme": ["Die DXF-Datei lässt sich nicht öffnen (%s)." % ex], "hinweise": [], "masse": None,
+                "elemente": 0, "doppelte": 0, "offene_enden": 0, "einheit": None}
+    return pruefe_streng(text, erwartet_breite, erwartet_laenge, toleranz_mm)
