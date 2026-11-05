@@ -604,6 +604,22 @@ class PruefAbwicklungLebenszyklus(_Patch):
             fa._native_abwicklung_absichern(comp, object(), fa.Rueckbau("t"))
         self.assertIn("noch vorhanden", str(cm.exception))
 
+    def test_flatpattern_wirft_nach_dem_loeschen(self):
+        """Live 0.4.54: Component.flatPattern wirft nach dem Löschen «InternalValidationError : res» – gilt als entfernt, kein Fehlschlag."""
+        fa = _fa()
+        fp = ff.Objekt("Prüf-Abwicklung")
+
+        class C(object):
+            @property
+            def flatPattern(self):
+                raise RuntimeError("2 : InternalValidationError : res")
+        comp = self._aufbau(fp, comp=C())
+        rb = fa.Rueckbau("t")
+        text = fa._native_abwicklung_absichern(comp, object(), rb)
+        self.assertFalse(fp.isValid)
+        self.assertIn("Prüf-Abwicklung entfernt", text)
+        self.assertNotIn(fp, rb.objekte)
+
     def test_fehler_beim_loeschen_selbst(self):
         fa = _fa()
         fp = ff.Objekt("Prüf-Abwicklung")

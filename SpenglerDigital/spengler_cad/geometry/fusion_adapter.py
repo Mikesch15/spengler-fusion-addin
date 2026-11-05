@@ -689,6 +689,16 @@ def _objektname(o):
         return t
 
 
+def _flatpattern_lesen(comp):
+    """→ (Abwicklung oder None, lesbar). Live 0.4.54: Nach dem Löschen der Abwicklung wirft Component.flatPattern «InternalValidationError : res»
+    statt None zu liefern – das gilt als «keine Abwicklung»; ob das gelöschte Objekt wirklich ungültig ist, prüft _loeschen separat."""
+    try:
+        return comp.flatPattern, True
+    except Exception as e:
+        logger.info("Component.flatPattern nicht lesbar", fusion=(str(e).strip().splitlines() or ["?"])[-1])
+        return None, False
+
+
 def _loeschen(o):
     """Ein Fusion-Objekt löschen und das Ergebnis PRÜFEN. → None = weg (oder war schon weg), sonst Problemtext mit Objektname/-typ.
     deleteMe() → False gilt als Fehlschlag (nicht als Erfolg); ein Objekt, das danach noch gültig ist, ebenso. Nicht live geprüft."""
@@ -2558,12 +2568,13 @@ def _native_abwicklung_absichern(comp, body, rb):
         # und die ganze Operation wird als fehlgeschlagen zurückgebaut (der Rückbau versucht das Löschen erneut und meldet, was übrig bleibt).
         _testfehler("eigen_pruefabwicklung_loeschen")
         p_ = _loeschen(fp)
-        noch = getattr(comp, "flatPattern", None)
+        noch, lesbar = _flatpattern_lesen(comp)
         if p_ or noch:
             raise AdapterFehler("Die temporäre Prüf-Abwicklung liess sich nicht entfernen (%s) – Vorgang als FEHLGESCHLAGEN gewertet." % (
                 p_ or "Abwicklung der Komponente noch vorhanden"))
         rb.objekte.remove(fp)
-        text += "; temporäre Prüf-Abwicklung entfernt und Entfernung geprüft"
+        text += "; temporäre Prüf-Abwicklung entfernt und Entfernung geprüft" + ("" if lesbar else " (Objekt ungültig; die Komponente gibt nach dem "
+                                                                                    "Löschen keine Abwicklung mehr heraus)")
     return text
 
 
@@ -2796,7 +2807,7 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     """Abwicklung der Komponente: eine vorhandene wird verwendet (Fusion führt sie selbst nach), sonst neu erzeugt. Vorher geprüft: gültiger
     Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
     (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
-    fp = getattr(comp, "flatPattern", None)
+    fp, _lesbar = _flatpattern_lesen(comp)
     if fp:
         logger.info("Abwicklung bereits vorhanden – sie wird verwendet", komponente=getattr(comp, "name", "?"))
         return fp, False
