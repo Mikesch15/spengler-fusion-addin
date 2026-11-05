@@ -13,7 +13,7 @@ from .models import neuer_bauplan
 
 def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
     """→ (geeignet, gruende[]). Ungeeignete Kanten werden NIE stillschweigend bearbeitet. bauweise 'eigen' = eigene Profilgeometrie (Kantenwerkzeug);
-    prototyp = in den Einstellungen freigegebene Prototypen (nur nach bestandenem Live-Test)."""
+    prototyp = experimentelle Freigabe (core/experimentell): Menge exakt benannter Fälle aus dem Entwickler-Override, True nur im Live-/Stub-Test."""
     gruende = []
     if not kante.get("blech") and not (bauweise == "eigen" and kante.get("profilteil")):
         gruende.append("gehört nicht zu einem Blechkörper (Fusion-Arbeitsbereich «Blech» verwenden)" +
@@ -32,13 +32,14 @@ def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
     if fk == "unbekannt":
         # Nicht sicher bestimmbare Fläche: IMMER ablehnen (nie als eben behandeln), Diagnose nennen
         gruende.append("angrenzende Fläche nicht sicher bestimmbar (%s) – die Bearbeitung wird nicht ausgeführt" % (kante.get("flaeche_diagnose") or "Flächentyp unbekannt"))
+    from . import experimentell
     for art in sorted(a for a in arten if a in unterstuetzung.OPS):
-        grund = unterstuetzung.pruefen_bauweise(art, fk, kt, bauweise, prototyp)
+        grund = unterstuetzung.pruefen_bauweise(art, fk, kt, bauweise, experimentell.erlaubt(prototyp, art, fk, kt))
         if grund:
             gruende.append("ist %s auf %s – %s%s" % (beschr, unterstuetzung.FLAECHEN_TEXT.get(fk, fk), grund,
                                                     " Kurz: nur an geraden Kanten ebener Flächen" if kt != "gerade" or fk != "eben" else ""))
     if any(o.get("versatz") for o in ((vorlage or {}).get("operations") or [])):
-        grund = unterstuetzung.pruefen_bauweise("versatz", fk, kt, bauweise, prototyp)
+        grund = unterstuetzung.pruefen_bauweise("versatz", fk, kt, bauweise, experimentell.erlaubt(prototyp, "versatz", fk, kt))
         if grund:
             gruende.append(grund)
     if typ == "gekruemmt" and kurve == "linie":

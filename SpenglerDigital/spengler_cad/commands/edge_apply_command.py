@@ -68,7 +68,11 @@ def erstellt(args):
                   "(Kreisbögen + Linien) entlang einer GERADEN Kante – Aufkantung, Falz, Doppelfalz in einem Vorgang, eigene exakte Abwicklung.")
     bw.listItems.add("Fusion-Blechfunktion (nativ)", g_.get("bauweise", "nativ") != "eigen")
     bw.listItems.add("Eigene Geometrie (exaktes Profil, auch gerade Kante auf Zylinder/Kegel)", g_.get("bauweise") == "eigen")
-    inp.addBoolValueInput("prototypen", "Prototypen gekrümmter Flächen zulassen (nur nach bestandenem Live-Test)", True, "", bool(g_.get("prototypenFreigegeben")))
+    from ..core import experimentell
+    exp = experimentell.faelle()
+    if exp:     # Entwickler-Override (Umgebungsvariable) – in der normalen Oberfläche NICHT schaltbar
+        inp.addTextBoxCommandInput("experimentell", "", "<b>EXPERIMENTELL:</b> " + ", ".join("/".join(f) for f in sorted(exp)) +
+                                   " per Entwickler-Override freigegeben – nicht live getestet.", 2, True)
     inp.addGroupCommandInput("parameter", "Parameter")
     ex = inp.addBoolValueInput("experte", "Expertenmodus", True, "", e["ui"]["mode"] == "experte")
     ex.tooltip = help_content.TOOLTIPS["experte"]
@@ -118,8 +122,9 @@ def _bauweise(inp):
 
 
 def _prototypen(inp):
-    x = inp.itemById("prototypen")
-    return bool(x.value) if x is not None else False
+    """Nie aus der Oberfläche/Einstellung: nur die exakt benannten Fälle des Entwickler-Overrides (leer im Produktionsmodus)."""
+    from ..core import experimentell
+    return experimentell.faelle()
 
 
 def _material(inp):
@@ -237,7 +242,7 @@ def _schluessel(inp, mit_kanten=True):
     for i in ("vorlage", "material", "bauweise"):
         d = inp.itemById(i)
         teile.append(d.selectedItem.index if d is not None and d.selectedItem is not None else -1)
-    teile.append(_prototypen(inp))
+    teile.append(tuple(sorted(_prototypen(inp))))
     for pid in Z.get("param_ids", []):
         x = inp.itemById(pid)
         teile.append(x.expression if x is not None else None)
@@ -483,6 +488,11 @@ def _ausfuehren(self, args):
     inp = args.command.commandInputs
     r = BuildResult()
     von = fa.zeitleiste_stand()
+    from ..core import experimentell
+    exp = _prototypen(inp)
+    if exp and not base.frage("EXPERIMENTELL", experimentell.warnung(exp)):
+        base.melden("Kanten bearbeiten", "Abgebrochen – nichts gebaut (experimenteller Override nicht bestätigt).")
+        return
     plan = _bauen(inp, r, base.frage)
     if not r.fehler:
         if fa.zeitleiste_gruppieren(von, "Spengler: %s" % (plan.get("templateName") or "Kantenfolge")):

@@ -205,8 +205,8 @@ def standard_einstellungen():
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",
         "cloud": {"syncOnStart": True, "updateCheckOnStart": True},   # Spengler-Digital-App (nur wenn angemeldet)
-        # Kantenwerkzeug: Bauweise (nativ = Fusion-Blech, eigen = exakte Profilgeometrie); Prototypen (gekrümmte Flächen) erst nach bestandenem Live-Test
-        "geometrie": {"bauweise": "nativ", "prototypenFreigegeben": False},
+        # Kantenwerkzeug: Bauweise (nativ = Fusion-Blech, eigen = Profilgeometrie). Prototypen lassen sich hier NICHT freigeben (core/experimentell).
+        "geometrie": {"bauweise": "nativ"},
     }
 
 

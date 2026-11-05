@@ -2403,8 +2403,9 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
     f = bezugsflaeche(edge)
     fk = u.flaechenklasse(flaechentyp(f) if f is not None else "unbekannt")
     kt = u.kantentyp(_kurventyp(edge))
+    from ..core import experimentell
     for art in sorted({o_["typ"] for o_ in ops} & set(u.OPS)):
-        grund = u.pruefen_bauweise(art, fk, kt, "eigen", prototyp)
+        grund = u.pruefen_bauweise(art, fk, kt, "eigen", experimentell.erlaubt(prototyp, art, fk, kt))
         if grund:
             raise AdapterFehler(grund)
     if kt != "gerade":
