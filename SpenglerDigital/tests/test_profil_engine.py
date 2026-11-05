@@ -94,3 +94,33 @@ class Begriffe(unittest.TestCase):
             self.assertIn(wort, b)
         self.assertNotIn("exakt", b)
         self.assertIn("Theoretischer Zuschnitt", pe.rueckvergleich(q, 100.0)["texte"][0])
+
+
+class Kontur(unittest.TestCase):
+    """Korrektur 0.4.49 Phase 5: Berührung, kollineare Überlappung, knappe Abstände, grosse Radien."""
+    def loop(self, pts):
+        return [("linie", pts[i], pts[(i + 1) % len(pts)]) for i in range(len(pts))]
+
+    def test_kollineare_ueberlappung(self):
+        u = self.loop([(0, 0), (10, 0), (10, 2), (6, 2), (6, 0), (4, 0), (4, 2), (0, 2)])
+        self.assertTrue(pe.selbstschnitt(u))
+
+    def test_beruehrung_in_einem_punkt_und_toleranzgrenze(self):
+        self.assertTrue(pe.selbstschnitt(self.loop([(0, 0), (10, 0), (10, 3), (6, 3), (5, 0.0), (4, 3), (0, 3)])), "Spitze berührt die Grundlinie")
+        self.assertTrue(pe.selbstschnitt(self.loop([(0, 0), (10, 0), (10, 3), (6, 3), (5, 0.005), (4, 3), (0, 3)])), "0.005 mm < Toleranz")
+        self.assertEqual(pe.selbstschnitt(self.loop([(0, 0), (10, 0), (10, 3), (6, 3), (5, 0.05), (4, 3), (0, 3)])), [], "0.05 mm Abstand ist frei")
+
+    def test_enge_biegung_ist_kein_kontakt(self):
+        ops = [flansch(90, 25), {"typ": "umschlag", "winkel": 180, "laenge": 10, "radius": pe.RI_MIN}]
+        q = pe.querschnitt(pe.ops_zu_profil(ops, T, RI), T, RI, K)
+        self.assertEqual(pe.selbstschnitt(q["umriss"]), [], "kleinster Radius: Lagen 0.1 mm auseinander, Nachbarsegmente der Biegung zählen nicht")
+
+    def test_grosser_radius_fein_geteilt(self):
+        u = pe.querschnitt(pe.segment_profil(100.0, 90.0, T), T, RI, K)["umriss"]
+        p = pe._polygon(u)
+        bogen = [el for el in u if el[0] == "bogen" and el[5] > 99]
+        c, r = bogen[0][4], bogen[0][5]
+        # grösste Abweichung der Polygonkante vom echten Kreis (Sehnenmitte)
+        fehler = max(r - math.hypot((a[0] + b[0]) / 2 - c[0], (a[1] + b[1]) / 2 - c[1]) for a, b in zip(p, p[1:])
+                     if abs(math.hypot(a[0] - c[0], a[1] - c[1]) - r) < 1e-6 and abs(math.hypot(b[0] - c[0], b[1] - c[1]) - r) < 1e-6)
+        self.assertLessEqual(fehler, pe.KONTAKT_TOL / 2 + 1e-9)

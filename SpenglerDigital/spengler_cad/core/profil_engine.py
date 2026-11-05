@@ -128,7 +128,12 @@ def querschnitt(profil, t, ri_std, k):
             "biegungen": res["biegungen"], "pfad": pfad, "t": t, "k": k}
 
 
-def _polygon(umriss, schritt_grad=3.0):
+KONTAKT_TOL = 0.01     # mm: kleinerer Abstand zweier nicht benachbarter Konturteile gilt als Berührung (Kollision)
+
+
+def _polygon(umriss, schritt_grad=3.0, sehnenfehler=KONTAKT_TOL / 2.0):
+    """Polygon des Umrisses. Bögen adaptiv geteilt: Sehnenabweichung ≤ sehnenfehler (sonst könnten grosse Radien eine Überlappung von bis zu
+    r·(1 − cos 1.5°) – bei R 100 mm 0.03 mm – verdecken), höchstens schritt_grad je Segment."""
     pts = []
     for el in umriss:
         if el[0] == "linie":
@@ -141,7 +146,10 @@ def _polygon(umriss, schritt_grad=3.0):
             d = (w1 - w0) % (2 * math.pi)
             if not (0 <= (wm - w0) % (2 * math.pi) <= d):
                 d -= 2 * math.pi
-            n = max(2, int(abs(math.degrees(d)) / schritt_grad))
+            schritt = math.radians(schritt_grad)
+            if r > sehnenfehler:
+                schritt = min(schritt, 2.0 * math.acos(1.0 - sehnenfehler / r))
+            n = max(2, int(math.ceil(abs(d) / schritt)))
             seg = [_pt(c, r, w0 + d * i / n) for i in range(n + 1)]
         for p in seg:
             if not pts or math.hypot(pts[-1][0] - p[0], pts[-1][1] - p[1]) > 1e-9:
@@ -158,17 +166,42 @@ def _schneiden(a, b, c, d, tol=1e-7):
     return ((d1 > tol and d2 < -tol) or (d1 < -tol and d2 > tol)) and ((d3 > tol and d4 < -tol) or (d3 < -tol and d4 > tol))
 
 
-def selbstschnitt(umriss):
-    """Schneidet sich der Querschnitt selbst (z. B. Falz, der in den Schenkel läuft)? → Liste der Problemstellen (leer = frei)."""
+def _abstand_punkt_strecke(p, a, b):
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    L2 = dx * dx + dy * dy
+    u = 0.0 if L2 < 1e-24 else max(0.0, min(1.0, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / L2))
+    return math.hypot(p[0] - a[0] - u * dx, p[1] - a[1] - u * dy)
+
+
+def _abstand_strecken(a, b, c, d):
+    if _schneiden(a, b, c, d, 0.0):
+        return 0.0
+    return min(_abstand_punkt_strecke(a, c, d), _abstand_punkt_strecke(b, c, d), _abstand_punkt_strecke(c, a, b), _abstand_punkt_strecke(d, a, b))
+
+
+def selbstschnitt(umriss, tol=KONTAKT_TOL):
+    """Schneidet oder BERÜHRT sich der Querschnitt selbst (Falz läuft in den Schenkel, Lagen liegen aufeinander, kollineare Überlappung)?
+    Geprüft: echte Kreuzungen und Abstand < tol zwischen Konturteilen, die entlang des Umrisses weiter als 10·tol auseinanderliegen (so zählen die
+    Nachbarsegmente einer engen Biegung nicht als Kontakt). → Liste der Problemstellen (leer = frei)."""
     p = _polygon(umriss)
     n = len(p)
+    weg = [0.0]
+    for i in range(n):
+        a, b = p[i], p[(i + 1) % n]
+        weg.append(weg[-1] + math.hypot(b[0] - a[0], b[1] - a[1]))
+    umfang = weg[-1]
+    nah = 10.0 * tol
     treffer = []
     for i in range(n):
         a, b = p[i], p[(i + 1) % n]
-        for j in range(i + 2, n):
-            if i == 0 and j == n - 1:
+        for j in range(i + 1, n):
+            # Weg entlang des Umrisses zwischen den Segmenten (beide Richtungen um den geschlossenen Umriss)
+            zwischen = max(0.0, weg[j] - weg[i + 1])
+            zwischen = min(zwischen, max(0.0, umfang - weg[j + 1] + weg[i]))
+            if zwischen < nah:
                 continue
-            if _schneiden(a, b, p[j], p[(j + 1) % n]):
+            c, d = p[j], p[(j + 1) % n]
+            if _schneiden(a, b, c, d) or _abstand_strecken(a, b, c, d) < tol:
                 treffer.append(((a[0] + b[0]) / 2, (a[1] + b[1]) / 2))
     return treffer
 
@@ -181,7 +214,8 @@ def pruefen(q):
             probleme.append("Biegung %d: Innenradius %.2f mm < %.2f mm" % (b["nr"], b["ri"], RI_MIN))
     s = selbstschnitt(q["umriss"])
     if s:
-        probleme.append("Der Querschnitt schneidet sich selbst (%d Stelle(n), z. B. bei x %.1f / y %.1f mm) – Falz/Schenkel kollidieren" % (len(s), s[0][0], s[0][1]))
+        probleme.append("Der Querschnitt schneidet oder berührt sich selbst (%d Stelle(n), z. B. bei x %.1f / y %.1f mm; Mindestabstand %.2f mm) – "
+                        "Falz/Schenkel kollidieren" % (len(s), s[0][0], s[0][1], KONTAKT_TOL))
     return probleme
 
 
