@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «Spengler-Kantenwerkzeug – Status» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.52)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -439,7 +439,7 @@ nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/paramet
 wird verständlich abgebrochen (Interferenz: ausdrücklich gekennzeichnete Grobprüfung).
 **BaseFeature-/Kombinieren-Integration** eines 3D-Details friert die Detailgeometrie ein: die parametrische Feature-Historie des Details bleibt NICHT erhalten.
 
-## Korrekturauftrag gekrümmte Flächen – Status je Funktion (5. 11. 2026, AKTUELL)
+## HISTORISCH – Korrekturauftrag gekrümmte Flächen – Status je Funktion (5. 11. 2026, Stand 0.4.49)
 Ausgangs-Commit `dc50a15`. **Kein Release, Version 0.4.49 unverändert, main nicht berührt.** Statuswerte: NICHT IMPLEMENTIERT · IMPLEMENTIERT – NICHT LIVE GETESTET ·
 LIVE GETESTET – TECHNISCH BESTANDEN · FACHLICH IM CAD GEPRÜFT · FÜR PRODUKTIVE ANWENDUNG FREIGEGEBEN. Seit 0.4.42 lief **kein** Fusion-Live-Test; kein Punkt
 ist «fachlich geprüft» oder «freigegeben». Grundlage der Live-Angaben: Live-Test 97.002 (0.4.42, Fusion 2706.1.17).
@@ -462,7 +462,7 @@ werden. Doppelt gekrümmt (Kugel, Torus) – Gausssche Krümmung ≠ 0, keine ve
 Abwickelbarkeit nur über Stichproben, ausgefallene Punkte = unsicher; Bearbeitungen nicht definiert. Prototypen sind im normalen Bau GESPERRT und
 werden erst nach bestandenem Live-Test (und fachlicher Prüfung) in `core/unterstuetzung.py` freigegeben.
 
-## Spengler-Kantenwerkzeug – Status (5. 11. 2026, AKTUELL)
+## HISTORISCH – Spengler-Kantenwerkzeug – Status (5. 11. 2026, Stand 0.4.49 vor Veröffentlichung; überholt)
 Ausgangs-HEAD `46ba14e`. Kein Release, Version 0.4.49, main unberührt. EIN Werkzeug: das bestehende «Kanten bearbeiten» (Befehls-ID unverändert, Vorlagen
 und Kurzschrift unverändert kompatibel) mit Bauweise *Fusion-Blechfunktion* oder *Eigene Geometrie*. «Abwicklung & DXF» bleibt separat und nutzt für
 Profilteile die eigene Abwicklung. **Fusion-Live-Tests: 0 ausgeführt** – alles unten ist höchstens IMPLEMENTIERT – NICHT LIVE GETESTET.
@@ -688,7 +688,7 @@ Konstruktionsebene «an der Kante» + nicht bemasste Skizze + Extrusion (Vereini
 das in der Zeitleiste). Das Profil des Teils steht als Attribut am Körper (für die eigene Abwicklung); wird der Körper danach anders verändert, verweigert
 die eigene Abwicklung über den Rückvergleich die Ausgabe.
 
-### Korrektur 0.4.49 nach Review (5. 11. 2026) – gilt zusätzlich zum Abschnitt «Spengler-Kantenwerkzeug»
+### HISTORISCH – Korrektur nach Review (5. 11. 2026, veröffentlicht in 0.4.50)
 - Unbekannte/nicht lesbare Flächen: werden in allen Pfaden «unbekannt» (mit Diagnose) und abgelehnt – kein Rückfall auf «eben» mehr. STUB-GETESTET.
 - Eigene Geometrie am Fusion-Blechkörper: wird nur übernommen, wenn danach isSheetMetal gilt, eine native Prüf-Abwicklung entsteht und die DXF die
   Konturprüfung besteht; am Profilteil nur, wenn die eigene Abwicklung das GANZE Teil beschreibt. Sonst Ablehnung/Rückbau. Ob Fusion die Blechsemantik
@@ -700,3 +700,36 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
 - Konturprüfung: Berührung/kollineare Überlappung (0.01 mm), adaptive Bogenteilung (Sehnenfehler ≤ 0.005 mm). Kollision mit dem BESTEHENDEN Körper wird
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
+
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.52)
+- **Branch:** `ccr-26e82854-8ygnzg`. **Bearbeitungs-HEAD:** `3286d5c` (Release 0.4.51); dieser Dokumentationsstand wird als **0.4.52** veröffentlicht
+  (Release-Knopf, auf Anweisung des Anwenders). Der Code von 0.4.52 ist identisch mit 0.4.51 – geändert ist nur die Dokumentation.
+- **Veröffentlicht:** 0.4.50 (Kantenwerkzeug, Absicherungen), 0.4.51 (strenge DXF-Prüfung, Prüf-Abwicklung, Begriffe), 0.4.52 (diese Doku). main unverändert.
+- **Unit-/Stub-Tests:** 505 bestanden, 0 fehlgeschlagen, 1 übersprungen (ezdxf fehlt) – ohne Fusion, mit Attrappen.
+- **Fusion-Live-Tests:** NICHT DURCHGEFÜHRT (0). Vorbereitet: Testanleitung, Abschnitt «Live-Tests Kantenwerkzeug (Tests 1–6)».
+- **Fertigungsprüfung:** NICHT DURCHGEFÜHRT (0). Alle Zuschnittlängen sind theoretisch.
+- **Produktiv freigegeben:** keine Funktion des Kantenwerkzeugs der Bauweise «eigene Geometrie». Bedienbar (an ebener gerader Kante), aber
+  IMPLEMENTIERT – NICHT LIVE GETESTET. Prototypen (gekrümmte Flächen) im Produktionsmodus gesperrt (nur Entwickler-Override).
+
+**Korrekturen aus dem letzten Review (0.4.51):**
+1. *Strenge DXF-Prüfung nur für die interne Validierung:* `dxf_pruefung.pruefe_streng()` wird ausschliesslich in `_native_abwicklung_absichern()`
+   verwendet (nach eigener Geometrie am Fusion-Blechkörper). Der normale Export «Abwicklung & DXF» nutzt weiter `pruefe()` (offene Konturen/doppelte
+   Linien nur als Hinweis) – unverändert.
+2. *Begriffe:* «mathematisch abwickelbar» (Geometrie, Gausssche Krümmung 0) · «theoretischer Zuschnitt» (Modell ri + k·t, Innenradius und K-Faktor des
+   Materialprofils werden angegeben) · «praktisch verifiziert» (nur nach dokumentierter Probebiegung – liegt nicht vor).
+3. *Temporäre Prüf-Abwicklung:* nach der Prüfung gelöscht und geprüft (deleteMe-Ergebnis, Objekt ungültig, `Component.flatPattern` leer); misslingt
+   das, gilt der Vorgang als fehlgeschlagen und der Rückbau versucht es erneut und meldet den Rest. Eine vorher vorhandene Abwicklung wird nie gelöscht.
+
+**Was `pruefe_streng()` prüft – und was nicht (Stand Code 0.4.51):**
+- Geprüft: Datei lesbar; mindestens ein Element (Linie, Bogen, Kreis, Polylinie); Aussenmasse (Begrenzungsrahmen aller Elemente) gleich den
+  erwarteten Massen ± 1 mm; `$INSUNITS` = mm – fehlt die Angabe, wird mm nur akzeptiert, wenn der Massvergleich in mm passt; keine offenen Enden (jeder
+  Endpunkt gerade Anzahl, Raster 0.01 mm); keine doppelten Linien (gleiche Endpunkte); keine Verzweigung (kein Endpunkt mit mehr als zwei Enden); keine
+  teilweise überlappenden kollinearen LINIEN; keine Spline/Ellipse (werden nicht gelesen → «nicht sicher prüfbar» → Ablehnung); genau eine Kontur bildet
+  den Gesamtrahmen, weitere Konturen liegen mit ihrem Rahmen vollständig innerhalb.
+- NICHT geprüft bzw. Grenzen: kein vollständiger CAD-Topologie- oder Selbstüberschneidungsnachweis. Elemente, die sich KREUZEN, ohne einen
+  gemeinsamen modellierten Endpunkt zu haben, können unentdeckt bleiben. Doppelte oder überlappende BÖGEN/Kreise werden nicht erkannt (nur Linien).
+  Innenkonturen (Löcher) werden nur nach der Lage ihres Begrenzungsrahmens beurteilt – Form, Geschlossenheit im Einzelnen und Topologie nicht umfassend.
+  Biegelinien werden über den Ebenennamen erkannt (Muster bend/biege/fold/kante, ohne Gross-/Kleinschreibung); andere Namen führen absichtlich zur
+  Ablehnung (sie erscheinen als offene Kontur). Achtung: Auch eine Kontur-Ebene, deren Name «kante» enthält (z. B. «Aussenkante»), würde als
+  Biegelinie übergangen – dann fehlt die Kontur und die Prüfung lehnt ab (konservativ, aber möglicherweise verwirrend; siehe Vorschlag im Bericht).
+  Der Massvergleich gegen die von Fusion gelieferte Abwicklung ist eine Plausibilitätskontrolle, kein unabhängiger Nachweis der gesamten Geometrie.

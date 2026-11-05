@@ -274,3 +274,53 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 | ☐ | Bildschirmfotos aus Block 2 und alle Fehlermeldungen |
 | ☐ | Fusion-Version und Betriebssystem |
 | ☐ | Notizen: was war unklar, umständlich oder fehlt? |
+
+
+## Live-Tests Kantenwerkzeug (Tests 1–6) – vorbereitet, NICHT durchgeführt
+
+Für jeden Test erfassen: Voraussetzungen/Ausgangszustand · Bedienungsschritte · erwartetes Ergebnis · tatsächliches Ergebnis · **bestanden / nicht bestanden
+/ nicht durchführbar** · Fusion-Version (Hilfe → Über) und Betriebssystem · bei Fehlern Bildschirmfoto und Protokoll (Palette → Sicherung → «Protokoll
+öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.52 (Code wie 0.4.51).
+
+**Vorbereitung (für alle Tests):** Materialprofil mit Dicke 1.0 mm, Innenradius 1.0 mm und K-Faktor (z. B. 0.44) anlegen; Auftrag wählen (falls
+«Auftrag erforderlich» eingestellt ist); Vorlage mit genau einem Flansch 90° / 20 mm (Kurzschrift im Expertenmodus z. B. `90 20`).
+
+**Test 1 – Ausgangskörper.** Voraussetzung: neues Dokument, «Blech aus Massaufnahme» bzw. Fusion-Blech: Basisflansch 100 × 60 mm, Blechregel 1.0 mm.
+Schritte: (1) Datei speichern als «LT-Kantenwerkzeug-1»; (2) Körper anklicken → Eigenschaften: Blechkörper ja, Dicke 1.0 mm notieren; (3) im Browser
+nachsehen, ob unter der Komponente eine «Abwicklung» (Flat Pattern) existiert – notieren (für Test 4 soll KEINE vorhanden sein). Erwartet: gültiger
+Blechkörper 1.0 mm, keine Abwicklung. Bestanden: beides zutreffend; nicht bestanden: kein Blechkörper oder andere Dicke.
+
+**Test 2 – Eigene Geometrie an gerader Kante.** Voraussetzung: Test 1. Schritte: (1) SPENGLER → «Kanten bearbeiten»; (2) Körper wählen, dann die
+obere lange Aussenkante (gerade, an der ebenen Oberseite); (3) Vorlage «90 20», Material aus der Vorbereitung; (4) **Bauweise: «Eigene Geometrie»**;
+(5) Bauplan lesen: «Analyse … gerade Kante auf eben Fläche … mathematisch abwickelbar … Zuschnitt THEORETISCH»; (6) Vorschau einschalten und ansehen;
+(7) OK. Erwartet: Vorschau zeigt eine Aufkantung nach oben über die ganze Kantenlänge; Ergebnisbericht ohne Fehler, mit den Zeilen «Blechkörper bleibt
+Fusion-Blech; native Abwicklung … und DXF streng geprüft» und «temporäre Prüf-Abwicklung entfernt und Entfernung geprüft»; Körper danach weiterhin
+Blechkörper (Eigenschaften). Bestanden: alles zutreffend. Nicht bestanden: Fehlermeldung, Körper kein Blech mehr, oder Bericht ohne diese Zeilen.
+Nicht durchführbar: Bauweise-Auswahl fehlt (falsche Version) – Version prüfen.
+
+**Test 3 – Native Abwicklung und DXF.** Voraussetzung: Test 2 bestanden. Schritte: (1) SPENGLER → «Abwicklung & DXF», Körper wählen, DXF an;
+(2) Ausgabeordner öffnen, Änderungszeit der DXF notieren (muss jetzt sein); (3) Bericht lesen: «Abwicklung … (Fusion-Blechregel, theoretischer
+Zuschnitt …)», «DXF ✓»; (4) DXF in einem unabhängigen Viewer/CAD öffnen (z. B. eDrawings, LibreCAD, DWG TrueView): Aussenmasse messen und mit dem
+Bericht vergleichen, Kontur geschlossen, keine doppelten Linien, Biegelinie(n) vorhanden. Erwartet: neue Datei, Masse im Viewer = Bericht (± 0.1 mm),
+eine geschlossene Aussenkontur. Hinweis: Die STRENGE Prüfung lief bereits in Test 2 (Zeile «DXF streng geprüft»); der Export hier nutzt die normale
+Prüfung. DXF-Datei dem Testprotokoll beilegen. Bestanden / nicht bestanden entsprechend.
+
+**Test 4 – Prüf-Abwicklung wird entfernt.** Teil A (keine Abwicklung vorher): nach Test 2 im Browser prüfen, dass KEINE Abwicklung unter der Komponente
+steht (die interne Prüf-Abwicklung muss weg sein). Teil B (Abwicklung vorher vorhanden): neue Testdatei wie Test 1, dann in Fusion selbst eine Abwicklung
+erzeugen (Blech → Abwicklung erstellen, Fläche oben), zurück ins Modell, dann Test 2 wiederholen. Erwartet A: keine Abwicklung; B: die eigene Abwicklung
+existiert weiterhin (nicht gelöscht) und zeigt die neue Aufkantung. Fehlerfall: Meldet das Werkzeug «Prüf-Abwicklung liess sich nicht entfernen … FEHLGESCHLAGEN»,
+ist der Test **nicht bestanden** – Bildschirmfoto und Protokoll senden.
+
+**Test 5 – Rückbau bei DXF-Prüffehler.** Der Testfehler `eigen_validierung_dxf` lässt sich nicht über die Oberfläche auslösen; er läuft im
+automatischen Live-Test. Schritte: SPENGLER → Verwaltung → Live-Test, «Ergebnis senden» an, starten, 3–5 Minuten nichts anklicken. Im Bericht den
+Schritt «KANTENWERKZEUG eigen: Rückbau» suchen; Zeile `eigen_validierung_dxf: eingeschleuster Fehler ausgelöst; Zustand unverändert; Rückbau gemeldet ok`.
+Erwartet: genau diese Zeile (✓ PASS). Nicht bestanden: «ANDERER Fehler», «VERÄNDERT», «NICHT VOLLSTÄNDIG MESSBAR» oder «UNVOLLSTÄNDIG». Bestehende
+Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).
+
+**Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.** Der Testfehler `eigen_pruefabwicklung_loeschen` ist im Code vorhanden und mit Attrappen
+getestet, aber im automatischen Live-Test (noch) NICHT enthalten und über die Oberfläche nicht auslösbar. Status daher: **nicht durchführbar** mit dem
+bestehenden Mechanismus. Vorschlag (separat, nicht umgesetzt): die Teststelle in den Live-Schritt «KANTENWERKZEUG eigen: Rückbau» aufnehmen.
+
+**Abgabe:** Bericht 97.002 (automatisch bei «Ergebnis senden») bzw. `livetest.txt` aus dem Datenordner, dazu je Test 1–4 eine Zeile «bestanden / nicht
+bestanden / nicht durchführbar», Fusion-Version, Betriebssystem, Bildschirmfotos und die DXF aus Test 3. Ein bestandener Live-Test ist KEINE
+Fertigungsfreigabe.

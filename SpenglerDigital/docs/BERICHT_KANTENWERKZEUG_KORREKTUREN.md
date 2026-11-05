@@ -60,3 +60,17 @@ senden», je Test Fusion-Version/OS, Ergebnis und Bildschirmfoto festhalten.
 **Tests dieser Runde:** Unit/Stub 505 (vorher 492), 0 Fehler, 1 übersprungen (ezdxf). **Fusion-Live-Tests: 0** – offen: Schritte «KANTENWERKZEUG eigen: Aufkantung» (Blechstatus, native Abwicklung, strenge DXF) und «… Rückbau» (inkl. Prüf-Abwicklung). **Fertigungsprüfungen: 0.**
 **Risiken:** Benennt Fusion die Biegelinien-Ebene anders als bend/biege/fold/kante, lehnt die strenge Prüfung jede eigene Geometrie am Blechkörper ab (sicher, aber ohne Nutzen) – im Live-Test sichtbar. Löcher werden nur über ihre Lage, nicht über ihre Form geprüft.
 **Veröffentlichung:** Der Auftragstext untersagt einen Release; der Anwender hat in derselben Nachricht ausdrücklich «direkt veröffentlichen» verlangt – diese Ansage gilt.
+
+
+## Dokumentationsbereinigung und Vorbereitung der Live-Tests (5. 11. 2026)
+- **Ausgangs-HEAD:** `3286d5c` (Release 0.4.51) · **neuer HEAD:** siehe `git log` (Doku-Commit, danach Release 0.4.52 auf Anweisung des Anwenders;
+  der Auftrag untersagte einen Release, die direkte Ansage «direkt veröffentlichen» hat Vorrang).
+- **Geänderte Dateien:** `docs/ANFORDERUNGEN_STATUS.md` (aktueller Stand 0.4.52, ältere Abschnitte als HISTORISCH markiert, Grenzen von
+  `pruefe_streng`), `docs/Testanleitung.md` (Live-Tests 1–6), dieser Bericht, erzeugte `Testanleitung.pdf/.html`, `Benutzerhandbuch.pdf/.html` (nur neu erzeugt). **Kein Code geändert** (keine Geometrie, keine DXF-Prüflogik, normaler Export und Oberfläche unverändert, Matrix unverändert).
+- **Tests:** Unit/Stub 505 bestanden, 0 fehlgeschlagen, 1 übersprungen. **Fusion-Live-Tests: 0** (offen: Tests 1–5 der Testanleitung; Test 6 mit
+  bestehendem Mechanismus nicht durchführbar). **Fertigungsprüfung: 0.**
+- **Vorschläge aus dem Code-Review (nicht umgesetzt, nur gemeldet):** (a) `dxf_lesen.BIEGE` enthält «kante» – eine Kontur-Ebene wie «Aussenkante» würde
+  als Biegelinie übergangen (Prüfung lehnt dann ab, Meldung wäre irreführend) → Muster enger fassen. (b) Doppelte/überlappende Bögen und Kreise werden
+  in `pruefe_streng` nicht erkannt → Prüfung auf Bögen erweitern. (c) Kreuzungen ohne gemeinsamen Endpunkt werden nicht erkannt → Schnitttest
+  ergänzen. (d) Teststelle `eigen_pruefabwicklung_loeschen` in den Live-Test aufnehmen (Test 6).
+- main unverändert, kein Merge.
