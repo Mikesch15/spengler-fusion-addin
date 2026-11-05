@@ -379,6 +379,56 @@ Grenzen und Gründe (gekrümmte Fälle):
 - **3D-Detail an Fläche angepasst / doppelt gekrümmt** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
 - **3D-Detail an Fläche angepasst / Freiform** (nicht unterstützt): keine definierte Verformungsrichtung (Kegel/doppelt gekrümmt/Freiform) – Detail wird nicht ungefragt verformt
 
+**Machbarkeit gekrümmter Fälle (aus `core/unterstuetzung.py` erzeugt):**
+
+| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | exakt | Live-Test |
+|---|---|---|---|---|---|---|---|
+| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | nötig |
+| Flansch | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Hem (Preview) | ja | exakt | nötig |
+| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | nötig |
+| Versatz | Kegel | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | Freiform | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
+| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
+| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
+| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
+| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
+| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
+| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht exakt | nötig |
+| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht exakt | nötig |
+| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Benutzerparameter | ja | exakt | nötig |
+| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+
 **Fusion-API-Risiken:** Blech-Features (BaseFlange, EdgeFlange, Hem) sind Preview-API und werden vor dem Aufruf mit `hasattr` geprüft; neu genutzt und
 nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/parametricRange`, `CurveEvaluator.getTangent`, `MeasureManager.measureMinimumDistance`,
 `Design.createInterferenceInput/analyzeInterference`, `sketchArcs.addByThreePoints`, `RevolveFeatures` mit Teilwinkel. Fehlt eine dieser Funktionen,

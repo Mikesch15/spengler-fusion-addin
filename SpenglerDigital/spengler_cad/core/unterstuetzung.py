@@ -141,3 +141,17 @@ def als_markdown():
                 if g and eintrag not in gruende and f != "eben":
                     gruende.append(eintrag)
     return "\n".join(zeilen) + "\n\nGrenzen und Gründe (gekrümmte Fälle):\n" + "\n".join(gruende)
+
+
+def machbarkeit_markdown():
+    """Technische Machbarkeit je Bearbeitung × gekrümmter Flächenklasse (Phase 2 Korrekturauftrag): Stand an gerader Kante bzw. Bogen/Kreis,
+    Fusion-native Funktion, mathematisch eindeutig, exakt/angenähert, nötiger Live-Test."""
+    z = ["| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | exakt | Live-Test |", "|---|---|---|---|---|---|---|---|"]
+    for op in OPS:
+        for f in FLAECHEN:
+            if f == "eben":
+                continue
+            m = machbarkeit(op, f, "gerade")
+            z.append("| %s | %s | %s | %s | %s | %s | %s | %s |" % (OP_TEXT[op], FLAECHEN_TEXT[f], STAND_TEXT[m["stand"]], STAND_TEXT[stand(op, f, "bogen")[0]],
+                                                                   m["nativ"], m["eindeutig"], m["exakt"], m["live"]))
+    return "\n".join(z)

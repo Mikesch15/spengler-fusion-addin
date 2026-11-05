@@ -236,6 +236,28 @@ def _kruemmung(face, punkt):
         return None
 
 
+def rahmen_entlang(edge, face=None, n=5):
+    """Lokale Rahmen (mm) an n Punkten von Kantenanfang bis -ende: Normale der Fläche AM JEWEILIGEN Punkt, Tangente der Kante dort. Grundlage, um eine
+    Bearbeitung entlang der GANZEN Kante zu prüfen (nicht nur am Anfang). Nicht live geprüft (CurveEvaluator.getParameterExtents/getPointAtParameter)."""
+    from ..details.frames import rahmen_aus_normale
+    face = face or bezugsflaeche(edge)
+    if face is None:
+        raise AdapterFehler("Für die Kante gibt es keine Bezugsfläche.")
+    ev = edge.evaluator
+    ok, t0, t1 = ev.getParameterExtents()
+    if not ok:
+        raise AdapterFehler("Parameterbereich der Kante nicht lesbar.")
+    rahmen = []
+    for i in range(n):
+        par = t0 + (t1 - t0) * i / (n - 1.0)
+        ok, p = ev.getPointAtParameter(par)
+        ok2, t = ev.getTangent(par)
+        if not (ok and ok2):
+            raise AdapterFehler("Kantenpunkt %d nicht auswertbar." % (i + 1))
+        rahmen.append(rahmen_aus_normale(_punkt_mm(p), flaechennormale(face, p), [t.x, t.y, t.z]))
+    return rahmen
+
+
 def referenz_aus_fusion(face=None, edge=None, punkt=None, seite=1):
     """Zentrale Geometrie-Referenz (core/geometrie_referenz) aus einer Fusion-Auswahl: Fläche und/oder Kante, Ankerpunkt (Point3D in cm; Standard
     Kantenanfang bzw. Flächenpunkt). Normale und Tangente werden AM ANKERPUNKT gelesen, Krümmung über den Flächen-Evaluator.

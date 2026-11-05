@@ -134,3 +134,27 @@ class DokuSynchron(unittest.TestCase):
         pfad = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "ANFORDERUNGEN_STATUS.md")
         with open(pfad, encoding="utf-8") as f:
             self.assertIn(u.als_markdown(), f.read(), "Matrix geändert → Statusdokument neu erzeugen")
+
+
+class Orientierung(unittest.TestCase):
+    def test_mantellinie_und_kreiskante(self):
+        # Mantellinie eines Zylinders (Achse Z, R 100): Normale überall +X
+        mantel = [gr.referenz("zylinder", (100, 0, z), (1, 0, 0), (0, 0, 1))["rahmen"] for z in (0, 40, 80)]
+        ok, t, d = gr.orientierung_entlang(mantel)
+        self.assertAlmostEqual(d, 0.0)
+        # Kreiskante über 90°: Normale dreht sich um 90°; Flansch muss überall der LOKALEN Normale folgen
+        kreis = [gr.referenz("zylinder", (100 * math.cos(math.radians(w)), 100 * math.sin(math.radians(w)), 0),
+                             gr.zylinder_normale((0, 0, 0), (0, 0, 1), (math.cos(math.radians(w)), math.sin(math.radians(w)), 0)), (0, 0, 1))["rahmen"]
+                 for w in (0, 45, 90)]
+        ok, t, d = gr.orientierung_entlang(kreis, soll=lambda i, r: r["z"])
+        self.assertTrue(ok)
+        self.assertAlmostEqual(d, 90.0, 6)
+        ok, t, _ = gr.orientierung_entlang(kreis, soll=lambda i, r: (1, 0, 0))
+        self.assertFalse(ok, "eine feste globale Richtung folgt der Kurve nicht")
+        self.assertFalse(gr.orientierung_entlang(kreis[:1])[0])
+
+    def test_machbarkeit_im_statusdokument(self):
+        import os
+        pfad = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "docs", "ANFORDERUNGEN_STATUS.md")
+        with open(pfad, encoding="utf-8") as f:
+            self.assertIn(u.machbarkeit_markdown(), f.read())

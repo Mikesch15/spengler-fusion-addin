@@ -153,3 +153,22 @@ def versatz_definition(ref, versatz_mm, art="tangential"):
     text = "Versatz %+g mm: %s; Bezug: lokale Richtung an der gewählten %s (nicht global X/Y/Z)." % (
         versatz_mm, VERSATZARTEN[art], "Kante" if ref.get("kurve") else "Fläche")
     return richtung, text
+
+
+# ------------------------------------------------------------------ Orientierung entlang einer Kurve
+def orientierung_entlang(rahmen_liste, soll=None, max_winkel_grad=1.0):
+    """Lokale Rahmen an mehreren Punkten entlang einer Kante (Start … Ende). Prüft, ob die Bearbeitung entlang der GANZEN Kante konsistent ist:
+    soll = Funktion(i, rahmen) → erwartete Richtung (z. B. Flanschrichtung = lokale Normale); ohne soll wird nur gemeldet, wie stark sich die
+    lokale Normale entlang der Kante dreht (Zylinder-Mantellinie: 0°, Kreiskante: Bogenwinkel). → (ok, Text, Drehung der Normale in Grad)."""
+    if len(rahmen_liste) < 2:
+        return False, "zu wenige Stützpunkte", None
+    z0 = rahmen_liste[0]["z"]
+    drehung = max(winkel_grad(z0, r["z"]) for r in rahmen_liste)
+    if soll is None:
+        return True, "Normale dreht sich entlang der Kante um %.2f°" % drehung, drehung
+    abw = []
+    for i, r in enumerate(rahmen_liste):
+        w = winkel_grad(soll(i, r), r["z"])
+        abw.append(min(w, 180.0 - w))
+    m = max(abw)
+    return m <= max_winkel_grad, "Abweichung zur Soll-Richtung entlang der Kante max. %.2f° (Grenze %.2f°)" % (m, max_winkel_grad), drehung
