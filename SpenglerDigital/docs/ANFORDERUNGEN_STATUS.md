@@ -702,6 +702,11 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
 ## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.53)
+
+- **Live-Test 97.002 mit 0.4.53 (Fusion 2706.1.17, 5. 11. 2026):** 13 ok, 2 Warnungen, 10 Fehler, 21 übersprungen. Ursache der Fehler und aller
+  Übersprungenen: In einem frischen Dokument wirft `designSheetMetalRules.count` «InternalValidationError : smDataRoot» – kein Grundblech, also auch
+  keine Folgeschritte (Kantenwerkzeug, Rückbau-Tests 5/6 NICHT gelaufen). Behebung in 0.4.54: Rückfall über eine Bibliotheksregel (legt die
+  Blechdaten an), sonst klare Meldung – nicht live geprüft. Offen: «Abstand Detail↔Fläche nicht messbar» bei Zylinder- und Kegelschale.
 - **Branch:** `ccr-26e82854-8ygnzg`. **Bearbeitungs-HEAD:** `172d7c3` (Release 0.4.52); dieser Stand wird als **0.4.53** veröffentlicht.
 - **Veröffentlicht:** 0.4.50 (Kantenwerkzeug, Absicherungen), 0.4.51 (strenge DXF-Prüfung, Prüf-Abwicklung, Begriffe), 0.4.52 (Doku), 0.4.53 (Review-Vorschläge
   a–d: Biegelinien-Ebenen, doppelte Bögen/Kreise, Kreuzungen, Live-Teststelle Löschfehler). main unverändert.

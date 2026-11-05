@@ -1915,6 +1915,36 @@ def _regel_dicke_mm(regel):
         return None
 
 
+def _design_regeln(regeln):
+    """Liste der Design-Blechregeln oder None, wenn Fusion sie (noch) nicht herausgibt. Live 0.4.53: in einem frischen Dokument ohne Blechdaten
+    wirft SheetMetalRules.count «InternalValidationError : smDataRoot»."""
+    try:
+        return [regeln.item(i) for i in range(regeln.count)]
+    except Exception as e:
+        logger.info("Design-Blechregeln nicht lesbar", fusion=(str(e).strip().splitlines() or ["?"])[-1])
+        return None
+
+
+def _blechdaten_anlegen(comp, d, dicke_mm):
+    """Blechdaten des Dokuments anlegen, indem der Komponente eine Bibliotheksregel zugewiesen wird (bevorzugt mit passender Dicke) – wie die Auswahl
+    einer Regel im Register «Blech». Annahme: Fusion übernimmt sie dabei als Design-Regel. Die Bibliotheksregel selbst wird nicht verändert.
+    Nicht live geprüft."""
+    bib = getattr(d, "librarySheetMetalRules", None)
+    try:
+        kandidaten = [bib.item(i) for i in range(bib.count)] if bib is not None else []
+    except Exception:
+        kandidaten = []
+    kandidaten.sort(key=lambda r: abs((_regel_dicke_mm(r) or 1e9) - dicke_mm))
+    for r in kandidaten:
+        try:
+            comp.activeSheetMetalRule = r
+            logger.info("Blechdaten über Bibliotheksregel angelegt", regel=getattr(r, "name", "?"))
+            return True
+        except Exception as e:
+            logger.info("Bibliotheksregel nicht zuweisbar", regel=getattr(r, "name", "?"), fusion=(str(e).strip().splitlines() or ["?"])[-1])
+    return False
+
+
 def regel_fuer_dicke(comp, dicke_mm):
     """Blechregel mit genau dieser Dicke: vorhandene Design-Regel wiederverwenden, sonst eine KOPIE anlegen («Spengler 0.70 mm») und deren Dicke
     setzen. Bibliotheks- und Standardregeln werden nie verändert. → (Regel, neu angelegt). Bricht ab, wenn die Dicke nicht stimmt.
@@ -1924,7 +1954,13 @@ def regel_fuer_dicke(comp, dicke_mm):
     regeln = getattr(d, "designSheetMetalRules", None)
     if regeln is None or not hasattr(regeln, "addByCopy"):
         raise AdapterFehler("Diese Fusion-Version kann per API keine Blechregel anlegen (designSheetMetalRules.addByCopy fehlt) – das Grundblech wird nicht gebaut.")
-    alle = [regeln.item(i) for i in range(regeln.count)]
+    alle = _design_regeln(regeln)
+    if alle is None:
+        _blechdaten_anlegen(comp, d, dicke_mm)
+        alle = _design_regeln(regeln)
+        if alle is None:
+            raise AdapterFehler("Fusion gibt die Blechregeln dieses Dokuments nicht heraus (Blechdaten nicht angelegt, «smDataRoot») – das Grundblech "
+                                "wird nicht gebaut. Abhilfe: im Register «Blech» einmal eine Blechregel wählen, dann erneut versuchen.")
     for r in alle:
         t = _regel_dicke_mm(r)
         if t is not None and abs(t - dicke_mm) < 0.001:

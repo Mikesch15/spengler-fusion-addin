@@ -614,3 +614,43 @@ class PruefAbwicklungLebenszyklus(_Patch):
         with self.assertRaises(fa.AdapterFehler):
             fa._native_abwicklung_absichern(comp, object(), rb)
         self.assertIn(fp, rb.objekte)
+
+
+class _OhneBlechdaten(ff.Regeln):
+    """Wie live 0.4.53: frisches Dokument – count wirft «smDataRoot», bis eine Regel zugewiesen wurde."""
+    bereit = False
+
+    @property
+    def count(self):
+        if not self.bereit:
+            raise RuntimeError("2 : InternalValidationError : smDataRoot")
+        return len(self.elemente)
+
+
+class FrischesDokument(_Patch):
+    def test_blechdaten_ueber_bibliotheksregel_angelegt(self):
+        fa = _fa()
+        d = self.design()
+        regeln = _OhneBlechdaten()
+        d.designSheetMetalRules = regeln
+        c = d.neue_komponente("Blech F")
+
+        class Comp(type(c)):
+            pass
+        c.__class__ = Comp
+        Comp.activeSheetMetalRule = property(lambda s: s.__dict__.get("_r"), lambda s, r: (s.__dict__.__setitem__("_r", r), setattr(regeln, "bereit", True)))
+        body = fa.blech_aus_profil(c, RECHTECK, 0.7)
+        self.assertIs(body.parentComponent, c)
+        self.assertEqual(c.activeSheetMetalRule.name, "Spengler 0.70 mm")
+        self.assertAlmostEqual(d.librarySheetMetalRules.item(0).thickness.value * 10, 1.0, msg="Bibliotheksregel unverändert")
+
+    def test_bleibt_unlesbar_klare_meldung_ohne_reste(self):
+        fa = _fa()
+        d = self.design()
+        d.designSheetMetalRules = _OhneBlechdaten()
+        c = d.neue_komponente("Blech G")
+        with self.assertRaises(fa.AdapterFehler) as e:
+            fa.blech_aus_profil(c, RECHTECK, 1.0)
+        self.assertIn("smDataRoot", str(e.exception))
+        self.assertIn("Register «Blech»", str(e.exception))
+        self.assertEqual((c.skizzen.count, c.bRepBodies.count), (0, 0), "nichts gebaut")
