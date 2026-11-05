@@ -257,7 +257,18 @@ def t_rueckbau(ctx):
     erg = []
     for stelle in ("versatz_skizze", "versatz_extrusion"):
         erg.append(_rueckbau_probe(ctx, stelle, lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH, versatz=5.0)], ctx.dicke, {"livetest": 1}, [])))
+    erg.append(_rueckbau_probe(ctx, "folge_nach_schritt", lambda: fa.folge_anbringen(_rand_kanten(ctx)[0], [_op("flansch", 90, FLANSCH)], ctx.dicke, {"livetest": 1}, [])))
     erg.append(_rueckbau_probe(ctx, "grundblech_feature", lambda: fa.grundblech_bauen(ctx.root, LAENGE, BREITE, 1.0)))
+    # Neue Komponente mit NEUER Blechregel (0.65 mm): nach dem Fehler darf weder Komponente noch Regel übrig sein (Blechregeln im Zustand)
+    def neu_mit_regel():
+        comp = fa.neue_komponente("Live-Test Rückbau Regel")
+        try:
+            fa.grundblech_bauen(comp, LAENGE, BREITE, 0.65)
+        except fa.AdapterFehler as e:
+            if not fa.komponente_entfernen(comp):
+                raise fa.AdapterFehler(str(e) + " – Komponente nicht entfernt", rueckbau_ok=False)
+            raise
+    erg.append(_rueckbau_probe(ctx, "grundblech_feature", neu_mit_regel))
     erg.append(_rueckbau_probe(ctx, "gruppe_nach_versatz", lambda: fa.folge_anbringen_gruppe(_eckkanten(ctx), [_op("flansch", 90, FLANSCH, versatz=-5.0)], ctx.dicke, {"livetest": 1}, [])))
     return "\n".join(erg)
 

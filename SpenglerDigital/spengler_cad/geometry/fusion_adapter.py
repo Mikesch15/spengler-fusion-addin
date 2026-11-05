@@ -1192,6 +1192,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None):
                 if feat is None:
                     raise ex_versatz
             erzeugt.append(feat)
+            _testfehler("folge_nach_schritt")
             neu = None
             if i < len(ops):
                 phase = "Nach Schritt %d (Kante für Schritt %d suchen)" % (i, i + 1)
@@ -1606,7 +1607,15 @@ def komponente_entfernen(comp):
             except Exception:
                 gleich = False
             if gleich:
-                return bool(occ.deleteMe())
+                ok = bool(occ.deleteMe())
+                if ok:
+                    for eintrag in [x for x in _NACH_KOMPONENTE if x[0] == token]:
+                        _NACH_KOMPONENTE.remove(eintrag)
+                        p_ = _loeschen(eintrag[1])
+                        if p_:
+                            logger.warnung("Blechregel des Rückbaus nicht gelöscht", problem=p_)
+                            ok = False
+                return ok
         return False
     except Exception:
         logger.ausnahme("Rückbau der Komponente fehlgeschlagen")
@@ -1826,6 +1835,9 @@ def grundblech_pruefen(comp, body, dicke_mm, root_koerper_vorher=None):
     return probleme
 
 
+_NACH_KOMPONENTE = []          # (Token der Komponente, Blechregel): erst nach dem Entfernen der Komponente löschbar
+
+
 def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
     """Ebenes Blech (Basisflansch) aus einem oder zwei geschlossenen Polygonzügen auf der XY-Ebene (mm; ein Polygon = Fläche, zwei = Ring mit Loch)
     in der Komponente comp, mit GENAU der Soll-Dicke dicke_mm. Ablauf: Profil und Dicke prüfen → Zielkomponente aktivieren → Blechregel mit
@@ -1848,10 +1860,10 @@ def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
         regel_alt = comp.activeSheetMetalRule
     except Exception:
         regel_alt = None
-    regel_gesetzt = False
+    regel_gesetzt, regel, regel_neu = False, None, False
     try:
         with _Aktiviert(_occurrence_von(comp)):
-            regel, _neu = regel_fuer_dicke(comp, dicke_mm)
+            regel, regel_neu = regel_fuer_dicke(comp, dicke_mm)
             comp.activeSheetMetalRule = regel
             regel_gesetzt = True
             if not _gleiche(comp.activeSheetMetalRule, regel):
@@ -1927,6 +1939,13 @@ def blech_aus_profil(comp, schleifen_mm, dicke_mm=1.0):
                 comp.activeSheetMetalRule = regel_alt
             except Exception:
                 logger.warnung("Vorherige Blechregel nicht wiederhergestellt")
+        # Eine in DIESEM Aufruf neu angelegte Regel gehört zum Rückbau. Ist sie noch aktiv (neue Komponente ohne vorherige Regel), wird sie gelöscht,
+        # sobald die Komponente entfernt ist (komponente_entfernen).
+        if regel_neu and regel is not None:
+            if regel_alt is not None or not regel_gesetzt:
+                rb.objekte.insert(0, regel)            # zuerst angelegt → zuletzt gelöscht (umgekehrte Reihenfolge)
+            else:
+                _NACH_KOMPONENTE.append((getattr(comp, "entityToken", None), regel))
         rb.abbrechen(e)
 
 

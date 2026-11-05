@@ -377,3 +377,35 @@ class AbwickelbarkeitUndKollision(_Patch):
         alt = ff.Objekt("vorhanden")
         self.assertEqual(ex._abwicklung_zuruecknehmen(alt, False), "")
         self.assertTrue(alt.isValid, "eine vorhandene Abwicklung bleibt")
+
+
+class RegelRueckbau(_Patch):
+    """Korrektur 5.11.: eine beim Fehler neu angelegte Blechregel bleibt nicht zurück – Attrappen, KEIN Fusion-Test."""
+    def test_neue_regel_wird_mit_der_komponente_entfernt(self):
+        fa = _fa()
+        d = self.design()
+        c = d.neue_komponente("Neu")
+        fa.TESTFEHLER.add("grundblech_feature")
+        self.addCleanup(fa.TESTFEHLER.clear)
+        with self.assertRaises(fa.AdapterFehler):
+            fa.blech_aus_profil(c, RECHTECK, 0.7)
+        self.assertEqual(d.designSheetMetalRules.count, 1, "Regel noch aktiv an der neuen Komponente – wartet auf deren Entfernung")
+        occ = d.occs[0]
+        occ.entityToken = "o1"
+        d.rootComponent.occurrences = [occ]
+        occ.deleteMe = lambda: True
+        self.assertTrue(fa.komponente_entfernen(c))
+        self.assertFalse(d.designSheetMetalRules.item(0).isValid, "neue Regel nach dem Entfernen der Komponente gelöscht")
+
+    def test_neue_regel_bei_vorhandener_regel_sofort_entfernt(self):
+        fa = _fa()
+        d = self.design()
+        alt = ff.Regel("Vorher", 2.0)
+        c = d.neue_komponente("Bestand", regel=alt)
+        fa.TESTFEHLER.add("grundblech_feature")
+        self.addCleanup(fa.TESTFEHLER.clear)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.blech_aus_profil(c, RECHTECK, 0.7)
+        self.assertTrue(cm.exception.rueckbau_ok)
+        self.assertIs(c.activeSheetMetalRule, alt)
+        self.assertFalse(d.designSheetMetalRules.item(0).isValid, "neue Regel sofort gelöscht")
