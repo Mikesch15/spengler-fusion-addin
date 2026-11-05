@@ -186,12 +186,105 @@ def _ueberlappende_linien(linien, tol=1e-3):
     return n
 
 
+def _polylinie(el, sehne=0.005):
+    """Element → Punktfolge (Bögen/Kreise adaptiv: Sehnenfehler ≤ sehne mm)."""
+    if el["typ"] == "linie":
+        return list(el["p"])
+    if el["typ"] == "poly":
+        pts = list(el["p"])
+        return pts + [pts[0]] if el.get("zu") else pts
+    c, r = el["c"], el["r"]
+    if el["typ"] == "kreis":
+        a0, a1 = 0.0, 2 * math.pi
+    else:
+        a0, a1 = math.radians(el["a0"]), math.radians(el["a1"])
+        if a1 <= a0:
+            a1 += 2 * math.pi
+    schritt = 2.0 * math.acos(max(-1.0, 1.0 - sehne / r)) if r > sehne else math.radians(10)
+    n = max(2, int(math.ceil((a1 - a0) / max(schritt, 1e-6))))
+    return [(c[0] + r * math.cos(a0 + (a1 - a0) * i / n), c[1] + r * math.sin(a0 + (a1 - a0) * i / n)) for i in range(n + 1)]
+
+
+def _kreuz(o, p, q):
+    return (p[0] - o[0]) * (q[1] - o[1]) - (p[1] - o[1]) * (q[0] - o[0])
+
+
+def _strecken_treffen(a, b, c, d, tol):
+    """Schneiden oder berühren sich zwei Strecken (innerhalb tol)? → Treffpunkt oder None."""
+    d1, d2, d3, d4 = _kreuz(c, d, a), _kreuz(c, d, b), _kreuz(a, b, c), _kreuz(a, b, d)
+    if ((d1 > 0) != (d2 > 0)) and ((d3 > 0) != (d4 > 0)) and abs(d1 - d2) > 1e-15:
+        t = d1 / (d1 - d2)
+        return "kreuz", (a[0] + t * (b[0] - a[0]), a[1] + t * (b[1] - a[1]))
+    for p_, s0, s1 in ((a, c, d), (b, c, d), (c, a, b), (d, a, b)):
+        dx, dy = s1[0] - s0[0], s1[1] - s0[1]
+        L2 = dx * dx + dy * dy
+        u = 0.0 if L2 < 1e-24 else max(0.0, min(1.0, ((p_[0] - s0[0]) * dx + (p_[1] - s0[1]) * dy) / L2))
+        if math.hypot(p_[0] - s0[0] - u * dx, p_[1] - s0[1] - u * dy) <= tol:
+            return "nah", p_
+    return None
+
+
+def _kreuzungen(elemente, tol=0.005):
+    """Anzahl Elementpaare (ohne Biegelinien), die sich schneiden oder berühren, ausser an einem GEMEINSAMEN Endpunkt (dort hängen Konturen
+    regulär zusammen). Bögen/Kreise werden fein polygonisiert (Sehnenfehler ≤ 5 µm)."""
+    els = [e for e in elemente if not dxf_lesen.BIEGE.search(e.get("layer", ""))]
+    polys = [_polylinie(e) for e in els]
+    enden = [[tuple(p) for p in _enden(e)] for e in els]
+    rahmen = [(min(p[0] for p in pl) - tol, min(p[1] for p in pl) - tol, max(p[0] for p in pl) + tol, max(p[1] for p in pl) + tol) for pl in polys]
+    n = 0
+    for i in range(len(els)):
+        for j in range(i + 1, len(els)):
+            ri, rj = rahmen[i], rahmen[j]
+            if ri[2] < rj[0] or rj[2] < ri[0] or ri[3] < rj[1] or rj[3] < ri[1]:
+                continue
+            gemeinsam = [p for p in enden[i] if any(math.hypot(p[0] - q[0], p[1] - q[1]) <= 2 * tol for q in enden[j])]
+            gefunden = False
+            for a, b in zip(polys[i], polys[i][1:]):
+                for c, d in zip(polys[j], polys[j][1:]):
+                    t = _strecken_treffen(a, b, c, d, tol)
+                    if t is None:
+                        continue
+                    art, q = t
+                    # echte Kreuzung: nur am gemeinsamen Endpunkt selbst erlaubt; blosse Annäherung: erst ab 1 mm vom gemeinsamen Endpunkt
+                    # (ein tangential anschliessender Bogen liegt nahe der Ecke zwangsläufig dicht an der Linie)
+                    frei = 5 * tol if art == "kreuz" else 1.0
+                    if not any(math.hypot(q[0] - g[0], q[1] - g[1]) <= frei for g in gemeinsam):
+                        gefunden = True
+                        break
+                if gefunden:
+                    break
+            n += gefunden
+    return n
+
+
+def _gleiche_boegen(elemente, tol=1e-3):
+    """Doppelte oder überlappende Bögen/Kreise: gleiches Zentrum und gleicher Radius und überlappender Winkelbereich."""
+    kreise = [e for e in elemente if e["typ"] in ("bogen", "kreis") and not dxf_lesen.BIEGE.search(e.get("layer", ""))]
+
+    def bereich(e):
+        if e["typ"] == "kreis":
+            return 0.0, 360.0
+        a0, a1 = e["a0"] % 360.0, e["a1"] % 360.0
+        return (a0, a1) if a1 > a0 else (a0, a1 + 360.0)
+    n = 0
+    for i in range(len(kreise)):
+        for j in range(i + 1, len(kreise)):
+            a, b = kreise[i], kreise[j]
+            if math.hypot(a["c"][0] - b["c"][0], a["c"][1] - b["c"][1]) > tol or abs(a["r"] - b["r"]) > tol:
+                continue
+            (s0, s1), (t0, t1) = bereich(a), bereich(b)
+            if any(min(s1, t1 + k) - max(s0, t0 + k) > 1e-6 for k in (-360.0, 0.0, 360.0)):
+                n += 1
+    return n
+
+
 def pruefe_streng(text, erwartet_breite, erwartet_laenge, toleranz_mm=1.0):
     """Strenge Freigabeprüfung für die INTERNE Validierung neu erzeugter Geometrie (nicht für normale Exporte – die nutzen pruefe()).
     Zwingend: lesbar, Elemente vorhanden, Aussenmasse = erwartet (± toleranz_mm), Einheit mm – FEHLT die Einheitenangabe, gilt mm nur, weil die
     Aussenmasse in mm übereinstimmen (ein cm-/Zoll-Export fiele durch den Massvergleich); keine offenen Enden, keine doppelten Linien, keine
     ungeprüften Kurven (Spline/Ellipse → «nicht sicher prüfbar»); genau EINE Aussenkontur mit dem Gesamtrahmen, weitere Konturen nur vollständig
-    innerhalb (als Löcher gewertet, nur ihre Lage wird geprüft). Biegelinien werden über den Ebenennamen erkannt (bend/biege/fold/kante) – liegen sie
+    innerhalb (als Löcher gewertet, nur ihre Lage wird geprüft); keine doppelten/überlappenden Bögen oder Kreise; keine Elemente, die sich kreuzen oder
+    berühren, ohne einen gemeinsamen Endpunkt zu haben. Biegelinien werden über den Ebenennamen erkannt (bend/bieg/fold) – liegen sie
     auf einer anders benannten Ebene, erscheinen sie als offene Kontur und die Prüfung lehnt ab (keine falsche Sicherheit).
     → dict wie pruefe() mit 'streng': True; 'ok' nur, wenn ALLE Kriterien erfüllt sind."""
     if erwartet_breite is None or erwartet_laenge is None:
@@ -233,6 +326,12 @@ def pruefe_streng(text, erwartet_breite, erwartet_laenge, toleranz_mm=1.0):
         ueberlapp = _ueberlappende_linien(linien)
         if ueberlapp:
             probleme.append("%d Paar(e) teilweise überlappender Linien." % ueberlapp)
+        boegen = _gleiche_boegen(elemente)
+        if boegen:
+            probleme.append("%d Paar(e) doppelter oder überlappender Bögen/Kreise." % boegen)
+        kreuz = _kreuzungen(elemente)
+        if kreuz:
+            probleme.append("%d Paar(e) von Elementen kreuzen oder berühren sich ohne gemeinsamen Endpunkt." % kreuz)
         if rahmen is not None:
             if not rahmen:
                 probleme.append("Keine Kontur ausser Biegelinien.")

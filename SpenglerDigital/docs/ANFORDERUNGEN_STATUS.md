@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.52)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.53)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,11 +701,11 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.52)
-- **Branch:** `ccr-26e82854-8ygnzg`. **Bearbeitungs-HEAD:** `3286d5c` (Release 0.4.51); dieser Dokumentationsstand wird als **0.4.52** veröffentlicht
-  (Release-Knopf, auf Anweisung des Anwenders). Der Code von 0.4.52 ist identisch mit 0.4.51 – geändert ist nur die Dokumentation.
-- **Veröffentlicht:** 0.4.50 (Kantenwerkzeug, Absicherungen), 0.4.51 (strenge DXF-Prüfung, Prüf-Abwicklung, Begriffe), 0.4.52 (diese Doku). main unverändert.
-- **Unit-/Stub-Tests:** 505 bestanden, 0 fehlgeschlagen, 1 übersprungen (ezdxf fehlt) – ohne Fusion, mit Attrappen.
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.53)
+- **Branch:** `ccr-26e82854-8ygnzg`. **Bearbeitungs-HEAD:** `172d7c3` (Release 0.4.52); dieser Stand wird als **0.4.53** veröffentlicht.
+- **Veröffentlicht:** 0.4.50 (Kantenwerkzeug, Absicherungen), 0.4.51 (strenge DXF-Prüfung, Prüf-Abwicklung, Begriffe), 0.4.52 (Doku), 0.4.53 (Review-Vorschläge
+  a–d: Biegelinien-Ebenen, doppelte Bögen/Kreise, Kreuzungen, Live-Teststelle Löschfehler). main unverändert.
+- **Unit-/Stub-Tests:** 510 bestanden, 0 fehlgeschlagen, 1 übersprungen (ezdxf fehlt) – ohne Fusion, mit Attrappen.
 - **Fusion-Live-Tests:** NICHT DURCHGEFÜHRT (0). Vorbereitet: Testanleitung, Abschnitt «Live-Tests Kantenwerkzeug (Tests 1–6)».
 - **Fertigungsprüfung:** NICHT DURCHGEFÜHRT (0). Alle Zuschnittlängen sind theoretisch.
 - **Produktiv freigegeben:** keine Funktion des Kantenwerkzeugs der Bauweise «eigene Geometrie». Bedienbar (an ebener gerader Kante), aber
@@ -724,12 +724,15 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
 - Geprüft: Datei lesbar; mindestens ein Element (Linie, Bogen, Kreis, Polylinie); Aussenmasse (Begrenzungsrahmen aller Elemente) gleich den
   erwarteten Massen ± 1 mm; `$INSUNITS` = mm – fehlt die Angabe, wird mm nur akzeptiert, wenn der Massvergleich in mm passt; keine offenen Enden (jeder
   Endpunkt gerade Anzahl, Raster 0.01 mm); keine doppelten Linien (gleiche Endpunkte); keine Verzweigung (kein Endpunkt mit mehr als zwei Enden); keine
-  teilweise überlappenden kollinearen LINIEN; keine Spline/Ellipse (werden nicht gelesen → «nicht sicher prüfbar» → Ablehnung); genau eine Kontur bildet
-  den Gesamtrahmen, weitere Konturen liegen mit ihrem Rahmen vollständig innerhalb.
-- NICHT geprüft bzw. Grenzen: kein vollständiger CAD-Topologie- oder Selbstüberschneidungsnachweis. Elemente, die sich KREUZEN, ohne einen
-  gemeinsamen modellierten Endpunkt zu haben, können unentdeckt bleiben. Doppelte oder überlappende BÖGEN/Kreise werden nicht erkannt (nur Linien).
-  Innenkonturen (Löcher) werden nur nach der Lage ihres Begrenzungsrahmens beurteilt – Form, Geschlossenheit im Einzelnen und Topologie nicht umfassend.
-  Biegelinien werden über den Ebenennamen erkannt (Muster bend/biege/fold/kante, ohne Gross-/Kleinschreibung); andere Namen führen absichtlich zur
-  Ablehnung (sie erscheinen als offene Kontur). Achtung: Auch eine Kontur-Ebene, deren Name «kante» enthält (z. B. «Aussenkante»), würde als
-  Biegelinie übergangen – dann fehlt die Kontur und die Prüfung lehnt ab (konservativ, aber möglicherweise verwirrend; siehe Vorschlag im Bericht).
+  teilweise überlappenden kollinearen LINIEN; keine doppelten oder überlappenden Bögen/Kreise (gleiches Zentrum und gleicher Radius ± 0.001 mm,
+  überlappender Winkelbereich); keine Elemente, die sich kreuzen oder berühren, ohne einen gemeinsamen Endpunkt zu haben (Bögen fein polygonisiert,
+  Sehnenfehler ≤ 5 µm, Berührtoleranz 5 µm; blosse Annäherung zählt erst ab 1 mm vom gemeinsamen Endpunkt, damit tangential anschliessende Bögen
+  keinen Fehlalarm geben); keine Spline/Ellipse (werden nicht gelesen → «nicht sicher prüfbar» → Ablehnung); genau eine Kontur bildet den
+  Gesamtrahmen, weitere Konturen liegen mit ihrem Rahmen vollständig innerhalb.
+- NICHT geprüft bzw. Grenzen: kein vollständiger CAD-Topologie-Nachweis. Kreuzungen eines Elements MIT SICH SELBST (z. B. eine verschlungene
+  Polylinie) und Berührungen näher als 1 mm am gemeinsamen Endpunkt zweier Elemente werden nicht erkannt. Innenkonturen (Löcher) werden nach Lage
+  und Kreuzungsfreiheit beurteilt, ihre Form nicht weiter. Biegelinien werden über den Ebenennamen erkannt (Muster bend/bieg/fold, ohne
+  Gross-/Kleinschreibung; «kante» seit 0.4.53 entfernt, damit Kontur-Ebenen wie «Aussenkante» nicht mehr übergangen werden); andere Namen führen
+  absichtlich zur Ablehnung (sie erscheinen als offene Kontur). Die Änderung des Musters wirkt auch auf die Hinweise der normalen Exportprüfung und die
+  DXF-Vorschau (Ebenen «BIEGUNG_…» gelten jetzt als Biegelinie).
   Der Massvergleich gegen die von Fusion gelieferte Abwicklung ist eine Plausibilitätskontrolle, kein unabhängiger Nachweis der gesamten Geometrie.

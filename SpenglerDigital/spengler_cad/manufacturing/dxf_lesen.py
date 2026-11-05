@@ -6,7 +6,9 @@ Reine Rechnung ohne Fusion; der Aufbau der Fusion-DXF (Ebenennamen) ist nicht li
 import math
 import re
 
-BIEGE = re.compile(r"bend|biege|fold|kante", re.I)
+# Biegelinien-Ebenen: bend (Fusion/englisch), bieg (BIEGUNG_OBEN/BIEGELINIE des Add-ins, «Biegekante»), fold. Früher auch «kante» – damit wurde
+# eine Kontur-Ebene wie «Aussenkante» fälschlich als Biegelinie übergangen (Review 0.4.51), deshalb entfernt.
+BIEGE = re.compile(r"bend|bieg|fold", re.I)
 
 
 def _paare(text):

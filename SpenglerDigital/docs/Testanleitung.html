@@ -254,7 +254,7 @@
 <h2>Live-Tests Kantenwerkzeug (Tests 1–6) – vorbereitet, NICHT durchgeführt</h2>
 <p>Für jeden Test erfassen: Voraussetzungen/Ausgangszustand · Bedienungsschritte · erwartetes Ergebnis · tatsächliches Ergebnis · **bestanden / nicht bestanden</p>
 <p>/ nicht durchführbar** · Fusion-Version (Hilfe → Über) und Betriebssystem · bei Fehlern Bildschirmfoto und Protokoll (Palette → Sicherung → «Protokoll</p>
-<p>öffnen»). Alle Tests nur in einer <b>eigenen Testdatei</b> bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.52 (Code wie 0.4.51).</p>
+<p>öffnen»). Alle Tests nur in einer <b>eigenen Testdatei</b> bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.53 oder neuer.</p>
 <p><b>Vorbereitung (für alle Tests):</b> Materialprofil mit Dicke 1.0 mm, Innenradius 1.0 mm und K-Faktor (z. B. 0.44) anlegen; Auftrag wählen (falls</p>
 <p>«Auftrag erforderlich» eingestellt ist); Vorlage mit genau einem Flansch 90° / 20 mm (Kurzschrift im Expertenmodus z. B. <code>90 20</code>).</p>
 <p><b>Test 1 – Ausgangskörper.</b> Voraussetzung: neues Dokument, «Blech aus Massaufnahme» bzw. Fusion-Blech: Basisflansch 100 × 60 mm, Blechregel 1.0 mm.</p>
@@ -284,9 +284,11 @@
 <p>Schritt «KANTENWERKZEUG eigen: Rückbau» suchen; Zeile <code>eigen_validierung_dxf: eingeschleuster Fehler ausgelöst; Zustand unverändert; Rückbau gemeldet ok</code>.</p>
 <p>Erwartet: genau diese Zeile (✓ PASS). Nicht bestanden: «ANDERER Fehler», «VERÄNDERT», «NICHT VOLLSTÄNDIG MESSBAR» oder «UNVOLLSTÄNDIG». Bestehende</p>
 <p>Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).</p>
-<p><b>Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.</b> Der Testfehler <code>eigen_pruefabwicklung_loeschen</code> ist im Code vorhanden und mit Attrappen</p>
-<p>getestet, aber im automatischen Live-Test (noch) NICHT enthalten und über die Oberfläche nicht auslösbar. Status daher: <b>nicht durchführbar</b> mit dem</p>
-<p>bestehenden Mechanismus. Vorschlag (separat, nicht umgesetzt): die Teststelle in den Live-Schritt «KANTENWERKZEUG eigen: Rückbau» aufnehmen.</p>
+<p><b>Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.</b> Ab 0.4.53 im automatischen Live-Test enthalten (über die Oberfläche nicht auslösbar). Schritte</p>
+<p>wie Test 5; im Bericht den Schritt «KANTENWERKZEUG eigen: Rückbau» suchen, Zeile `eigen_pruefabwicklung_loeschen: eingeschleuster Fehler ausgelöst;</p>
+<p>Zustand unverändert; Rückbau gemeldet ok`. Erwartet: Vorgang als fehlgeschlagen gewertet, Prüf-Abwicklung und neue Features entfernt, keine Abwicklung</p>
+<p>unter der Komponente. Nicht bestanden: «VERÄNDERT» (z. B. Abwicklung zurückgeblieben) oder «UNVOLLSTÄNDIG» ohne Meldung des Restobjekts. Hinweis: Die</p>
+<p>Teststelle löst den Fehler unmittelbar VOR dem Löschen aus; ein echtes «deleteMe() meldet False» von Fusion lässt sich live nicht erzwingen (nur Attrappen-Test).</p>
 <p><b>Abgabe:</b> Bericht 97.002 (automatisch bei «Ergebnis senden») bzw. <code>livetest.txt</code> aus dem Datenordner, dazu je Test 1–4 eine Zeile «bestanden / nicht</p>
 <p>bestanden / nicht durchführbar», Fusion-Version, Betriebssystem, Bildschirmfotos und die DXF aus Test 3. Ein bestandener Live-Test ist KEINE</p>
 <p>Fertigungsfreigabe.</p></body></html>

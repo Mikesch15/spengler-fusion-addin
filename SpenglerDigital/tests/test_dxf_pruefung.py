@@ -165,3 +165,42 @@ class StrengePruefung(unittest.TestCase):
         spline = "0\nSPLINE\n8\n0\n10\n0\n20\n0\n"
         r = dp.pruefe_streng(dxf(rechteck(100, 60) + [spline]), 60, 100)
         self.assertFalse(r["ok"])
+
+
+def bogen(cx, cy, r, a0, a1, layer="0"):
+    return "0\nARC\n8\n%s\n10\n%s\n20\n%s\n40\n%s\n50\n%s\n51\n%s\n" % (layer, cx, cy, r, a0, a1)
+
+
+class StrengeReviewVorschlaege(unittest.TestCase):
+    """Review-Vorschläge a–c: Biegelinien-Ebenen, doppelte Bögen/Kreise, Kreuzungen ohne gemeinsamen Endpunkt."""
+    def test_biegeebenen_des_addins_und_aussenkante(self):
+        self.assertTrue(dp.pruefe_streng(dxf(rechteck(100, 60) + [linie(0, 20, 100, 20, "BIEGUNG_OBEN")]), 60, 100)["ok"], "eigene Ebene BIEGUNG_OBEN")
+        r = dp.pruefe_streng(dxf(rechteck(100, 60, "Aussenkante")), 60, 100)
+        self.assertTrue(r["ok"], "Kontur-Ebene «Aussenkante» ist keine Biegelinie mehr: %s" % r)
+
+    def test_doppelte_und_ueberlappende_boegen(self):
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60) + [kreis(50, 30, 5), kreis(50, 30, 5)]), 60, 100)["ok"])
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60) + [kreis(50, 30, 5), bogen(50, 30, 5, 0, 90)]), 60, 100)["ok"])
+        self.assertTrue(dp.pruefe_streng(dxf(rechteck(100, 60) + [kreis(30, 30, 5), kreis(70, 30, 5)]), 60, 100)["ok"], "zwei getrennte Löcher")
+
+    def test_kreuzung_ohne_gemeinsamen_endpunkt(self):
+        # Loch, das die Aussenkante schneidet (kein gemeinsamer Endpunkt)
+        self.assertFalse(dp.pruefe_streng(dxf(rechteck(100, 60) + [kreis(50, 0, 5)]), 60, 100)["ok"])
+        # Zwei Innenkonturen, die sich kreuzen
+        a = [linie(20, 20, 40, 20), linie(40, 20, 40, 40), linie(40, 40, 20, 40), linie(20, 40, 20, 20)]
+        b = [linie(30, 30, 50, 30), linie(50, 30, 50, 45), linie(50, 45, 30, 45), linie(30, 45, 30, 30)]
+        r = dp.pruefe_streng(dxf(rechteck(100, 60) + a + b), 60, 100)
+        self.assertFalse(r["ok"])
+        self.assertIn("kreuzen", " ".join(r["probleme"]))
+
+    def test_tangentialer_bogen_ist_kein_fehlalarm(self):
+        # Rechteck mit gerundeter Ecke (R 2, tangential): kein Kontakt ausser am gemeinsamen Endpunkt
+        rund = [linie(0, 0, 98, 0), bogen(98, 2, 2, 270, 360), linie(100, 2, 100, 60), linie(100, 60, 0, 60), linie(0, 60, 0, 0)]
+        r = dp.pruefe_streng(dxf(rund), 60, 100)
+        self.assertTrue(r["ok"], r)
+
+    def test_normaler_export_unveraendert(self):
+        a = [linie(20, 20, 40, 20), linie(40, 20, 40, 40), linie(40, 40, 20, 40), linie(20, 40, 20, 20)]
+        b = [linie(30, 30, 50, 30), linie(50, 30, 50, 45), linie(50, 45, 30, 45), linie(30, 45, 30, 30)]
+        r = dp.pruefe(dxf(rechteck(100, 60) + a + b), 60, 100)
+        self.assertTrue(r["ok"], "die normale Exportprüfung kennt keine Kreuzungsprüfung – unverändert")

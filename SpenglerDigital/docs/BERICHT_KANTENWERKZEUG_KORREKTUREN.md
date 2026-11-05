@@ -74,3 +74,12 @@ senden», je Test Fusion-Version/OS, Ergebnis und Bildschirmfoto festhalten.
   in `pruefe_streng` nicht erkannt → Prüfung auf Bögen erweitern. (c) Kreuzungen ohne gemeinsamen Endpunkt werden nicht erkannt → Schnitttest
   ergänzen. (d) Teststelle `eigen_pruefabwicklung_loeschen` in den Live-Test aufnehmen (Test 6).
 - main unverändert, kein Merge.
+
+
+## Umsetzung der Review-Vorschläge a–d (5. 11. 2026, veröffentlicht als 0.4.53)
+- (a) `dxf_lesen.BIEGE`: «kante» entfernt, «biege» → «bieg» (erkennt auch die Add-in-Ebene «BIEGUNG_OBEN», die vorher NICHT erkannt wurde – eigener
+  Fehler gefunden). Wirkt auch auf Hinweise der normalen Exportprüfung und die DXF-Vorschau.
+- (b) `pruefe_streng`: doppelte/überlappende Bögen und Kreise werden abgelehnt.
+- (c) `pruefe_streng`: Kreuzungen/Berührungen zwischen Elementen ohne gemeinsamen Endpunkt werden abgelehnt (tangentiale Anschlüsse ohne Fehlalarm).
+- (d) Live-Schritt «KANTENWERKZEUG eigen: Rückbau» enthält jetzt `eigen_pruefabwicklung_loeschen` (Test 6 durchführbar).
+- Tests: Unit/Stub 510 bestanden, 0 fehlgeschlagen, 1 übersprungen. Fusion-Live-Tests 0. Fertigungsprüfung 0.

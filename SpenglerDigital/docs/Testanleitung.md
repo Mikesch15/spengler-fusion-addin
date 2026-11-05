@@ -280,7 +280,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 
 Für jeden Test erfassen: Voraussetzungen/Ausgangszustand · Bedienungsschritte · erwartetes Ergebnis · tatsächliches Ergebnis · **bestanden / nicht bestanden
 / nicht durchführbar** · Fusion-Version (Hilfe → Über) und Betriebssystem · bei Fehlern Bildschirmfoto und Protokoll (Palette → Sicherung → «Protokoll
-öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.52 (Code wie 0.4.51).
+öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.53 oder neuer.
 
 **Vorbereitung (für alle Tests):** Materialprofil mit Dicke 1.0 mm, Innenradius 1.0 mm und K-Faktor (z. B. 0.44) anlegen; Auftrag wählen (falls
 «Auftrag erforderlich» eingestellt ist); Vorlage mit genau einem Flansch 90° / 20 mm (Kurzschrift im Expertenmodus z. B. `90 20`).
@@ -317,9 +317,11 @@ Schritt «KANTENWERKZEUG eigen: Rückbau» suchen; Zeile `eigen_validierung_dxf:
 Erwartet: genau diese Zeile (✓ PASS). Nicht bestanden: «ANDERER Fehler», «VERÄNDERT», «NICHT VOLLSTÄNDIG MESSBAR» oder «UNVOLLSTÄNDIG». Bestehende
 Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).
 
-**Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.** Der Testfehler `eigen_pruefabwicklung_loeschen` ist im Code vorhanden und mit Attrappen
-getestet, aber im automatischen Live-Test (noch) NICHT enthalten und über die Oberfläche nicht auslösbar. Status daher: **nicht durchführbar** mit dem
-bestehenden Mechanismus. Vorschlag (separat, nicht umgesetzt): die Teststelle in den Live-Schritt «KANTENWERKZEUG eigen: Rückbau» aufnehmen.
+**Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.** Ab 0.4.53 im automatischen Live-Test enthalten (über die Oberfläche nicht auslösbar). Schritte
+wie Test 5; im Bericht den Schritt «KANTENWERKZEUG eigen: Rückbau» suchen, Zeile `eigen_pruefabwicklung_loeschen: eingeschleuster Fehler ausgelöst;
+Zustand unverändert; Rückbau gemeldet ok`. Erwartet: Vorgang als fehlgeschlagen gewertet, Prüf-Abwicklung und neue Features entfernt, keine Abwicklung
+unter der Komponente. Nicht bestanden: «VERÄNDERT» (z. B. Abwicklung zurückgeblieben) oder «UNVOLLSTÄNDIG» ohne Meldung des Restobjekts. Hinweis: Die
+Teststelle löst den Fehler unmittelbar VOR dem Löschen aus; ein echtes «deleteMe() meldet False» von Fusion lässt sich live nicht erzwingen (nur Attrappen-Test).
 
 **Abgabe:** Bericht 97.002 (automatisch bei «Ergebnis senden») bzw. `livetest.txt` aus dem Datenordner, dazu je Test 1–4 eine Zeile «bestanden / nicht
 bestanden / nicht durchführbar», Fusion-Version, Betriebssystem, Bildschirmfotos und die DXF aus Test 3. Ein bestandener Live-Test ist KEINE
