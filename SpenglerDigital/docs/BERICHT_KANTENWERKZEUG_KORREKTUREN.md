@@ -49,3 +49,14 @@ kleinster und grosser Radius), `test_operation_plan.py` (Testkante mit ausdrück
 ## Anleitung für die Live-Prüfung
 Siehe Testanleitung, Abschnitt «Pflicht-Live-Tests nach Korrektur 0.4.49»: Branch-Stand einspielen, SPENGLER → Verwaltung → Live-Test mit «Ergebnis
 senden», je Test Fusion-Version/OS, Ergebnis und Bildschirmfoto festhalten.
+
+## Restpunkte nach Review (Prüfstand `4279a39`, Ausgangs-HEAD dieser Runde `bb3ea44` = Release 0.4.50)
+| Punkt | Commit | Korrektur |
+|---|---|---|
+| 2 Begriffe | `a82f442` | Bauweise-Auswahl, Tooltip, Bauplan, Matrixtexte, Meldung «Normale dreht sich», Live-Test-Texte, Handbuch, Testanleitung, Status: «exakt»/«exaktes Profil»/«eigene exakte Abwicklung» → «mathematisch abwickelbar» bzw. «theoretischer Zuschnitt (Innenradius, K-Faktor)»; veralteter Hinweis «Freigabe in den Einstellungen» → Entwickler-Override. Interner Kennwert `'exakt'` der Abwickelbarkeit und «exakt benannte Fälle» bleiben (mathematisch). Test `test_begriffe.py` prüft Benutzertexte und Doku auf die bekannten Formulierungen. |
+| 1 DXF streng | `2f5a9b4` | `dxf_pruefung.pruefe_streng` nur für die interne Validierung (`_native_abwicklung_absichern`): Ablehnung bei offenen Enden, doppelten oder teilweise überlappenden Linien, verzweigter Kontur, Spline/Ellipse (nicht sicher prüfbar), Zusatzkontur an/ausserhalb der Aussenkontur, falschen Massen, Einheit ≠ mm; fehlende Einheitenangabe nur zulässig, weil die Aussenmasse in mm übereinstimmen. Innenkonturen innerhalb der Aussenkontur gelten als Löcher (nur Lage geprüft). Biegelinien müssen auf einer Ebene bend/biege/fold/kante liegen, sonst Ablehnung. Normaler Export (`pruefe`) unverändert. |
+| 3 Prüf-Abwicklung | `2f5a9b4` | Entfernung wird nachgewiesen (deleteMe-Ergebnis, Objekt ungültig, `comp.flatPattern` leer); sonst AdapterFehler «FEHLGESCHLAGEN», die Prüf-Abwicklung bleibt im Rückbau vorgemerkt (erneuter Löschversuch, Rest wird gemeldet). Vorhandene Abwicklung wird nie gelöscht. Neue Teststelle `eigen_pruefabwicklung_loeschen`. |
+
+**Tests dieser Runde:** Unit/Stub 505 (vorher 492), 0 Fehler, 1 übersprungen (ezdxf). **Fusion-Live-Tests: 0** – offen: Schritte «KANTENWERKZEUG eigen: Aufkantung» (Blechstatus, native Abwicklung, strenge DXF) und «… Rückbau» (inkl. Prüf-Abwicklung). **Fertigungsprüfungen: 0.**
+**Risiken:** Benennt Fusion die Biegelinien-Ebene anders als bend/biege/fold/kante, lehnt die strenge Prüfung jede eigene Geometrie am Blechkörper ab (sicher, aber ohne Nutzen) – im Live-Test sichtbar. Löcher werden nur über ihre Lage, nicht über ihre Form geprüft.
+**Veröffentlichung:** Der Auftragstext untersagt einen Release; der Anwender hat in derselben Nachricht ausdrücklich «direkt veröffentlichen» verlangt – diese Ansage gilt.
