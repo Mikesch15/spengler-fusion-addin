@@ -687,3 +687,16 @@ Konstruktionsebene «an der Kante» + nicht bemasste Skizze + Extrusion (Vereini
 (Masse über erneutes Anwenden); Referenz auf die Kante über die Ebene; ändert sich vorgelagerte Geometrie, kann die Ebene die Kante verlieren (Fusion meldet
 das in der Zeitleiste). Das Profil des Teils steht als Attribut am Körper (für die eigene Abwicklung); wird der Körper danach anders verändert, verweigert
 die eigene Abwicklung über den Rückvergleich die Ausgabe.
+
+### Korrektur 0.4.49 nach Review (5. 11. 2026) – gilt zusätzlich zum Abschnitt «Spengler-Kantenwerkzeug»
+- Unbekannte/nicht lesbare Flächen: werden in allen Pfaden «unbekannt» (mit Diagnose) und abgelehnt – kein Rückfall auf «eben» mehr. STUB-GETESTET.
+- Eigene Geometrie am Fusion-Blechkörper: wird nur übernommen, wenn danach isSheetMetal gilt, eine native Prüf-Abwicklung entsteht und die DXF die
+  Konturprüfung besteht; am Profilteil nur, wenn die eigene Abwicklung das GANZE Teil beschreibt. Sonst Ablehnung/Rückbau. Ob Fusion die Blechsemantik
+  nach dem Join tatsächlich behält: **NICHT VERIFIZIERT** (nur im Live-Test feststellbar) – bis dahin gilt die eigene Geometrie als ungetestet.
+- Prototypen: im Produktionsmodus gesperrt; kein Schalter in Dialog oder Einstellungen; nur Entwickler-Override `SPENGLER_CAD_EXPERIMENTELL` für exakt
+  benannte Fälle mit Warnung.
+- Begriffe: «mathematisch abwickelbar» (Geometrie) · «theoretischer Zuschnitt» (Modell ri + k·t, Werte angegeben) · «praktisch verifiziert» (nur nach
+  Probebiegung) – nichts in diesem Stand ist praktisch verifiziert.
+- Konturprüfung: Berührung/kollineare Überlappung (0.01 mm), adaptive Bogenteilung (Sehnenfehler ≤ 0.005 mm). Kollision mit dem BESTEHENDEN Körper wird
+  über den exakten Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
+- Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
