@@ -581,6 +581,8 @@ SCHRITTE = [
 # Gekrümmte Geometrie und Doppelfalz (Nachtauftrag Phase 8) – eigenes Modul, hier angehängt
 from . import live_test_gekruemmt as _gekruemmt  # noqa: E402
 SCHRITTE.extend(_gekruemmt.SCHRITTE)
+from . import live_test_kantenwerkzeug as _kantenwerkzeug  # noqa: E402
+SCHRITTE.extend(_kantenwerkzeug.SCHRITTE)
 
 
 def _alles_schliessen(dokumente):
