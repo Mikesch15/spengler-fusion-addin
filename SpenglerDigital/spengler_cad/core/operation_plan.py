@@ -45,6 +45,10 @@ def kante_eignung(kante, vorlage, material, bauweise="nativ", prototyp=False):
     if typ == "gekruemmt" and kurve == "linie":
         gruende.append("ist gerade – die Vorlage ist für gekrümmte Ränder")
     ops_ = (vorlage or {}).get("operations") or []
+    from . import profil_engine
+    if bauweise != "eigen" and profil_engine.doppelfalz_stellen(ops_):
+        gruende.append("enthält einen Doppelfalz (Umschlag samt Umschlag nochmals umgelegt, wie beim Stehfalz) – das kann die Fusion-Blechfunktion "
+                       "nicht; Bauweise «eigene Geometrie» wählen")
     if ops_ and ops_[0].get("typ") == "umschlag" and kante.get("frei") is None and kante.get("blech"):
         # Eigene Prüfung, wenn der Saum an der GEWÄHLTEN Kante sitzt (erster Schritt): Fusion rechnet ihn nur an freien Aussenkanten (Live-Tests: SM_MODELING_ERROR sonst) – unklare Kanten nicht versuchen.
         gruende.append("ist nicht sicher als freie Aussenkante erkannt – ein Umschlag braucht eine freie Aussenkante des Blechs")

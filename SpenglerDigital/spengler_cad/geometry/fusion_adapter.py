@@ -689,6 +689,11 @@ def _objektname(o):
         return t
 
 
+ABWICKLUNG_BESCHAEDIGT = ("Die Abwicklung der Komponente «%s» ist in Fusion nicht mehr zugänglich (Fusion: «InternalValidationError : res») – "
+                         "vermutlich durch das Löschen einer Prüf-Abwicklung in Spengler 0.4.50–0.4.56. Abhilfe: im Browser unter der Komponente "
+                         "die «Abwicklung» löschen (Rechtsklick → Löschen) oder das Dokument ohne Speichern schliessen und eine frühere Version öffnen.")
+
+
 def _flatpattern_lesen(comp):
     """→ (Abwicklung oder None, lesbar). Live 0.4.54: Nach dem Löschen der Abwicklung wirft Component.flatPattern «InternalValidationError : res»
     statt None zu liefern – das gilt als «keine Abwicklung»; ob das gelöschte Objekt wirklich ungültig ist, prüft _loeschen separat."""
@@ -1303,10 +1308,18 @@ def _schritt_bauen(edge, op, gespiegelt, dicke_mm=None, prototyp=False):
     return flansch(edge, op["winkel"], op["laenge"], op.get("radius"), gespiegelt, op.get("bezug"), op.get("lage"), **extra)
 
 
+def _kein_doppelfalz_nativ(ops):
+    from ..core import profil_engine as pe
+    if pe.doppelfalz_stellen(ops):
+        raise AdapterFehler("Doppelfalz (Umschlag samt Umschlag nochmals umgelegt, wie beim Stehfalz) kann die Fusion-Blechfunktion nicht bauen – "
+                            "Bauweise «eigene Geometrie» wählen. Es wurde nichts verändert.")
+
+
 def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, prototyp=False):
     """Operationsfolge an EINER Kante. → Liste erzeugter Features. Bei Fehler: alles wieder entfernen und AdapterFehler.
     Hinweise (z. B. mögliche Einschnitte an runden Kanten, automatisch umgekehrte Richtungen) werden in die übergebene Liste geschrieben.
     Richtungsprüfung ab Schritt 2 (nach Fusion-Standard bei Schritt 1) – NICHT live geprüft."""
+    _kein_doppelfalz_nativ(ops)
     hinweise = hinweise if hinweise is not None else []
     erzeugt = []
     aktuell = edge
@@ -1678,6 +1691,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
     Kette). Scheitert ein Schritt oder fällt die Kontrolle durch, wird ALLES zurückgebaut und AdapterFehler gemeldet – es gibt KEINEN stillen
     Rückfall auf Einzelkanten (den entscheidet der Aufrufer nach Rückfrage). Nur ein Versatz in einem späteren Schritt wird je Kante gebaut
     (Hinweis «ohne Gehrung»). NICHT live geprüft."""
+    _kein_doppelfalz_nativ(ops)
     hinweise = hinweise if hinweise is not None else []
     if len(edges) < 2 or (ops[0]["typ"] == "umschlag" and len(ops) > 1):
         raise AdapterFehler("Gemeinsamer Flansch nur für mehrere Kanten und einen Flansch als ersten Schritt (ein Umschlag nur allein).")
@@ -2540,42 +2554,33 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
 
 
 def _native_abwicklung_absichern(comp, body, rb):
-    """Nach eigener Geometrie an einem Fusion-Blechkörper: Blechsemantik erhalten? Native Abwicklung erzeugbar? DXF exportierbar und Kontur in Ordnung?
-    Erst dann gilt die Operation. Eine dafür NEU erzeugte Abwicklung ist nur eine Prüf-Abwicklung und wird danach wieder entfernt (eine vorhandene
-    bleibt, Fusion führt sie nach). Jeder Fehler wirft AdapterFehler → der Aufrufer baut alles zurück. → Text für den Bericht. NICHT live geprüft."""
+    """Nach eigener Geometrie an einem Fusion-Blechkörper: Blechsemantik prüfen; GIBT es schon eine Abwicklung, wird sie (von Fusion nachgeführt)
+    als DXF ausgegeben und STRENG geprüft. Gibt es keine, wird KEINE Prüf-Abwicklung mehr angelegt: Live 0.4.56 zeigte, dass das Löschen einer
+    per API erzeugten Abwicklung (FlatPattern.deleteMe) die Komponente beschädigt (Component.flatPattern wirft «res», createFlatPattern meldet
+    «already exists», Stückliste scheitert). Die native Abwicklung entsteht dann erst über «Abwicklung & DXF». Jeder Fehler wirft AdapterFehler →
+    der Aufrufer baut alles zurück. → Text für den Bericht. NICHT live geprüft."""
     import os
     import tempfile
     from ..manufacturing import dxf_pruefung
     if not ist_blech(body):
         raise AdapterFehler("Nach der eigenen Geometrie ist der Körper KEIN Fusion-Blechkörper mehr (Blechsemantik verloren) – eine vollständige eigene "
                             "Abwicklung des ganzen Teils gibt es nicht, deshalb wird zurückgebaut.")
-    fp, neu_fp = abwicklung(comp, None, body)
-    if neu_fp:
-        rb.merke(fp)                       # bei einem Fehler danach wird die Prüf-Abwicklung mit zurückgebaut
+    fp, lesbar = _flatpattern_lesen(comp)
+    if not lesbar:
+        raise AdapterFehler(ABWICKLUNG_BESCHAEDIGT % getattr(comp, "name", "?"))
+    if fp is None:
+        return ("Blechkörper bleibt Fusion-Blech; native Abwicklung NICHT geprüft (es gibt noch keine – sie entsteht über «Abwicklung & DXF», "
+                "eine Prüf-Abwicklung wird nicht mehr angelegt)")
     _testfehler("eigen_validierung_abwicklung")
     m = abwicklung_masse(fp)
     pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_pruef_"), "pruefung.dxf")
     dxf_abwicklung(fp, pfad)
     _testfehler("eigen_validierung_dxf")
-    # STRENGE Prüfung (nicht die Hinweis-Prüfung des normalen Exports): offene Konturen, doppelte Linien, ungeprüfte Kurven, Zusatzkonturen = Fehlschlag
     pr = dxf_pruefung.pruefe_datei_streng(pfad, m["breite"], m["laenge"])
     if not pr["ok"]:
         raise AdapterFehler("DXF der Abwicklung nach der eigenen Geometrie besteht die strenge Prüfung nicht: " + "; ".join(pr["probleme"]))
-    text = "Blechkörper bleibt Fusion-Blech; native Abwicklung %.1f × %.1f mm und DXF streng geprüft (%s)" % (
+    return "Blechkörper bleibt Fusion-Blech; vorhandene Abwicklung %.1f × %.1f mm nachgeführt und DXF streng geprüft (%s)" % (
         m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
-    if neu_fp:
-        # Die Prüf-Abwicklung muss NACHWEISLICH weg sein, bevor die Operation als erfolgreich gilt. Schlägt das fehl, bleibt sie im Rückbau vorgemerkt
-        # und die ganze Operation wird als fehlgeschlagen zurückgebaut (der Rückbau versucht das Löschen erneut und meldet, was übrig bleibt).
-        _testfehler("eigen_pruefabwicklung_loeschen")
-        p_ = _loeschen(fp)
-        noch, lesbar = _flatpattern_lesen(comp)
-        if p_ or noch:
-            raise AdapterFehler("Die temporäre Prüf-Abwicklung liess sich nicht entfernen (%s) – Vorgang als FEHLGESCHLAGEN gewertet." % (
-                p_ or "Abwicklung der Komponente noch vorhanden"))
-        rb.objekte.remove(fp)
-        text += "; temporäre Prüf-Abwicklung entfernt und Entfernung geprüft" + ("" if lesbar else " (Objekt ungültig; die Komponente gibt nach dem "
-                                                                                    "Löschen keine Abwicklung mehr heraus)")
-    return text
 
 
 def eigene_abwicklung(body):
@@ -2807,7 +2812,9 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     """Abwicklung der Komponente: eine vorhandene wird verwendet (Fusion führt sie selbst nach), sonst neu erzeugt. Vorher geprüft: gültiger
     Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
     (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
-    fp, _lesbar = _flatpattern_lesen(comp)
+    fp, lesbar = _flatpattern_lesen(comp)
+    if not lesbar:
+        raise AdapterFehler(ABWICKLUNG_BESCHAEDIGT % getattr(comp, "name", "?"))
     if fp:
         logger.info("Abwicklung bereits vorhanden – sie wird verwendet", komponente=getattr(comp, "name", "?"))
         return fp, False

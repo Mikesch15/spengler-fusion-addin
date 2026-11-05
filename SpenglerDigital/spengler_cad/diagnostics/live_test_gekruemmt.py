@@ -202,22 +202,21 @@ def t_kugel(ctx):
 
 
 def t_doppelfalz(ctx):
-    """Doppelfalz-Testprofil an der langen Kante des Test-Blechs: Aufkantung 30 mm, Umschlag 10 mm, zweiter Umschlag 8 mm (Folge wie in der Praxis).
-    Geprüft: alle Schritte gebaut, Volumen ≈ Kante × (30 + 10 + 8) × Dicke, Körper gültig."""
+    """Doppelfalz wie beim Stehfalz (Umschlag samt Umschlag nochmals umgelegt, Anwender 5. 11. 2026) kann die Fusion-Blechfunktion nicht: nativ wird
+    VOR dem Modellieren abgelehnt, das Modell bleibt unverändert. Gebaut wird er mit eigener Geometrie (Schritt «KANTENWERKZEUG eigen: … Doppelfalz»)."""
     lt = _lt()
     vor = lt._messen(ctx)
     kante = lt._rand_kanten(ctx)[0]
-    L = lt._laenge_mm(kante)
-    hin = []
-    erz = fa.folge_anbringen(kante, [lt._op("flansch", 90, 30), lt._op("umschlag", 180, 10), lt._op("umschlag", 180, 8)], ctx.dicke, {"livetest": 1}, hin)
-    nach = lt._messen(ctx)
-    soll = L * (30 + 10 + 8) * (ctx.dicke or 1.0)
-    ratio = (nach["vol"] - vor["vol"]) / soll
-    t = "%d Schritte, Volumen %+.0f mm³ = %.0f %% von %.0f; Höhe %.1f mm%s" % (len(erz), nach["vol"] - vor["vol"], 100 * ratio, soll,
-                                                                           nach["max"][2] - nach["min"][2], ("; " + " / ".join(hin)) if hin else "")
-    if len(erz) != 3 or not (0.6 <= ratio <= 1.5) or fa.koerper_pruefen(ctx.root.bRepBodies.item(0)):
-        raise lt._Falsch(t)
-    return t
+    try:
+        erz = fa.folge_anbringen(kante, [lt._op("flansch", 90, 30), lt._op("umschlag", 180, 10), lt._op("umschlag", 180, 8)], ctx.dicke, {"livetest": 1}, [])
+    except fa.AdapterFehler as e:
+        nach = lt._messen(ctx)
+        t = "nativ abgelehnt: %s; Volumen vorher/nachher %.1f / %.1f mm³" % (e, vor["vol"], nach["vol"])
+        if "eigene Geometrie" not in str(e) or abs(nach["vol"] - vor["vol"]) > 0.01:
+            raise lt._Falsch(t)
+        return t
+    fa.entfernen_bericht(erz)
+    raise lt._Falsch("Doppelfalz wurde nativ gebaut (%d Features) – hätte abgelehnt werden müssen" % len(erz))
 
 
 # ------------------------------------------------------------------ Prototyp: Bearbeitung auf gerolltem Zylindersegment (echter Blechkörper)
@@ -414,7 +413,7 @@ def t_zylinder_kegel(ctx):
 
 # (Name, Funktion, braucht Test-Blech) – an live_test.SCHRITTE angehängt
 SCHRITTE = [
-    ("Doppelfalz-Testprofil (Aufkantung + 2 Umschläge)", t_doppelfalz, True),
+    ("Doppelfalz nativ wird abgelehnt (nur eigene Geometrie)", t_doppelfalz, True),
     ("Gekrümmt: Bogenkante auf ebenem Blech (Fusion-Anfrage)", t_bogenkante, False),
     ("Gekrümmt: Zylinderschale (Normale, Versatz, Abwickelbarkeit, Detail starr)", t_zylinder, False),
     ("Gekrümmt: Teilzylinder mit gerader Mantelkante (Fusion-Anfrage)", t_teilzylinder, False),

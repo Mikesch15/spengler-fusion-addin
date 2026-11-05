@@ -511,125 +511,70 @@ class BlechSemantikNachEigenerGeometrie(_Patch):
             fa._native_abwicklung_absichern(object(), object(), fa.Rueckbau("t"))
         self.assertIn("KEIN Fusion-Blechkörper mehr", str(cm.exception))
 
-    def test_pruef_abwicklung_wird_bei_fehler_mit_zurueckgebaut(self):
-        fa = _fa()
-        fp = ff.Objekt("Abwicklung")
-        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, True))
-        fa.TESTFEHLER.add("eigen_validierung_abwicklung")
-        self.addCleanup(fa.TESTFEHLER.clear)
-        rb = fa.Rueckbau("t")
-        with self.assertRaises(fa.AdapterFehler):
-            fa._native_abwicklung_absichern(object(), object(), rb)
-        self.assertIn(fp, rb.objekte, "die Prüf-Abwicklung gehört zum Rückbau")
-        self.assertTrue(rb.zurueck())
-        self.assertFalse(fp.isValid)
+    def _dxf(self, fp_, pfad, kreuz=False):
+        from test_dxf_pruefung import dxf as baue, linie, rechteck
+        el = rechteck(100, 60) + ([linie(50, -10, 50, 70)] if kreuz else [])
+        with open(pfad, "w") as f:
+            f.write(baue(el))
+        return pfad
 
-    def test_erfolg_entfernt_pruef_abwicklung_und_prueft_dxf(self):
-        import os
-        fa = _fa()
-        fp = ff.Objekt("Abwicklung")
+    def _comp(self, fp):
+        return type("C", (), {"flatPattern": fp})()
 
-        def dxf(fp_, pfad):
-            from test_dxf_pruefung import dxf as baue, rechteck
-            with open(pfad, "w") as f:
-                f.write(baue(rechteck(100, 60)))
-            return pfad
-        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, True), abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0},
-                    dxf_abwicklung=dxf)
+    def test_ohne_abwicklung_wird_keine_angelegt(self):
+        """Live 0.4.56: Löschen einer per API erzeugten Abwicklung beschädigt die Komponente – deshalb wird keine Prüf-Abwicklung mehr angelegt."""
+        fa = _fa()
+        angelegt = []
+        self.patche(ist_blech=lambda b: True, abwicklung=lambda *a: angelegt.append(a) or (None, True))
         rb = fa.Rueckbau("t")
-        t = fa._native_abwicklung_absichern(object(), object(), rb)
-        self.assertIn("bleibt Fusion-Blech", t)
-        self.assertIn("Prüf-Abwicklung entfernt und Entfernung geprüft", t)
-        self.assertFalse(fp.isValid)
+        t = fa._native_abwicklung_absichern(self._comp(None), object(), rb)
+        self.assertEqual(angelegt, [], "keine Abwicklung erzeugt")
+        self.assertIn("NICHT geprüft", t)
+        self.assertEqual(rb.objekte, [])
+
+    def test_vorhandene_abwicklung_wird_streng_geprueft_und_bleibt(self):
+        fa = _fa()
+        fp = ff.Objekt("vorhanden")
+        self.patche(ist_blech=lambda b: True, abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0}, dxf_abwicklung=self._dxf)
+        rb = fa.Rueckbau("t")
+        t = fa._native_abwicklung_absichern(self._comp(fp), object(), rb)
+        self.assertIn("DXF streng geprüft", t)
+        self.assertTrue(fp.isValid, "vorhandene Abwicklung wird nie gelöscht")
         self.assertNotIn(fp, rb.objekte)
-        self.assertTrue(os.path.basename(__file__))
 
     def test_dxf_fehlerhaft_wird_abgelehnt(self):
         fa = _fa()
-        fp = ff.Objekt("Abwicklung")
-
-        def dxf(fp_, pfad):
-            from test_dxf_pruefung import dxf as baue, rechteck
-            with open(pfad, "w") as f:
-                f.write(baue(rechteck(100, 60)))
-            return pfad
-        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, False), abwicklung_masse=lambda f: {"breite": 80.0, "laenge": 100.0},
-                    dxf_abwicklung=dxf)
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa._native_abwicklung_absichern(object(), object(), fa.Rueckbau("t"))
-        self.assertIn("DXF der Abwicklung", str(cm.exception))
-
-
-class PruefAbwicklungLebenszyklus(_Patch):
-    """Restpunkt 3: die temporäre Prüf-Abwicklung wird nachweislich entfernt – sonst gilt der Vorgang als fehlgeschlagen. Attrappen, KEIN Fusion-Test."""
-    def _dxf(self, fp_, pfad):
-        from test_dxf_pruefung import dxf as baue, rechteck
-        with open(pfad, "w") as f:
-            f.write(baue(rechteck(100, 60)))
-        return pfad
-
-    def _aufbau(self, fp, neu=True, comp=None):
-        self.patche(ist_blech=lambda b: True, abwicklung=lambda c, f, b: (fp, neu), abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0},
-                    dxf_abwicklung=self._dxf)
-        return comp or type("C", (), {"flatPattern": None})()
-
-    def test_vorhandene_abwicklung_bleibt(self):
-        fa = _fa()
         fp = ff.Objekt("vorhanden")
-        comp = self._aufbau(fp, neu=False, comp=type("C", (), {"flatPattern": fp})())
-        rb = fa.Rueckbau("t")
-        fa._native_abwicklung_absichern(comp, object(), rb)
-        self.assertTrue(fp.isValid, "eine vor dem Vorgang vorhandene Abwicklung wird nie gelöscht")
-        self.assertNotIn(fp, rb.objekte)
-
-    def test_loeschfehler_ist_fehlschlag_und_bleibt_im_rueckbau(self):
-        fa = _fa()
-        fp = ff.Objekt("Prüf-Abwicklung", ergebnis=False)                   # deleteMe → False
-        comp = self._aufbau(fp)
-        rb = fa.Rueckbau("t")
+        self.patche(ist_blech=lambda b: True, abwicklung_masse=lambda f: {"breite": 60.0, "laenge": 100.0},
+                    dxf_abwicklung=lambda f, p: self._dxf(f, p, kreuz=True))
         with self.assertRaises(fa.AdapterFehler) as cm:
-            fa._native_abwicklung_absichern(comp, object(), rb)
-        self.assertIn("FEHLGESCHLAGEN", str(cm.exception))
-        self.assertIn(fp, rb.objekte, "der Rückbau versucht es erneut und meldet den Rest")
-        with self.assertRaises(fa.AdapterFehler) as cm2:
-            rb.abbrechen(cm.exception)
-        self.assertFalse(cm2.exception.rueckbau_ok)
-        self.assertIn("Prüf-Abwicklung", str(cm2.exception))
+            fa._native_abwicklung_absichern(self._comp(fp), object(), fa.Rueckbau("t"))
+        self.assertIn("strenge Prüfung", str(cm.exception))
+        self.assertTrue(fp.isValid)
 
-    def test_deleteme_true_aber_noch_vorhanden_ist_fehlschlag(self):
+    def test_teststelle_abwicklung(self):
         fa = _fa()
-        fp = ff.Objekt("Prüf-Abwicklung")
-        comp = self._aufbau(fp, comp=type("C", (), {"flatPattern": "noch da"})())
-        with self.assertRaises(fa.AdapterFehler) as cm:
-            fa._native_abwicklung_absichern(comp, object(), fa.Rueckbau("t"))
-        self.assertIn("noch vorhanden", str(cm.exception))
+        self.patche(ist_blech=lambda b: True)
+        fa.TESTFEHLER.add("eigen_validierung_abwicklung")
+        self.addCleanup(fa.TESTFEHLER.clear)
+        with self.assertRaises(fa.AdapterFehler):
+            fa._native_abwicklung_absichern(self._comp(ff.Objekt("vorhanden")), object(), fa.Rueckbau("t"))
 
-    def test_flatpattern_wirft_nach_dem_loeschen(self):
-        """Live 0.4.54: Component.flatPattern wirft nach dem Löschen «InternalValidationError : res» – gilt als entfernt, kein Fehlschlag."""
+    def test_beschaedigte_abwicklung_klare_meldung(self):
         fa = _fa()
-        fp = ff.Objekt("Prüf-Abwicklung")
 
         class C(object):
+            name = "Blech"
+
             @property
             def flatPattern(self):
                 raise RuntimeError("2 : InternalValidationError : res")
-        comp = self._aufbau(fp, comp=C())
-        rb = fa.Rueckbau("t")
-        text = fa._native_abwicklung_absichern(comp, object(), rb)
-        self.assertFalse(fp.isValid)
-        self.assertIn("Prüf-Abwicklung entfernt", text)
-        self.assertNotIn(fp, rb.objekte)
-
-    def test_fehler_beim_loeschen_selbst(self):
-        fa = _fa()
-        fp = ff.Objekt("Prüf-Abwicklung")
-        comp = self._aufbau(fp)
-        fa.TESTFEHLER.add("eigen_pruefabwicklung_loeschen")
-        self.addCleanup(fa.TESTFEHLER.clear)
-        rb = fa.Rueckbau("t")
-        with self.assertRaises(fa.AdapterFehler):
-            fa._native_abwicklung_absichern(comp, object(), rb)
-        self.assertIn(fp, rb.objekte)
+        self.patche(ist_blech=lambda b: True)
+        for aufruf in (lambda: fa._native_abwicklung_absichern(C(), object(), fa.Rueckbau("t")), lambda: fa.abwicklung(C())):
+            with self.assertRaises(fa.AdapterFehler) as cm:
+                aufruf()
+            self.assertIn("nicht mehr zugänglich", str(cm.exception))
+            self.assertIn("Abwicklung» löschen", str(cm.exception))
 
 
 class _OhneBlechdaten(ff.Regeln):

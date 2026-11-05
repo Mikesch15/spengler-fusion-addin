@@ -280,7 +280,7 @@ Vorbereitung: Blech-Arbeitsbereich, Blechregel mit Ihrer Dicke, Rechteck 300 × 
 
 Für jeden Test erfassen: Voraussetzungen/Ausgangszustand · Bedienungsschritte · erwartetes Ergebnis · tatsächliches Ergebnis · **bestanden / nicht bestanden
 / nicht durchführbar** · Fusion-Version (Hilfe → Über) und Betriebssystem · bei Fehlern Bildschirmfoto und Protokoll (Palette → Sicherung → «Protokoll
-öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.53 oder neuer.
+öffnen»). Alle Tests nur in einer **eigenen Testdatei** bzw. einer gespeicherten Kopie, nie im Kundenmodell. Add-in-Version: 0.4.57 oder neuer.
 
 **Vorbereitung (für alle Tests):** Materialprofil mit Dicke 1.0 mm, Innenradius 1.0 mm und K-Faktor (z. B. 0.44) anlegen; Auftrag wählen (falls
 «Auftrag erforderlich» eingestellt ist); Vorlage mit genau einem Flansch 90° / 20 mm (Kurzschrift im Expertenmodus z. B. `90 20`).
@@ -294,7 +294,7 @@ Blechkörper 1.0 mm, keine Abwicklung. Bestanden: beides zutreffend; nicht besta
 obere lange Aussenkante (gerade, an der ebenen Oberseite); (3) Vorlage «90 20», Material aus der Vorbereitung; (4) **Bauweise: «Eigene Geometrie»**;
 (5) Bauplan lesen: «Analyse … gerade Kante auf eben Fläche … mathematisch abwickelbar … Zuschnitt THEORETISCH»; (6) Vorschau einschalten und ansehen;
 (7) OK. Erwartet: Vorschau zeigt eine Aufkantung nach oben über die ganze Kantenlänge; Ergebnisbericht ohne Fehler, mit den Zeilen «Blechkörper bleibt
-Fusion-Blech; native Abwicklung … und DXF streng geprüft» und «temporäre Prüf-Abwicklung entfernt und Entfernung geprüft»; Körper danach weiterhin
+Fusion-Blech; native Abwicklung NICHT geprüft» (ohne vorhandene Abwicklung) bzw. «… nachgeführt und DXF streng geprüft» (mit); Körper danach weiterhin
 Blechkörper (Eigenschaften). Bestanden: alles zutreffend. Nicht bestanden: Fehlermeldung, Körper kein Blech mehr, oder Bericht ohne diese Zeilen.
 Nicht durchführbar: Bauweise-Auswahl fehlt (falsche Version) – Version prüfen.
 
@@ -305,11 +305,11 @@ Bericht vergleichen, Kontur geschlossen, keine doppelten Linien, Biegelinie(n) v
 eine geschlossene Aussenkontur. Hinweis: Die STRENGE Prüfung lief bereits in Test 2 (Zeile «DXF streng geprüft»); der Export hier nutzt die normale
 Prüfung. DXF-Datei dem Testprotokoll beilegen. Bestanden / nicht bestanden entsprechend.
 
-**Test 4 – Prüf-Abwicklung wird entfernt.** Teil A (keine Abwicklung vorher): nach Test 2 im Browser prüfen, dass KEINE Abwicklung unter der Komponente
-steht (die interne Prüf-Abwicklung muss weg sein). Teil B (Abwicklung vorher vorhanden): neue Testdatei wie Test 1, dann in Fusion selbst eine Abwicklung
-erzeugen (Blech → Abwicklung erstellen, Fläche oben), zurück ins Modell, dann Test 2 wiederholen. Erwartet A: keine Abwicklung; B: die eigene Abwicklung
-existiert weiterhin (nicht gelöscht) und zeigt die neue Aufkantung. Fehlerfall: Meldet das Werkzeug «Prüf-Abwicklung liess sich nicht entfernen … FEHLGESCHLAGEN»,
-ist der Test **nicht bestanden** – Bildschirmfoto und Protokoll senden.
+**Test 4 – Keine Prüf-Abwicklung, vorhandene bleibt (ab 0.4.57).** Teil A (keine Abwicklung vorher): nach Test 2 im Browser prüfen, dass KEINE
+Abwicklung unter der Komponente steht; im Bericht steht «native Abwicklung NICHT geprüft». Teil B (Abwicklung vorher vorhanden): neue Testdatei wie
+Test 1, in Fusion selbst eine Abwicklung erzeugen (Blech → Abwicklung erstellen, Fläche oben), zurück ins Modell, dann Test 2 wiederholen. Erwartet A:
+keine Abwicklung; B: die eigene Abwicklung existiert weiterhin, zeigt die neue Aufkantung, Bericht «vorhandene Abwicklung … nachgeführt und DXF streng
+geprüft». Danach Test 3 in beiden Dateien. Meldung «Abwicklung … nicht mehr zugänglich»: Datei stammt aus 0.4.50–0.4.56 – Abwicklung im Browser löschen.
 
 **Test 5 – Rückbau bei DXF-Prüffehler.** Der Testfehler `eigen_validierung_dxf` lässt sich nicht über die Oberfläche auslösen; er läuft im
 automatischen Live-Test. Schritte: SPENGLER → Verwaltung → Live-Test, «Ergebnis senden» an, starten, 3–5 Minuten nichts anklicken. Im Bericht den
@@ -317,11 +317,7 @@ Schritt «KANTENWERKZEUG eigen: Rückbau» suchen; Zeile `eigen_validierung_dxf:
 Erwartet: genau diese Zeile (✓ PASS). Nicht bestanden: «ANDERER Fehler», «VERÄNDERT», «NICHT VOLLSTÄNDIG MESSBAR» oder «UNVOLLSTÄNDIG». Bestehende
 Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).
 
-**Test 6 – Rückbau bei Löschfehler der Prüf-Abwicklung.** Ab 0.4.53 im automatischen Live-Test enthalten (über die Oberfläche nicht auslösbar). Schritte
-wie Test 5; im Bericht den Schritt «KANTENWERKZEUG eigen: Rückbau» suchen, Zeile `eigen_pruefabwicklung_loeschen: eingeschleuster Fehler ausgelöst;
-Zustand unverändert; Rückbau gemeldet ok`. Erwartet: Vorgang als fehlgeschlagen gewertet, Prüf-Abwicklung und neue Features entfernt, keine Abwicklung
-unter der Komponente. Nicht bestanden: «VERÄNDERT» (z. B. Abwicklung zurückgeblieben) oder «UNVOLLSTÄNDIG» ohne Meldung des Restobjekts. Hinweis: Die
-Teststelle löst den Fehler unmittelbar VOR dem Löschen aus; ein echtes «deleteMe() meldet False» von Fusion lässt sich live nicht erzwingen (nur Attrappen-Test).
+**Test 6 – entfällt ab 0.4.57** (es wird keine Prüf-Abwicklung mehr angelegt oder gelöscht).
 
 **Abgabe:** Bericht 97.002 (automatisch bei «Ergebnis senden») bzw. `livetest.txt` aus dem Datenordner, dazu je Test 1–4 eine Zeile «bestanden / nicht
 bestanden / nicht durchführbar», Fusion-Version, Betriebssystem, Bildschirmfotos und die DXF aus Test 3. Ein bestandener Live-Test ist KEINE

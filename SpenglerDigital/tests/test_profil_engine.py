@@ -32,8 +32,38 @@ class Querschnitt(unittest.TestCase):
         self.assertEqual(pe.pruefen(q), [], "Falz mit Abstand 2 × 0.5 mm kollidiert nicht")
         doppel = einfach + [{"typ": "umschlag", "winkel": 180, "laenge": 8, "radius": 0.5}]
         q2 = pe.querschnitt(pe.ops_zu_profil(doppel, T, RI), T, RI, K)
-        self.assertEqual(len(q2["biegungen"]), 3)
+        self.assertEqual(len(q2["biegungen"]), 4, "Doppelfalz wie Stehfalz: äussere Paketbiegung, Umschlag, innere Biegung")
+        self.assertEqual(pe.pruefen(q2), [], "Paket umgelegt – keine Kollision")
         self.assertGreater(q2["mittellinie_mm"], q["mittellinie_mm"])
+
+    def test_doppelfalz_stehfalz_geometrie(self):
+        ops = [flansch(90, 30), {"typ": "umschlag", "winkel": 180, "laenge": 10, "radius": 0.5}, {"typ": "umschlag", "winkel": 180, "laenge": 8, "radius": 0.5}]
+        self.assertEqual(pe.doppelfalz_stellen(ops), [1])
+        q = pe.querschnitt(pe.ops_zu_profil(ops, T, RI), T, RI, K)
+        linien = [el for el in q["pfad"] if el["typ"] == "linie"]
+        xs = [round(el["p1"][0], 6) for el in linien]
+        # Mittellinien: Aufkantung, umgelegter Aufkantungsteil (aussen), Umschlagschenkel (dazwischen), Stummel am alten Umschlagplatz
+        self.assertEqual(xs, [1.5, -4.5, -2.5, -0.5])
+        self.assertAlmostEqual(linien[0]["p2"][1], 20.5)                    # Falzlinie: Aufkantung oben (28.5) − 8
+        self.assertAlmostEqual(linien[1]["p1"][1] - linien[1]["p2"][1], 8.0)  # umgelegter Teil 8 mm
+        self.assertAlmostEqual(linien[3]["p2"][1], 20.0, msg="Stummel endet, wo der Umschlag vorher endete")
+        r = sorted(round(b["ri"], 6) for b in q["biegungen"])
+        self.assertEqual(r, [0.5, 0.5, 1.0, 2.5], "äussere Paketbiegung Innenradius 2·0.5 + 1 + 0.5")
+
+    def test_ganzer_umschlag_im_paket(self):
+        ops = [flansch(90, 30), {"typ": "umschlag", "winkel": 180, "laenge": 10, "radius": 0.5}, {"typ": "umschlag", "winkel": 180, "laenge": 12, "radius": 0.5}]
+        q = pe.querschnitt(pe.ops_zu_profil(ops, T, RI), T, RI, K)
+        self.assertEqual((len(q["biegungen"]), pe.pruefen(q)), (3, []))
+
+    def test_gegenrichtung_bleibt_z_profil(self):
+        ops = [flansch(90, 30), {"typ": "umschlag", "winkel": 180, "laenge": 10, "radius": 0.5}, {"typ": "umschlag", "winkel": -180, "laenge": 8, "radius": 0.5}]
+        self.assertEqual(pe.doppelfalz_stellen(ops), [])
+        self.assertEqual(len(pe.querschnitt(pe.ops_zu_profil(ops, T, RI), T, RI, K)["biegungen"]), 3)
+
+    def test_doppelfalz_ohne_aufkantung_abgelehnt(self):
+        ops = [{"typ": "umschlag", "winkel": 180, "laenge": 10, "radius": 0.5}, {"typ": "umschlag", "winkel": 180, "laenge": 8, "radius": 0.5}]
+        with self.assertRaises(pe.ProfilFehler):
+            pe.ops_zu_profil(ops, T, RI)
 
     def test_selbstschnitt_wird_erkannt(self):
         ops = [flansch(90, 20), flansch(170, 30, 0.5), flansch(170, 30, 0.5)]

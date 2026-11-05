@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.53)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.57)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,16 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.53)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.57)
+
+- **Live 0.4.55/0.4.56 (5. 11. 2026):** Test 2 (eigene Geometrie, Aufkantung 90°/20 an der Kante) in Fusion **bestanden**. Test 3 **nicht bestanden**:
+  das Löschen der per API erzeugten Prüf-Abwicklung (FlatPattern.deleteMe) beschädigt die Komponente – `Component.flatPattern` wirft danach «res»,
+  `createFlatPattern` meldet «already exists», Stückliste scheitert. **Ab 0.4.57 wird keine Prüf-Abwicklung mehr angelegt oder gelöscht**: eine
+  vorhandene Abwicklung wird nachgeführt und ihre DXF streng geprüft; ohne Abwicklung steht im Bericht «native Abwicklung NICHT geprüft». Beschädigte
+  Komponenten werden erkannt und mit Abhilfe gemeldet (Abwicklung im Browser löschen). Teststelle `eigen_pruefabwicklung_loeschen` entfällt (Test 6).
+- **Doppelfalz = Stehfalz** (Anwender 5. 11. 2026): Umschlag + Umschlag gleicher Richtung legt das umgeschlagene Ende samt Umschlag nochmals um 180°
+  um (Paket; äussere Biegung Innenradius 2·r₁ + t + r₂, innere Biegung r₂ konzentrisch, Rest des ersten Umschlags bleibt). Die Länge des zweiten
+  Umschlags ist die umgelegte Höhe. Nur Bauweise «eigene Geometrie»; nativ wird vorher abgelehnt. Gegenrichtung bleibt Z-Profil. Nicht live geprüft.
 
 - **Live-Test 97.002 mit 0.4.53 (Fusion 2706.1.17, 5. 11. 2026):** 13 ok, 2 Warnungen, 10 Fehler, 21 übersprungen. Ursache der Fehler und aller
   Übersprungenen: In einem frischen Dokument wirft `designSheetMetalRules.count` «InternalValidationError : smDataRoot» – kein Grundblech, also auch

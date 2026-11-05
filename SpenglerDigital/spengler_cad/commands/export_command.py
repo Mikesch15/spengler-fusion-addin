@@ -300,7 +300,9 @@ def _zus(self, args):
     stueck = inp.itemById("stueck").value
     teile, fehlt = [], []
     for body in _koerper(inp):
-        fp = getattr(body.parentComponent, "flatPattern", None)
+        fp, lesbar = fa._flatpattern_lesen(body.parentComponent)
+        if not lesbar:
+            raise fa.AdapterFehler(fa.ABWICKLUNG_BESCHAEDIGT % getattr(body.parentComponent, "name", "?"))
         if not fp:
             fehlt.append(body.name)
             continue

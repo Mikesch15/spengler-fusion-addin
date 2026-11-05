@@ -139,7 +139,7 @@ def t_eigen_rueckbau(ctx):
     """Rückbau: eingeschleuster Fehler nach der Extrusion (eigene Folge an der Kante und neues Profilteil) – Modellzustand vorher = nachher."""
     lt = _lt()
     t = [lt._rueckbau_probe(ctx, stelle, lambda: fa.eigene_folge(lt._rand_kanten(ctx)[0], [_flansch(25.0), _umschlag()], T, RI, K, {}, []))
-         for stelle in ("eigen_nach_extrusion", "eigen_validierung_abwicklung", "eigen_validierung_dxf", "eigen_pruefabwicklung_loeschen")]
+         for stelle in ("eigen_nach_extrusion",)]
 
     def neues_teil():
         comp = fa.neue_komponente("Live-Test Rückbau Profilteil")

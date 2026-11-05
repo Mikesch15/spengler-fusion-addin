@@ -19,13 +19,62 @@ class ProfilFehler(ValueError):
     pass
 
 
+def doppelfalz_stellen(ops):
+    """Indizes i, an denen ein Umschlag direkt auf einen Umschlag GLEICHER Richtung folgt = Doppelfalz wie beim Stehfalz (Anwender 5. 11. 2026:
+    das umgeschlagene Ende wird samt Umschlag nochmals um 180° umgelegt). Gegenrichtung bleibt ein Z-Profil."""
+    def umschlag(o):
+        return o.get("typ") == "umschlag"
+    return [i for i in range(len(ops or []) - 1) if umschlag(ops[i]) and umschlag(ops[i + 1])
+            and (float(ops[i].get("winkel", 180)) >= 0) == (float(ops[i + 1].get("winkel", 180)) >= 0)]
+
+
+def _stehfalz(prof, h1, h2, t, ri_std):
+    """Doppelfalz als Paket-Umlegung (Querschnitt eines Blechs, Mittellinie). Vorher: ... Aufkantung (prof[-1]), Umschlag h1 (Länge a, Radius rh).
+    Dann wird das obere Stück der Aufkantung der Höhe b = Länge des 2. Umschlags SAMT dem Umschlag nach aussen um 180° umgelegt:
+    Aufkantung bis zur Falzlinie → äussere Biegung um das Paket (Innenradius rh·2 + t + r2) → umgelegter Aufkantungsteil b (aussen) → Umschlagbogen
+    → Umschlagschenkel zurück bis zur Falzlinie → innere Biegung r2 (konzentrisch, Gegenrichtung) → Rest des Umschlagschenkels (a − b) bleibt am
+    alten Platz. Ist b ≥ Umschlagschenkel, liegt der ganze Umschlag im Paket (keine innere Biegung). Masse bis zur virtuellen Kante wie überall."""
+    w = 180.0 if float(h1["winkel"]) >= 0 else -180.0
+    rh = h1.get("radius") if h1.get("radius") is not None else ri_std
+    r2 = h2.get("radius") if h2.get("radius") is not None else ri_std
+    for r in (rh, r2):
+        if r is None or r < RI_MIN:
+            raise ProfilFehler("Innenradius %s mm zu klein (mindestens %.2f mm) – eine scharfe Biegung ist geometrisch degeneriert." % (r, RI_MIN))
+    rh, r2 = float(rh), float(r2)
+    a, b = float(h1["laenge"]), float(h2["laenge"])
+    if not prof or prof[-1]["typ"] != "schenkel" or len(prof) < 3:
+        raise ProfilFehler("Ein Doppelfalz braucht vorher eine Aufkantung (Flansch), deren oberes Stück umgelegt wird.")
+    ro = 2 * rh + t + r2
+    prof[-1]["L"] = prof[-1]["L"] - b + ro - rh
+    prof.append({"typ": "biegung", "winkel": w, "ri": ro, "modus": "hem"})
+    prof.append({"typ": "schenkel", "L": b + (ro + t) + (rh + t)})
+    prof.append({"typ": "biegung", "winkel": w, "ri": rh, "modus": "hem"})
+    if a - (rh + t) > b + 1e-6:
+        prof.append({"typ": "schenkel", "L": b + (rh + t) + (r2 + t)})
+        prof.append({"typ": "biegung", "winkel": -w, "ri": r2, "modus": "hem"})
+        prof.append({"typ": "schenkel", "L": a - b + r2 - rh})
+    else:
+        prof.append({"typ": "schenkel", "L": a})
+
+
 def ops_zu_profil(ops, t, ri_std):
     """Kantenoperationen (Vorlage: flansch/umschlag mit winkel, laenge, radius) → Profil für bend_geometry, Biegung beginnt AN der Kante.
-    Ein Versatz ist in der eigenen Bauweise noch nicht umgesetzt (→ ProfilFehler)."""
+    Umschlag + Umschlag gleicher Richtung = Doppelfalz wie beim Stehfalz (_stehfalz). Ein Versatz ist in der eigenen Bauweise noch nicht umgesetzt
+    (→ ProfilFehler)."""
     if not ops:
         raise ProfilFehler("Keine Operationen.")
     prof = []
+    doppel = set(doppelfalz_stellen(ops))
+    ueberspringen = set()
     for i, op in enumerate(ops):
+        if i in ueberspringen:
+            continue
+        if i in doppel:
+            if any(o.get("versatz") for o in ops[i:i + 2]):
+                raise ProfilFehler("Versatz ist in der Bauweise «eigene Geometrie» noch nicht umgesetzt (nur nativ).")
+            _stehfalz(prof, op, ops[i + 1], t, ri_std)
+            ueberspringen.add(i + 1)
+            continue
         if op.get("versatz"):
             raise ProfilFehler("Versatz ist in der Bauweise «eigene Geometrie» noch nicht umgesetzt (nur nativ).")
         if op.get("typ") not in ("flansch", "umschlag"):
