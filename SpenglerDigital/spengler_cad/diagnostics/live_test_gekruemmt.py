@@ -340,6 +340,38 @@ def t_proto_versatz_zylinder(ctx):
     return "\n".join(t)
 
 
+def t_proto_abwicklung_zylinder(ctx):
+    """Phase 7: Abwicklung des gerollten Zylinderblechs (ganzer Körper beurteilt, exakt abwickelbar) und DXF erst NACH erfolgreicher Abwicklung, mit
+    Gegenprobe (Masse, mm, eine Kontur). Soll-Länge = Bogenlänge der neutralen Faser, zwischen Innen- und Aussenradius."""
+    import math
+    import os
+    import tempfile
+    from ..manufacturing import dxf_pruefung
+    lt = _lt()
+    body = _segment("Live-Test Zylindersegment Abwicklung")
+    art, grund = fa.abwickelbarkeit_koerper(body)
+    if art != "exakt":
+        raise lt._Falsch("Zylindersegment als «%s» eingeordnet (%s)." % (art, grund))
+    fp, _neu = fa.abwicklung(body.parentComponent)
+    m = fa.abwicklung_masse(fp)
+    radien = fa.zylinderradien_mm(body)
+    phi = math.radians(WINKEL_SEG)
+    l_min, l_max = phi * min(radien) - 1.0, phi * max(radien) + 1.0
+    t = ["Abwicklung %.2f × %.2f mm; Bogenlänge erwartet %.2f … %.2f mm, Breite %.1f" % (m["breite"], m["laenge"], l_min, l_max, BREITE_SEG)]
+    laenge = m["laenge"] if abs(m["breite"] - BREITE_SEG) <= 1.0 else m["breite"]
+    if not (l_min <= laenge <= l_max) or min(abs(m["breite"] - BREITE_SEG), abs(m["laenge"] - BREITE_SEG)) > 1.0:
+        raise lt._Falsch("\n".join(t))
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "zylinder.dxf")
+    fa.dxf_abwicklung(fp, pfad)
+    dxf = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"], erwartete_konturen=1)
+    t.append("DXF: " + dxf_pruefung.zusammenfassung(dxf))
+    if not dxf["ok"]:
+        raise lt._Falsch("\n".join(t))
+    if dxf["hinweise"]:
+        raise lt._Warnung("\n".join(t))
+    return "\n".join(t)
+
+
 def t_kegel_grenzen(ctx):
     """Fixture 6: Teilkegel mit gerader Mantellinie (kein Blechkörper – ein gerolltes Kegelblech ist per API nicht erzeugbar): Matrix lehnt Flansch und
     Versatz ab; Fusion wird für den Flansch ausdrücklich angefragt (Ergebnis dokumentiert)."""
@@ -395,4 +427,5 @@ SCHRITTE = [
     ("PROTOTYP: Flansch an gerader Kante eines gerollten Zylinderblechs", t_proto_flansch_zylinder, False),
     ("PROTOTYP: Umschlag an gerader Kante eines gerollten Zylinderblechs", t_proto_umschlag_zylinder, False),
     ("PROTOTYP: Versatz als Bogenlänge am Zylinderblech", t_proto_versatz_zylinder, False),
+    ("Abwicklung + DXF des gerollten Zylinderblechs", t_proto_abwicklung_zylinder, False),
 ]
