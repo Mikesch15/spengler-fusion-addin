@@ -192,7 +192,9 @@ def abwicklung(q, breite, titel="Abwicklung"):
     kontur = [("linie", 0.0, 0.0, L, 0.0), ("linie", L, 0.0, L, W), ("linie", L, W, 0.0, W), ("linie", 0.0, W, 0.0, 0.0)]
     biege = [("linie", b["pos"], 0.0, b["pos"], W) for b in q["biegungen"]]
     return {"kontur": kontur, "biegelinien": biege, "grenzen": (0.0, 0.0, L, W), "laenge": L, "breite": W,
-            "beschreibung": "%.2f x %.2f mm, %d Biegung(en), t %.2f, k %.2f (exakt abwickelbar: nur Ebenen/Zylinder)" % (L, W, len(q["biegungen"]), q["t"], q["k"])}
+            "beschreibung": "THEORETISCHER Zuschnitt %.2f x %.2f mm (Modell L = Summe Schenkel + Summe (ri + k*t)*Winkel; t %.2f, k %.2f, ri %s mm), "
+                            "%d Biegung(en); Geometrie mathematisch abwickelbar (nur Ebenen/Zylinder); NICHT praktisch verifiziert" % (
+                                L, W, q["t"], q["k"], "/".join("%.2f" % b["ri"] for b in q["biegungen"]) or "-", len(q["biegungen"]))}
 
 
 def rueckvergleich(q, breite, volumen_3d_mm3=None, radien_3d_mm=None, tol_rel=1e-5):
@@ -204,7 +206,8 @@ def rueckvergleich(q, breite, volumen_3d_mm3=None, radien_3d_mm=None, tol_rel=1e
     v_flach = q["zuschnitt"] * t * W
     modell = sum((q["k"] - 0.5) * t * abs(math.radians(b["winkel"])) for b in q["biegungen"]) * t * W
     erg = {"v_mitte": v_mitte, "v_flach": v_flach, "modell_diff": modell, "ok": True, "texte": []}
-    erg["texte"].append("Abwicklung %.3f mm × %.3f mm; Mittellinie %.3f mm; K-Faktor-Modell ΔV = %+.3f mm³ (flach − Mitte)" % (q["zuschnitt"], W, q["mittellinie_mm"], modell))
+    erg["texte"].append("Theoretischer Zuschnitt %.3f mm × %.3f mm (k %.2f, ri %s mm); Mittellinie %.3f mm; K-Faktor-Modell ΔV = %+.3f mm³ (flach − Mitte)" % (
+        q["zuschnitt"], W, q["k"], "/".join("%.2f" % b["ri"] for b in q["biegungen"]) or "-", q["mittellinie_mm"], modell))
     if abs((v_flach - v_mitte) - modell) > max(1e-6, tol_rel * v_mitte):
         erg["ok"] = False
         erg["texte"].append("Innere Rechnung inkonsistent (Abwicklung passt nicht zum Querschnitt)")
@@ -213,7 +216,7 @@ def rueckvergleich(q, breite, volumen_3d_mm3=None, radien_3d_mm=None, tol_rel=1e
         erg["numerisch"] = num
         gut = abs(num) <= max(0.01, tol_rel * v_mitte)
         erg["ok"] = erg["ok"] and gut
-        erg["texte"].append("3D-Volumen %.3f mm³ gegen exakt %.3f mm³: Abweichung %+.4f mm³ (%s)" % (
+        erg["texte"].append("3D-Volumen %.3f mm³ gegen Sollvolumen (Mittellinie × t × Breite) %.3f mm³: Abweichung %+.4f mm³ (%s)" % (
             volumen_3d_mm3, v_mitte, num, "numerisch" if gut else "ZU GROSS – 3D und 2D passen nicht zusammen"))
     if radien_3d_mm is not None:
         soll = sorted({round(b["ri"], 3) for b in q["biegungen"]} | {round(b["ri"] + t, 3) for b in q["biegungen"]})

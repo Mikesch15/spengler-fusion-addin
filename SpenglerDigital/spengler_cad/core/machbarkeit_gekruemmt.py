@@ -1,6 +1,6 @@
 """Mathematische Machbarkeitsanalyse gekrümmter Kantenbearbeitungen (Auftrag Kantenwerkzeug, Review D/E) – reine Rechnung, testbar.
 
-Kriterium «exakt abwickelbar»: jede Fläche des fertigen Teils (Grundfläche, Biegezone, Schenkel, Falz, Übergänge) hat die Gausssche Krümmung
+Kriterium «mathematisch abwickelbar»: jede Fläche des fertigen Teils (Grundfläche, Biegezone, Schenkel, Falz, Übergänge) hat die Gausssche Krümmung
 K = k1·k2 = 0 (Ebene, Zylinder, Kegel, Tangentenfläche). Eine einzige Fläche mit K ≠ 0 (Torus, Kugel) macht das ganze Teil nicht exakt
 abwickelbar – auch wenn Grundfläche und Schenkel abwickelbar sind.
 
@@ -48,53 +48,53 @@ KANDIDATEN = [
      "flaechen": "Grundfläche eben (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Zylinder (K = 0)",
      "entwickelbar": False,
      "fertigung": "Bördeln/Aufhalsen mit Streckung bzw. Stauchung des Randes – oder segmentiert mit Einschnitten",
-     "eigener_aufbau": "möglich (Drehung des Querschnitts um die Kreisachse), aber Ergebnis nicht exakt abwickelbar",
-     "abwicklung": "keine exakte Abwicklung; Alternative: Zargenstreifen (Zylinder, exakt) + Naht oder Freistellungen – nur als bewusst gewählte Variante"},
+     "eigener_aufbau": "möglich (Drehung des Querschnitts um die Kreisachse), aber Ergebnis nicht verzerrungsfrei abwickelbar",
+     "abwicklung": "keine verzerrungsfreie Abwicklung; Alternative: Zargenstreifen (Zylinder, abwickelbar) + Naht oder Freistellungen – nur als bewusst gewählte Variante"},
     {"nr": 2, "name": "Gerade Mantelkante eines zylindrischen Blechsegments",
      "flaechen": "Grundfläche Zylinder (K = 0), Biegezone Zylinder mit Achse = Kante (K = 0), Schenkel eben (K = 0)",
      "entwickelbar": True,
      "fertigung": "Rundbiegen des Segments, Abkanten an der geraden Kante – Spenglerpraxis (z. B. Rinnen-/Rohrhalbschalen mit Abkantung)",
      "eigener_aufbau": "möglich: Querschnitt (Kreisbögen + Linien) senkrecht zur Kante, Extrusion entlang der Kante",
-     "abwicklung": "exakt: Länge = Σ Schenkel + Σ (ri + k·t)·|α| (Segment selbst: (R + k·t)·φ), Breite = Kantenlänge; Rückvergleich über Volumen und Radien"},
+     "abwicklung": "theoretischer Zuschnitt: Länge = Σ Schenkel + Σ (ri + k·t)·|α| (Segment selbst: (R + k·t)·φ), Breite = Kantenlänge; Rückvergleich über Volumen und Radien"},
     {"nr": 3, "name": "Gekrümmte (Kreis-)Kante auf zylindrischer Fläche (Stirnkante eines Rohrs)",
      "flaechen": "Grundfläche Zylinder (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Kreisring/Kegel (K = 0)",
      "entwickelbar": False,
      "fertigung": "Bördeln mit Streckung (Kragen) – nicht verzerrungsfrei",
-     "eigener_aufbau": "möglich (Drehkörper), aber nicht exakt abwickelbar",
-     "abwicklung": "keine exakte Abwicklung"},
+     "eigener_aufbau": "möglich (Drehkörper), aber nicht verzerrungsfrei abwickelbar",
+     "abwicklung": "keine verzerrungsfreie Abwicklung"},
     {"nr": 4, "name": "Kreisförmige Kante eines flachen Rundblechs (Ronde mit Rand)",
      "flaechen": "Ronde eben (K = 0), Biegezone Torus (K ≠ 0), Rand Zylinder (K = 0)",
      "entwickelbar": False,
      "fertigung": "Drücken/Bördeln, Rand streckt/staucht",
-     "eigener_aufbau": "möglich (Drehkörper, vorhanden: «Rundblech»), nicht exakt abwickelbar",
-     "abwicklung": "keine exakte Abwicklung; Rundblech-Werkzeug weist Umformung aus"},
+     "eigener_aufbau": "möglich (Drehkörper, vorhanden: «Rundblech»), nicht verzerrungsfrei abwickelbar",
+     "abwicklung": "keine verzerrungsfreie Abwicklung; Rundblech-Werkzeug weist Umformung aus"},
     {"nr": 5, "name": "Gerade Mantellinie eines konischen Blechs",
      "flaechen": "Grundfläche Kegel (K = 0), Biegezone Zylinder um die Mantellinie (K = 0), Schenkel eben (K = 0)",
      "entwickelbar": True,
      "fertigung": "Kegel rollen, an der Mantellinie abkanten",
      "eigener_aufbau": "Profil entlang der Mantellinie möglich (Tangentialebene längs der Mantellinie konstant); das konische Grundblech selbst lässt "
                        "sich nicht als Querschnitts-Extrusion bauen",
-     "abwicklung": "exakt (Kegelabwicklung Kreisringsektor + Profil-Zugabe); eigene Kegelabwicklung noch nicht umgesetzt"},
+     "abwicklung": "mathematisch abwickelbar (Kegelabwicklung Kreisringsektor + Profil-Zugabe); eigene Kegelabwicklung noch nicht umgesetzt"},
 ]
 
 
 def erster_prototyp():
-    """Wahl des ersten Prototyps: exakt abwickelbar UND Grundkörper wie Aufkantung mit derselben eigenen Profilgeometrie baubar (dann ist auch die
+    """Wahl des ersten Prototyps: mathematisch abwickelbar UND Grundkörper wie Aufkantung mit derselben eigenen Profilgeometrie baubar (dann ist auch die
     eigene Abwicklung des GANZEN Teils geschlossen rechenbar). → Kandidat (dict)."""
     geeignet = [k for k in KANDIDATEN if k["entwickelbar"] and "nicht als Querschnitts-Extrusion" not in k["eigener_aufbau"]]
     return geeignet[0]
 
 
 def als_markdown():
-    z = ["| Nr. | Kandidat | Flächen | exakt abwickelbar | Fertigung | eigener Aufbau | Abwicklung/Validierung |", "|---|---|---|---|---|---|---|"]
+    z = ["| Nr. | Kandidat | Flächen | mathematisch abwickelbar | Fertigung | eigener Aufbau | Abwicklung/Validierung |", "|---|---|---|---|---|---|---|"]
     for k in KANDIDATEN:
         z.append("| %d | %s | %s | %s | %s | %s | %s |" % (k["nr"], k["name"], k["flaechen"], "ja" if k["entwickelbar"] else "**nein**", k["fertigung"],
                                                           k["eigener_aufbau"], k["abwicklung"]))
     p = erster_prototyp()
     z.append("")
-    z.append("**Erster Prototyp: Nr. %d – %s.** Begründung: alle Flächen K = 0 (exakt abwickelbar), Grundsegment und Aufkantung entstehen aus EINEM "
+    z.append("**Erster Prototyp: Nr. %d – %s.** Begründung: alle Flächen K = 0 (mathematisch abwickelbar), Grundsegment und Aufkantung entstehen aus EINEM "
              "Querschnitt (Kreisbögen + Linien) senkrecht zur geraden Kante, die eigene Abwicklung ist damit geschlossen rechenbar und über Volumen/Radien "
-             "gegen das 3D-Modell prüfbar. Nr. 1 (Bogenkante auf ebenem Blech) ist wegen der Torus-Biegezone NICHT exakt abwickelbar und wird nicht als "
+             "gegen das 3D-Modell prüfbar. Nr. 1 (Bogenkante auf ebenem Blech) ist wegen der Torus-Biegezone NICHT verzerrungsfrei abwickelbar und wird nicht als "
              "Erfolg umgesetzt; als konstruktive Sondervarianten kommen nur bewusst wählbare Segmentierung/Freistellung oder ein separater Zargenstreifen in Frage." % (p["nr"], p["name"]))
     z.append("Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = %.2e 1/mm² ≫ Toleranz %.0e." % (biegezone_max_gauss("kreis", 500.0, 1.0, 1.0), K_TOL))
     return "\n".join(z)

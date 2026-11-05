@@ -2530,7 +2530,7 @@ def eigene_abwicklung(body):
     vergleich = pe.rueckvergleich(q, attr["breite"], body.volume * 1000.0, zylinderradien_mm(body))
     art, grund = abwickelbarkeit_koerper(body)
     if art != "exakt":
-        raise AdapterFehler("Eigene Abwicklung verweigert – der Körper ist nicht exakt abwickelbar: %s." % grund)
+        raise AdapterFehler("Eigene Abwicklung verweigert – der Körper ist nicht mathematisch abwickelbar: %s." % grund)
     if not vergleich["ok"]:
         raise AdapterFehler("Eigene Abwicklung passt nicht zum 3D-Körper (Körper nachträglich verändert?): " + "; ".join(vergleich["texte"]))
     return pe.abwicklung(q, attr["breite"], getattr(body, "name", "Profilteil")), vergleich
@@ -2777,7 +2777,7 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     elif art != "exakt":
         # Keine verzerrte Abwicklung als exakte DXF: Näherungsverfahren sind nicht umgesetzt; «unsicher» nur im Prüfmodus «Fusion entscheidet».
         raise AdapterFehler("%s: %s. Es wird keine Abwicklung/DXF erzeugt%s." % (
-            "Abwickelbarkeit nicht nachgewiesen" if art == "unsicher" else "Nicht exakt abwickelbar", grund,
+            "Abwickelbarkeit nicht nachgewiesen" if art == "unsicher" else "Nicht verzerrungsfrei abwickelbar (mathematisch)", grund,
             " (eine Näherungsabwicklung mit Verzerrungsangabe ist ein eigener, noch fehlender Modus)" if art == "naeherung" else
             (" – nur im Prüfmodus «Fusion entscheidet» möglich, dann ohne Nachweis gekennzeichnet" if art == "unsicher" else "")))
     if stationaere_flaeche is None:

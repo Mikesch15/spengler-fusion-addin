@@ -64,7 +64,9 @@ class BauplanEigeneGeometrie(unittest.TestCase):
         t = op.beschreibung(p)
         self.assertIn("Bauweise: eigene Geometrie", t)
         self.assertIn("gerade Kante auf eben Fläche", t)
-        self.assertIn("Abwicklung: exakt", t)
+        self.assertIn("mathematisch abwickelbar", t)
+        self.assertIn("THEORETISCH", t)
+        self.assertIn("nicht praktisch verifiziert", t)
 
     def test_zylinder_nur_mit_freigegebenen_prototypen(self):
         op, p = self.plan(flaeche="zylinder")
@@ -77,7 +79,7 @@ class BauplanEigeneGeometrie(unittest.TestCase):
         op, p = self.plan(prototyp=True, kurve="bogen")
         self.assertFalse(op.ist_ausfuehrbar(p))
         self.assertIn("Torus", " ".join(p["validation"]["errors"]))
-        self.assertIn("keine exakte Abwicklung", op.beschreibung(p))
+        self.assertIn("nicht verzerrungsfrei abwickelbar", op.beschreibung(p))
 
     def test_ohne_k_faktor_oder_radius_keine_eigene_geometrie(self):
         from _basis import test_material

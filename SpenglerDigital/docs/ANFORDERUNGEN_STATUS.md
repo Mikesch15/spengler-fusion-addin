@@ -336,38 +336,38 @@ Grenzen und Gründe (gekrümmte Fälle):
 - **Flansch / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native EdgeFlange; gesperrt bis Live-Test
 - **Flansch / Zylinder** (nicht unterstützt): Flansch entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Flansch / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
-- **Flansch / einfach gekrümmt** (nicht unterstützt): Flansch auf einfach gekrümmt: keine eindeutige, exakte Geometrie
-- **Flansch / doppelt gekrümmt** (nicht unterstützt): Flansch auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
-- **Flansch / Freiform** (nicht unterstützt): Flansch auf Freiform: keine eindeutige, exakte Geometrie
+- **Flansch / einfach gekrümmt** (nicht unterstützt): Flansch auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Flansch / doppelt gekrümmt** (nicht unterstützt): Flansch auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Flansch / Freiform** (nicht unterstützt): Flansch auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
 - **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): Mehrkantflansch mit Gehrung entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Mehrkantflansch mit Gehrung / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
-- **Mehrkantflansch mit Gehrung / einfach gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf einfach gekrümmt: keine eindeutige, exakte Geometrie
-- **Mehrkantflansch mit Gehrung / doppelt gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
-- **Mehrkantflansch mit Gehrung / Freiform** (nicht unterstützt): Mehrkantflansch mit Gehrung auf Freiform: keine eindeutige, exakte Geometrie
+- **Mehrkantflansch mit Gehrung / einfach gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Mehrkantflansch mit Gehrung / doppelt gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Mehrkantflansch mit Gehrung / Freiform** (nicht unterstützt): Mehrkantflansch mit Gehrung auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Umschlag / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native Hem; gesperrt bis Live-Test
 - **Umschlag / Zylinder** (nicht unterstützt): Umschlag entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Umschlag / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
-- **Umschlag / einfach gekrümmt** (nicht unterstützt): Umschlag auf einfach gekrümmt: keine eindeutige, exakte Geometrie
-- **Umschlag / doppelt gekrümmt** (nicht unterstützt): Umschlag auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
-- **Umschlag / Freiform** (nicht unterstützt): Umschlag auf Freiform: keine eindeutige, exakte Geometrie
+- **Umschlag / einfach gekrümmt** (nicht unterstützt): Umschlag auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Umschlag / doppelt gekrümmt** (nicht unterstützt): Umschlag auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Umschlag / Freiform** (nicht unterstützt): Umschlag auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Doppelfalz / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
 - **Doppelfalz / Zylinder** (nicht unterstützt): Doppelfalz entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Doppelfalz / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
-- **Doppelfalz / einfach gekrümmt** (nicht unterstützt): Doppelfalz auf einfach gekrümmt: keine eindeutige, exakte Geometrie
-- **Doppelfalz / doppelt gekrümmt** (nicht unterstützt): Doppelfalz auf doppelt gekrümmt: keine eindeutige, exakte Geometrie
-- **Doppelfalz / Freiform** (nicht unterstützt): Doppelfalz auf Freiform: keine eindeutige, exakte Geometrie
-- **Versatz / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Zylinderachse: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse, exakt)
+- **Doppelfalz / einfach gekrümmt** (nicht unterstützt): Doppelfalz auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Doppelfalz / doppelt gekrümmt** (nicht unterstützt): Doppelfalz auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Doppelfalz / Freiform** (nicht unterstützt): Doppelfalz auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
+- **Versatz / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Zylinderachse: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse, geometrisch eindeutig)
 - **Versatz / Zylinder** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
 - **Versatz / Kegel** (nicht unterstützt): Kegel: tangentialer Versatz einer Mantellinie ist eine Drehung um die Spitze, Normal- und Radialrichtung unterscheiden sich – noch nicht umgesetzt
 - **Versatz / einfach gekrümmt** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
 - **Versatz / doppelt gekrümmt** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
 - **Versatz / Freiform** (nicht unterstützt): kein eindeutig definierter Versatz für diese Geometrie
-- **Abwicklung / DXF / Zylinder** (eingeschränkt): exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
-- **Abwicklung / DXF / Kegel** (eingeschränkt): exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
+- **Abwicklung / DXF / Zylinder** (eingeschränkt): mathematisch abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
+- **Abwicklung / DXF / Kegel** (eingeschränkt): mathematisch abwickelbar; nur wenn Fusion den Körper als Blech abwickelt
 - **Abwicklung / DXF / einfach gekrümmt** (eingeschränkt): mathematisch abwickelbar; Fusion entscheidet, kein eigener Nachweis
-- **Abwicklung / DXF / doppelt gekrümmt** (nicht unterstützt): Gausssche Krümmung ≠ 0 – keine exakte Abwicklung, keine DXF als exakt
-- **Abwicklung / DXF / Freiform** (nicht unterstützt): Abwickelbarkeit nicht nachgewiesen – keine DXF als exakt; Näherung ist ein eigener, noch fehlender Modus
+- **Abwicklung / DXF / doppelt gekrümmt** (nicht unterstützt): Gausssche Krümmung ≠ 0 – nicht verzerrungsfrei abwickelbar, keine DXF
+- **Abwicklung / DXF / Freiform** (nicht unterstützt): Abwickelbarkeit nicht nachgewiesen – keine DXF; Näherung ist ein eigener, noch fehlender Modus
 - **3D-Detail starr / Zylinder** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
 - **3D-Detail starr / Kegel** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
 - **3D-Detail starr / einfach gekrümmt** (eingeschränkt): starr tangential am Ankerpunkt (lokale Normale/Tangente), nicht verformt; Abstand/Kontakt wird gemessen
@@ -384,53 +384,53 @@ Grenzen und Gründe (gekrümmte Fälle):
 **Machbarkeit gekrümmter Fälle (aus `core/unterstuetzung.py` erzeugt):**
 
 <!-- AUTO:machbarkeit -->
-| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | exakt | Live-Test |
+| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | Abwickelbarkeit (math.) | Live-Test |
 |---|---|---|---|---|---|---|---|
-| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | nötig |
-| Flansch | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Flansch | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Hem (Preview) | ja | exakt | nötig |
-| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | nötig |
-| Versatz | Kegel | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Versatz | Freiform | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
-| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
-| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | FlatPattern | ja | exakt | nötig |
-| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
-| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
-| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | exakt | nötig |
-| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht exakt | nötig |
-| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht exakt | nötig |
-| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Benutzerparameter | ja | exakt | nötig |
-| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | exakt | Live-Anfrage (Ablehnung bestätigen) |
-| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
-| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht exakt | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | Zylinder | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | Kegel | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Grundblech | Freiform | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | nötig |
+| Flansch | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Flansch | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | nötig |
+| Umschlag | Kegel | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Umschlag | Freiform | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Doppelfalz | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange + Hem | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | mathematisch abwickelbar | nötig |
+| Versatz | Kegel | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Versatz | Freiform | nicht unterstützt | nicht unterstützt | Extrude/Revolve (Schnitt/Anfügen) | nein | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Abwicklung / DXF | Zylinder | eingeschränkt | eingeschränkt | FlatPattern | ja | mathematisch abwickelbar | nötig |
+| Abwicklung / DXF | Kegel | eingeschränkt | eingeschränkt | FlatPattern | ja | mathematisch abwickelbar | nötig |
+| Abwicklung / DXF | einfach gekrümmt | eingeschränkt | eingeschränkt | FlatPattern | ja | mathematisch abwickelbar | nötig |
+| Abwicklung / DXF | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| Abwicklung / DXF | Freiform | nicht unterstützt | nicht unterstützt | FlatPattern | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail starr | Zylinder | eingeschränkt | eingeschränkt | Import + Transform | ja | mathematisch abwickelbar | nötig |
+| 3D-Detail starr | Kegel | eingeschränkt | eingeschränkt | Import + Transform | ja | mathematisch abwickelbar | nötig |
+| 3D-Detail starr | einfach gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | mathematisch abwickelbar | nötig |
+| 3D-Detail starr | doppelt gekrümmt | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht abwickelbar | nötig |
+| 3D-Detail starr | Freiform | eingeschränkt | eingeschränkt | Import + Transform | ja | nicht abwickelbar | nötig |
+| 3D-Detail an Fläche angepasst | Zylinder | Prototyp (gesperrt) | Prototyp (gesperrt) | Benutzerparameter | ja | mathematisch abwickelbar | nötig |
+| 3D-Detail an Fläche angepasst | Kegel | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
+| 3D-Detail an Fläche angepasst | Freiform | nicht unterstützt | nicht unterstützt | Benutzerparameter | nein | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 <!-- /AUTO:machbarkeit -->
 
 **Fusion-API-Risiken:** Blech-Features (BaseFlange, EdgeFlange, Hem) sind Preview-API und werden vor dem Aufruf mit `hasattr` geprüft; neu genutzt und
@@ -481,15 +481,15 @@ Profilteile die eigene Abwicklung. **Fusion-Live-Tests: 0 ausgeführt** – alle
 **Mathematische Machbarkeit und Wahl des ersten Prototyps:**
 
 <!-- AUTO:prototyp -->
-| Nr. | Kandidat | Flächen | exakt abwickelbar | Fertigung | eigener Aufbau | Abwicklung/Validierung |
+| Nr. | Kandidat | Flächen | mathematisch abwickelbar | Fertigung | eigener Aufbau | Abwicklung/Validierung |
 |---|---|---|---|---|---|---|
-| 1 | Kreisbogenkante auf ebener Grundfläche, 90°-Aufkantung | Grundfläche eben (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Zylinder (K = 0) | **nein** | Bördeln/Aufhalsen mit Streckung bzw. Stauchung des Randes – oder segmentiert mit Einschnitten | möglich (Drehung des Querschnitts um die Kreisachse), aber Ergebnis nicht exakt abwickelbar | keine exakte Abwicklung; Alternative: Zargenstreifen (Zylinder, exakt) + Naht oder Freistellungen – nur als bewusst gewählte Variante |
-| 2 | Gerade Mantelkante eines zylindrischen Blechsegments | Grundfläche Zylinder (K = 0), Biegezone Zylinder mit Achse = Kante (K = 0), Schenkel eben (K = 0) | ja | Rundbiegen des Segments, Abkanten an der geraden Kante – Spenglerpraxis (z. B. Rinnen-/Rohrhalbschalen mit Abkantung) | möglich: Querschnitt (Kreisbögen + Linien) senkrecht zur Kante, Extrusion entlang der Kante | exakt: Länge = Σ Schenkel + Σ (ri + k·t)·|α| (Segment selbst: (R + k·t)·φ), Breite = Kantenlänge; Rückvergleich über Volumen und Radien |
-| 3 | Gekrümmte (Kreis-)Kante auf zylindrischer Fläche (Stirnkante eines Rohrs) | Grundfläche Zylinder (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Kreisring/Kegel (K = 0) | **nein** | Bördeln mit Streckung (Kragen) – nicht verzerrungsfrei | möglich (Drehkörper), aber nicht exakt abwickelbar | keine exakte Abwicklung |
-| 4 | Kreisförmige Kante eines flachen Rundblechs (Ronde mit Rand) | Ronde eben (K = 0), Biegezone Torus (K ≠ 0), Rand Zylinder (K = 0) | **nein** | Drücken/Bördeln, Rand streckt/staucht | möglich (Drehkörper, vorhanden: «Rundblech»), nicht exakt abwickelbar | keine exakte Abwicklung; Rundblech-Werkzeug weist Umformung aus |
-| 5 | Gerade Mantellinie eines konischen Blechs | Grundfläche Kegel (K = 0), Biegezone Zylinder um die Mantellinie (K = 0), Schenkel eben (K = 0) | ja | Kegel rollen, an der Mantellinie abkanten | Profil entlang der Mantellinie möglich (Tangentialebene längs der Mantellinie konstant); das konische Grundblech selbst lässt sich nicht als Querschnitts-Extrusion bauen | exakt (Kegelabwicklung Kreisringsektor + Profil-Zugabe); eigene Kegelabwicklung noch nicht umgesetzt |
+| 1 | Kreisbogenkante auf ebener Grundfläche, 90°-Aufkantung | Grundfläche eben (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Zylinder (K = 0) | **nein** | Bördeln/Aufhalsen mit Streckung bzw. Stauchung des Randes – oder segmentiert mit Einschnitten | möglich (Drehung des Querschnitts um die Kreisachse), aber Ergebnis nicht verzerrungsfrei abwickelbar | keine verzerrungsfreie Abwicklung; Alternative: Zargenstreifen (Zylinder, abwickelbar) + Naht oder Freistellungen – nur als bewusst gewählte Variante |
+| 2 | Gerade Mantelkante eines zylindrischen Blechsegments | Grundfläche Zylinder (K = 0), Biegezone Zylinder mit Achse = Kante (K = 0), Schenkel eben (K = 0) | ja | Rundbiegen des Segments, Abkanten an der geraden Kante – Spenglerpraxis (z. B. Rinnen-/Rohrhalbschalen mit Abkantung) | möglich: Querschnitt (Kreisbögen + Linien) senkrecht zur Kante, Extrusion entlang der Kante | theoretischer Zuschnitt: Länge = Σ Schenkel + Σ (ri + k·t)·|α| (Segment selbst: (R + k·t)·φ), Breite = Kantenlänge; Rückvergleich über Volumen und Radien |
+| 3 | Gekrümmte (Kreis-)Kante auf zylindrischer Fläche (Stirnkante eines Rohrs) | Grundfläche Zylinder (K = 0), Biegezone Torusabschnitt (K ≠ 0), Schenkel Kreisring/Kegel (K = 0) | **nein** | Bördeln mit Streckung (Kragen) – nicht verzerrungsfrei | möglich (Drehkörper), aber nicht verzerrungsfrei abwickelbar | keine verzerrungsfreie Abwicklung |
+| 4 | Kreisförmige Kante eines flachen Rundblechs (Ronde mit Rand) | Ronde eben (K = 0), Biegezone Torus (K ≠ 0), Rand Zylinder (K = 0) | **nein** | Drücken/Bördeln, Rand streckt/staucht | möglich (Drehkörper, vorhanden: «Rundblech»), nicht verzerrungsfrei abwickelbar | keine verzerrungsfreie Abwicklung; Rundblech-Werkzeug weist Umformung aus |
+| 5 | Gerade Mantellinie eines konischen Blechs | Grundfläche Kegel (K = 0), Biegezone Zylinder um die Mantellinie (K = 0), Schenkel eben (K = 0) | ja | Kegel rollen, an der Mantellinie abkanten | Profil entlang der Mantellinie möglich (Tangentialebene längs der Mantellinie konstant); das konische Grundblech selbst lässt sich nicht als Querschnitts-Extrusion bauen | mathematisch abwickelbar (Kegelabwicklung Kreisringsektor + Profil-Zugabe); eigene Kegelabwicklung noch nicht umgesetzt |
 
-**Erster Prototyp: Nr. 2 – Gerade Mantelkante eines zylindrischen Blechsegments.** Begründung: alle Flächen K = 0 (exakt abwickelbar), Grundsegment und Aufkantung entstehen aus EINEM Querschnitt (Kreisbögen + Linien) senkrecht zur geraden Kante, die eigene Abwicklung ist damit geschlossen rechenbar und über Volumen/Radien gegen das 3D-Modell prüfbar. Nr. 1 (Bogenkante auf ebenem Blech) ist wegen der Torus-Biegezone NICHT exakt abwickelbar und wird nicht als Erfolg umgesetzt; als konstruktive Sondervarianten kommen nur bewusst wählbare Segmentierung/Freistellung oder ein separater Zargenstreifen in Frage.
+**Erster Prototyp: Nr. 2 – Gerade Mantelkante eines zylindrischen Blechsegments.** Begründung: alle Flächen K = 0 (mathematisch abwickelbar), Grundsegment und Aufkantung entstehen aus EINEM Querschnitt (Kreisbögen + Linien) senkrecht zur geraden Kante, die eigene Abwicklung ist damit geschlossen rechenbar und über Volumen/Radien gegen das 3D-Modell prüfbar. Nr. 1 (Bogenkante auf ebenem Blech) ist wegen der Torus-Biegezone NICHT verzerrungsfrei abwickelbar und wird nicht als Erfolg umgesetzt; als konstruktive Sondervarianten kommen nur bewusst wählbare Segmentierung/Freistellung oder ein separater Zargenstreifen in Frage.
 Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = 2.00e-03 1/mm² ≫ Toleranz 1e-09.
 <!-- /AUTO:prototyp -->
 
@@ -679,7 +679,7 @@ Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = 2.00e
 | Versatz | Freiform | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | e |
 | Versatz | Freiform | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | e |
 
-Klassen: **a** native Fusion-Operation unterstützt; **b** eigene exakte Geometrie möglich; **c** nur mit konstruktiver Änderung (Freistellung/Segmentierung); **d** mathematisch nicht exakt abwickelbar; **e** technisch ungeklärt. «implementiert» heisst NICHT live getestet.
+Klassen: **a** native Fusion-Operation unterstützt; **b** eigene, mathematisch abwickelbare Geometrie möglich; **c** nur mit konstruktiver Änderung (Freistellung/Segmentierung); **d** mathematisch nicht verzerrungsfrei abwickelbar; **e** technisch ungeklärt. «implementiert» heisst NICHT live getestet.
 <!-- /AUTO:kantenwerkzeug -->
 
 **Parametrik und Editierbarkeit:** native Bauweise – Fusion-Features (Flansch/Saum) mit ihren Parametern, nachträglich in Fusion änderbar. Eigene Geometrie –

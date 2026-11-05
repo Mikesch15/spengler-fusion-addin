@@ -56,11 +56,11 @@ def stand(op, flaeche, kante="gerade"):
         return "nein", "Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)"
     if op == "abwicklung":                        # Körperoperation – Kantentyp ohne Bedeutung
         return {"eben": ("ja", "Fusion-Abwicklung + DXF-Gegenprobe"),
-                "zylinder": ("eingeschraenkt", "exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt"),
-                "kegel": ("eingeschraenkt", "exakt abwickelbar; nur wenn Fusion den Körper als Blech abwickelt"),
+                "zylinder": ("eingeschraenkt", "mathematisch abwickelbar; nur wenn Fusion den Körper als Blech abwickelt"),
+                "kegel": ("eingeschraenkt", "mathematisch abwickelbar; nur wenn Fusion den Körper als Blech abwickelt"),
                 "einfach_gekruemmt": ("eingeschraenkt", "mathematisch abwickelbar; Fusion entscheidet, kein eigener Nachweis"),
-                "doppelt_gekruemmt": ("nein", "Gausssche Krümmung ≠ 0 – keine exakte Abwicklung, keine DXF als exakt"),
-                "freiform": ("nein", "Abwickelbarkeit nicht nachgewiesen – keine DXF als exakt; Näherung ist ein eigener, noch fehlender Modus")}[flaeche]
+                "doppelt_gekruemmt": ("nein", "Gausssche Krümmung ≠ 0 – nicht verzerrungsfrei abwickelbar, keine DXF"),
+                "freiform": ("nein", "Abwickelbarkeit nicht nachgewiesen – keine DXF; Näherung ist ein eigener, noch fehlender Modus")}[flaeche]
     if op == "detail_starr":
         if flaeche == "eben" and kante == "gerade":
             return "ja", "Rahmen an der Kante"
@@ -75,7 +75,7 @@ def stand(op, flaeche, kante="gerade"):
         if flaeche == "eben" and kante == "gerade":
             return "ja", "Biegelinie in der Blechebene senkrecht zur Kante verschoben"
         if flaeche == "zylinder" and kante == "gerade":
-            return "prototyp", "gerade Kante parallel zur Zylinderachse: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse, exakt)"
+            return "prototyp", "gerade Kante parallel zur Zylinderachse: Versatz als Bogenlänge entlang des Mantels (Drehschnitt/-anfügung um die Achse, geometrisch eindeutig)"
         if flaeche == "kegel":
             return "nein", "Kegel: tangentialer Versatz einer Mantellinie ist eine Drehung um die Spitze, Normal- und Radialrichtung unterscheiden sich – noch nicht umgesetzt"
         return "nein", "kein eindeutig definierter Versatz für diese Geometrie"
@@ -97,7 +97,7 @@ def stand(op, flaeche, kante="gerade"):
         return "nein", "%s entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test" % OP_TEXT[op]
     if flaeche == "kegel":
         return "nein", "kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben"
-    return "nein", "%s auf %s: keine eindeutige, exakte Geometrie" % (OP_TEXT[op], FLAECHEN_TEXT[flaeche])
+    return "nein", "%s auf %s: keine eindeutige, mathematisch abwickelbare Geometrie" % (OP_TEXT[op], FLAECHEN_TEXT[flaeche])
 
 
 def pruefen(op, flaeche, kante="gerade", prototyp_erlaubt=False):
@@ -126,7 +126,7 @@ def machbarkeit(op, flaeche, kante):
              "versatz": "Extrude/Revolve (Schnitt/Anfügen)", "abwicklung": "FlatPattern", "detail_starr": "Import + Transform", "detail_anpassen": "Benutzerparameter",
              "grundblech": "BaseFlange (Preview)"}[op]
     return {"stand": s, "grund": grund, "nativ": nativ, "eindeutig": "nein" if doppelt and op in ("versatz", "detail_anpassen") else "ja",
-            "exakt": "nicht exakt" if doppelt else "exakt", "live": "nötig" if s in ("ja", "eingeschraenkt", "prototyp") else "Live-Anfrage (Ablehnung bestätigen)"}
+            "exakt": "nicht abwickelbar" if doppelt else "mathematisch abwickelbar", "live": "nötig" if s in ("ja", "eingeschraenkt", "prototyp") else "Live-Anfrage (Ablehnung bestätigen)"}
 
 
 def als_markdown():
@@ -149,7 +149,7 @@ def als_markdown():
 def machbarkeit_markdown():
     """Technische Machbarkeit je Bearbeitung × gekrümmter Flächenklasse (Phase 2 Korrekturauftrag): Stand an gerader Kante bzw. Bogen/Kreis,
     Fusion-native Funktion, mathematisch eindeutig, exakt/angenähert, nötiger Live-Test."""
-    z = ["| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | exakt | Live-Test |", "|---|---|---|---|---|---|---|---|"]
+    z = ["| Bearbeitung | Fläche | gerade Kante | Bogen/Kreis | Fusion-nativ | eindeutig | Abwickelbarkeit (math.) | Live-Test |", "|---|---|---|---|---|---|---|---|"]
     for op in OPS:
         for f in FLAECHEN:
             if f == "eben":
@@ -166,9 +166,9 @@ def machbarkeit_markdown():
 #   eigen  – eigene Profilgeometrie: Querschnitt (Linien + Kreisbögen) senkrecht zur Kante, entlang einer GERADEN Kante extrudiert
 #            (core/profil_engine, Adapter eigene_folge). Biegezonen sind dann Zylinder, Schenkel Ebenen → exakt abwickelbar.
 #   klasse – a nativ unterstützt · b eigene exakte Geometrie möglich (implementiert oder zu prototypisieren) · c nur mit konstruktiver Änderung
-#            (Freistellung/Segmentierung) · d mathematisch nicht exakt abwickelbar · e technisch ungeklärt
-KLASSEN_AE = {"a": "native Fusion-Operation unterstützt", "b": "eigene exakte Geometrie möglich", "c": "nur mit konstruktiver Änderung (Freistellung/Segmentierung)",
-              "d": "mathematisch nicht exakt abwickelbar", "e": "technisch ungeklärt"}
+#            (Freistellung/Segmentierung) · d mathematisch nicht verzerrungsfrei abwickelbar · e technisch ungeklärt
+KLASSEN_AE = {"a": "native Fusion-Operation unterstützt", "b": "eigene, mathematisch abwickelbare Geometrie möglich", "c": "nur mit konstruktiver Änderung (Freistellung/Segmentierung)",
+              "d": "mathematisch nicht verzerrungsfrei abwickelbar", "e": "technisch ungeklärt"}
 PROFIL_OPS = ("flansch", "umschlag", "doppelfalz")      # alles, was als Querschnitts-Kette entlang der Kante entsteht
 
 
@@ -181,15 +181,15 @@ def eigen(op, flaeche, kante="gerade"):
             return "eingeschraenkt", "Profil entlang gerader Kante (Linien + Kreisbögen), Masse auf Blechmitte bis virtuelle Kante; Ecken stumpf", "b"
         if kante == "gerade" and flaeche in ("zylinder", "kegel", "einfach_gekruemmt"):
             return ("prototyp", "gerade Kante = Mantellinie einer abwickelbaren Fläche: Tangentialebene längs der Kante konstant, das Profil wird "
-                                "entlang der Kante extrudiert (Biegezone Zylinder, Schenkel eben) – exakt abwickelbar; Prüfung, dass die Normale "
+                                "entlang der Kante extrudiert (Biegezone Zylinder, Schenkel eben) – mathematisch abwickelbar; Prüfung, dass die Normale "
                                 "entlang der Kante konstant ist; gesperrt bis Live-Test", "b")
         if kante in ("bogen", "kreis") and flaeche in ("eben", "zylinder", "kegel"):
             return ("nein", "Aufkantung entlang einer Kreiskante: die Biegezone ist ein Torusabschnitt (Gausssche Krümmung ≠ 0) und der Schenkel "
-                            "ein Kegel/Zylinder, der nur mit Stauchung/Streckung anschliesst – nicht exakt abwickelbar. Konstruktive Alternativen "
+                            "ein Kegel/Zylinder, der nur mit Stauchung/Streckung anschliesst – nicht verzerrungsfrei abwickelbar. Konstruktive Alternativen "
                             "(segmentierte Aufkantung mit Freistellungen, separater Zargenstreifen mit Naht) wären bewusst wählbare Varianten – "
                             "nicht umgesetzt", "d")
         if kante in ("ellipse", "kurve"):
-            return "nein", "Biegezone entlang einer Kurve mit wechselnder Krümmung ist doppelt gekrümmt – nicht exakt abwickelbar", "d"
+            return "nein", "Biegezone entlang einer Kurve mit wechselnder Krümmung ist doppelt gekrümmt – nicht verzerrungsfrei abwickelbar", "d"
         if kante == "kette":
             return ("nein", "Kette aus Linien und Bögen: gerade Abschnitte einzeln möglich (b), Bogenabschnitte nicht exakt (d); an den Übergängen "
                             "wären Freistellungen nötig (c) – nicht umgesetzt", "c")

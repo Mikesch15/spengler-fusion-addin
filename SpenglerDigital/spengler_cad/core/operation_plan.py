@@ -89,10 +89,11 @@ def analyse(kante, vorlage, bauweise="nativ"):
         teile.append("%s: nativ %s, eigene Geometrie %s (Klasse %s – %s)" % (u.OP_TEXT[art], u.STAND_TEXT[n], u.STAND_TEXT[e_[0]], u.klasse(art, fk, kt),
                                                                          u.KLASSEN_AE[u.klasse(art, fk, kt)]))
     if bauweise == "eigen":
-        abw = "Abwicklung: exakt (Profil nur aus Ebenen und Zylindern) – sofern die Prüfungen bestehen" if u.eigen(arten[0], fk, kt)[2] == "b" else \
-            "Abwicklung: keine exakte Abwicklung möglich"
+        abw = ("Abwicklung: Geometrie mathematisch abwickelbar (nur Ebenen und Zylinder) – sofern die Prüfungen bestehen; Zuschnitt THEORETISCH "
+               "(Modell ri + k·t des Materialprofils), nicht praktisch verifiziert") if u.eigen(arten[0], fk, kt)[2] == "b" else \
+            "Abwicklung: nicht verzerrungsfrei abwickelbar – keine Abwicklung"
     else:
-        abw = "Abwicklung: über Fusion-Blech (nach dem Bau geprüft)"
+        abw = "Abwicklung: über Fusion-Blech (Blechregel, K-Faktor der Regel) – theoretischer Zuschnitt, nicht praktisch verifiziert"
     return "%s: %s auf %s Fläche – %s. %s" % (kante.get("text", "Kante"), u.KANTEN_TEXT.get(kt, kt), u.FLAECHEN_TEXT.get(fk, fk), "; ".join(teile), abw)
 
 

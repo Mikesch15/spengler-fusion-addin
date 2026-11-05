@@ -106,7 +106,7 @@ def abw_erstellt(args):
 def _eigene_abwicklung_export(body, name, ordner, e, inp):
     """Eigene Abwicklung eines Profilteils → DXF (dxf_writer) + Gegenprobe (dxf_pruefung). → Berichtszeile. Fehler → AdapterFehler."""
     zuschnitt, vergleich = fa.eigene_abwicklung(body)
-    zeile = "%s: EIGENE Abwicklung %.2f × %.2f mm (exakt: nur Ebenen/Zylinder); %s" % (name, zuschnitt["laenge"], zuschnitt["breite"], " | ".join(vergleich["texte"]))
+    zeile = "%s: eigene Abwicklung – %s; %s" % (name, zuschnitt["beschreibung"], " | ".join(vergleich["texte"]))
     if inp.itemById("dxf").value:
         ex_ = e.get("export") or {}
         pfad = os.path.join(ordner, "%s_eigen.dxf" % _dateiname(e, name, "", None))
@@ -172,7 +172,8 @@ def _abw(self, args):
             nr_text = auftrag.teil_label(angaben["auftrag"], nr, mit_auftrag)
             pruef.append({"name": name, "nr": nr, "material": {"name": mat} if mat else None, "dicke": t, "abwicklung": True,
                           "operationen": q.get("operationen"), "ri": None})
-            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s%s" % (nr_text, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "",
+            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm (Fusion-Blechregel, theoretischer Zuschnitt, nicht praktisch verifiziert)%s%s" % (
+                nr_text, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "",
                                                                  "" if art == "exakt" else " – PRÜFMODUS «Fusion entscheidet»: Abwickelbarkeit NICHT nachgewiesen (%s)" % art_grund)
             basis = "%s_%s" % (nr_text, _dateiname(e, name, mat, t))
             dxf_pfad = None

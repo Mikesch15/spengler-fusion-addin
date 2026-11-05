@@ -352,7 +352,7 @@ class AbwickelbarkeitUndKollision(_Patch):
         self.patche(flaechentyp=lambda f: {"a": "eben", "b": "kugel"}[f])
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa.abwicklung(c)
-        self.assertIn("Nicht exakt abwickelbar", str(cm.exception))
+        self.assertIn("Nicht verzerrungsfrei abwickelbar", str(cm.exception))
         self.assertIn("kugel", str(cm.exception))
 
     def test_zylinder_und_kegel_sind_exakt(self):

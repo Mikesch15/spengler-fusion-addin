@@ -83,3 +83,14 @@ class Prototyp2(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class Begriffe(unittest.TestCase):
+    """Korrektur 0.4.49 Phase 4: Zuschnitt ist THEORETISCH (Modell, k, ri angegeben), nicht «exakt», nicht praktisch verifiziert."""
+    def test_beschreibung_und_rueckvergleich(self):
+        q = pe.querschnitt(pe.ops_zu_profil([flansch()], T, RI), T, RI, 0.44)
+        b = pe.abwicklung(q, 100.0)["beschreibung"]
+        for wort in ("THEORETISCHER Zuschnitt", "k 0.44", "ri 1.00", "NICHT praktisch verifiziert", "mathematisch abwickelbar"):
+            self.assertIn(wort, b)
+        self.assertNotIn("exakt", b)
+        self.assertIn("Theoretischer Zuschnitt", pe.rueckvergleich(q, 100.0)["texte"][0])
