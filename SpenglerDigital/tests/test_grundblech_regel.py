@@ -207,7 +207,7 @@ class Abwicklung(_Patch):
     def _flaeche(self, body, area, nz, x=0.0):
         import adsk.core
         f = type("F", (), {})()
-        f.geometry, f.area, f.body, f.nz = adsk.core.Plane(), area, body, nz
+        f.geometry, f.area, f.body, f.nz = ebene(), area, body, nz
         f.pointOnFace = ff.Punkt(x, 0, 0)
         return f
 
@@ -230,6 +230,21 @@ class Abwicklung(_Patch):
         fa, d, c = self._aufbau()
         self.assertEqual(fa.abwicklung(c), ("FP", True))
         self.assertEqual(c.erzeugt[0].nz, 1.0, "grösste ebene Fläche, Normale +Z zuerst")
+
+    def test_unbekannte_flaechen_nur_im_pruefmodus(self):
+        """Korrektur 5.11.: nicht erkannte Flächentypen sind NIE «exakt abwickelbar»; nur der ausdrücklich gewählte Prüfmodus lässt Fusion entscheiden."""
+        fa, d, c = self._aufbau()
+        self.patche(flaechentyp=lambda f: "unbekannt")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.abwicklung(c)
+        self.assertIn("nicht nachgewiesen", str(cm.exception))
+        self.assertEqual(c.erzeugt, [])
+        self.assertEqual(fa.abwicklung(c, None, None, True), ("FP", True), "Prüfmodus «Fusion entscheidet»")
+
+    def test_gauss_stichprobe_mit_ausfall_ist_unsicher(self):
+        fa, d, c = self._aufbau()
+        self.patche(flaechentyp=lambda f: "freiform", _gauss_max=lambda f, n=3: (0.0, 2))
+        self.assertEqual(fa.abwickelbarkeit_koerper(c.bRepBodies.item(0))[0], "unsicher")
 
     def test_vorhandene_abwicklung_wird_verwendet(self):
         fa, d, c = self._aufbau()

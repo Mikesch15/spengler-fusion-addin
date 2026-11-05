@@ -2074,37 +2074,49 @@ def koerper_pruefen(body):
 
 # ------------------------------------------------------------------ Abwicklung / DXF
 def _gauss_max(face, n=3):
-    """Grösste |Gausssche Krümmung| (1/mm²) auf einem n×n-Raster des Parameterbereichs – Stichprobe für Freiformflächen. None = nicht messbar.
-    Nicht live geprüft (SurfaceEvaluator.parametricRange/getCurvature)."""
+    """Grösste |Gausssche Krümmung| (1/mm²) auf einem n×n-Raster des Parameterbereichs (Rastermitten, Ränder ausgespart) – Stichprobe für
+    Freiformflächen. Einheit: Fusion liefert Krümmungen in 1/cm → k1·k2 in 1/cm² → ÷ 100 = 1/mm². → (gmax oder None, Anzahl nicht auswertbarer
+    Punkte). Jeder ausgefallene Punkt ist eine Unsicherheit (nicht stillschweigend übergangen). Nicht live geprüft."""
+    ausfall, gmax = 0, None
     try:
         ev = face.evaluator
         rng = ev.parametricRange()
         u0, v0, u1, v1 = rng.minPoint.x, rng.minPoint.y, rng.maxPoint.x, rng.maxPoint.y
-        gmax = 0.0
-        for i in range(n):
-            for j in range(n):
+    except Exception:
+        return None, n * n
+    for i in range(n):
+        for j in range(n):
+            try:
                 p = adsk.core.Point2D.create(u0 + (u1 - u0) * (i + 0.5) / n, v0 + (v1 - v0) * (j + 0.5) / n)
                 ok, _r, k1, k2 = ev.getCurvature(p)
-                if ok:
-                    gmax = max(gmax, abs(k1 * k2) / 100.0)      # 1/cm² → 1/mm²
-        return gmax
-    except Exception:
-        return None
+                if not ok:
+                    ausfall += 1
+                    continue
+                g = abs(k1 * k2) / 100.0
+                gmax = g if gmax is None else max(gmax, g)
+            except Exception:
+                ausfall += 1
+    return gmax, ausfall
 
 
 def abwickelbarkeit_koerper(body):
-    """Exakt / angenähert / nicht abwickelbar nach den Flächentypen des Körpers (core/geometrie_referenz.abwickelbarkeit). → (art, Begründung)."""
+    """Exakt / angenähert / nicht / unsicher nach den Flächentypen des GANZEN Körpers (auch Übergänge zwischen Flächentypen) über
+    core/geometrie_referenz.abwickelbarkeit. Nicht erkannte Flächen und ausgefallene Stichproben → 'unsicher' (nie 'exakt'). → (art, Begründung)."""
     from ..core import geometrie_referenz as gr
-    typen, gmax = [], None
-    for f in body.faces:
+    typen, gmax, unsicher = [], None, False
+    try:
+        flaechen = list(body.faces)
+    except Exception:
+        return "unsicher", "Flächen des Körpers nicht lesbar"
+    for f in flaechen:
         t = flaechentyp(f)
         typen.append(t)
         if t == "freiform":
-            g = _gauss_max(f)
-            gmax = g if gmax is None or (g is not None and g > gmax) else gmax
-    if "unbekannt" in typen and set(typen) <= {"unbekannt"}:
-        return "exakt", "Flächentypen nicht lesbar – Fusion entscheidet"       # Attrappen/alte Versionen: wie bisher Fusion entscheiden lassen
-    return gr.abwickelbarkeit([t for t in typen if t != "unbekannt"], gmax)
+            g, ausfall = _gauss_max(f)
+            unsicher = unsicher or ausfall > 0 or g is None
+            if g is not None:
+                gmax = g if gmax is None else max(gmax, g)
+    return gr.abwickelbarkeit(typen, gmax, stichprobe_unsicher=unsicher)
 
 
 def stationaere_flaeche_waehlen(body):
@@ -2126,7 +2138,7 @@ def stationaere_flaeche_waehlen(body):
     return kandidaten[0][1]
 
 
-def abwicklung(comp, stationaere_flaeche=None, body=None):
+def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=False):
     """Abwicklung der Komponente: eine vorhandene wird verwendet (Fusion führt sie selbst nach), sonst neu erzeugt. Vorher geprüft: gültiger
     Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
     (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
@@ -2153,10 +2165,15 @@ def abwicklung(comp, stationaere_flaeche=None, body=None):
     if probleme:
         raise AdapterFehler("Kein gültiger Blechkörper: " + " ".join(probleme))
     art, grund = abwickelbarkeit_koerper(body)
-    if art != "exakt":
-        # Keine verzerrte Abwicklung als exakte DXF: Näherungsverfahren sind nicht umgesetzt (Nachtauftrag, Priorität 3).
-        raise AdapterFehler("Nicht exakt abwickelbar: %s. Es wird keine Abwicklung/DXF erzeugt%s." % (
-            grund, " (eine Näherungsabwicklung mit Verzerrungsangabe ist noch nicht umgesetzt)" if art == "naeherung" else ""))
+    if art == "unsicher" and fusion_entscheidet:
+        # Eigener, ausdrücklich gewählter Prüfmodus: Fusion versucht die Abwicklung, OHNE mathematischen Nachweis der Abwickelbarkeit.
+        logger.warnung("Abwicklung im Prüfmodus «Fusion entscheidet» (kein Nachweis)", grund=grund)
+    elif art != "exakt":
+        # Keine verzerrte Abwicklung als exakte DXF: Näherungsverfahren sind nicht umgesetzt; «unsicher» nur im Prüfmodus «Fusion entscheidet».
+        raise AdapterFehler("%s: %s. Es wird keine Abwicklung/DXF erzeugt%s." % (
+            "Abwickelbarkeit nicht nachgewiesen" if art == "unsicher" else "Nicht exakt abwickelbar", grund,
+            " (eine Näherungsabwicklung mit Verzerrungsangabe ist ein eigener, noch fehlender Modus)" if art == "naeherung" else
+            (" – nur im Prüfmodus «Fusion entscheidet» möglich, dann ohne Nachweis gekennzeichnet" if art == "unsicher" else "")))
     if stationaere_flaeche is None:
         stationaere_flaeche = stationaere_flaeche_waehlen(body)
         if stationaere_flaeche is None:

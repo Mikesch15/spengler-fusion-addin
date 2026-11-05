@@ -94,6 +94,7 @@ def abw_erstellt(args):
     f.addSelectionFilter("PlanarFaces")
     f.setSelectionLimits(0, 1)
     inp.addBoolValueInput("dxf", "DXF exportieren", True, "", True)
+    inp.addBoolValueInput("fusion_entscheidet", "Prüfmodus «Fusion entscheidet» (Abwickelbarkeit nicht nachgewiesen – Ergebnis wird so gekennzeichnet)", True, "", False)
     inp.addBoolValueInput("beschriften", "Teilenummer in die DXF schreiben (Beschriftung)", True, "", True)
     inp.addBoolValueInput("blatt", "Werkstattblatt (HTML) erstellen", True, "", True)
     inp.addBoolValueInput("hilfe", "Hilfe", False, "", False)
@@ -141,7 +142,10 @@ def _abw(self, args):
         try:
             if not fa.ist_blech(body):
                 raise fa.AdapterFehler("kein Blechkörper")
-            fp, neu = fa.abwicklung(comp, flaeche if flaeche is not None and flaeche.body == body else None, body)
+            fe = inp.itemById("fusion_entscheidet")
+            fe = bool(fe.value) if fe is not None else False
+            art, art_grund = fa.abwickelbarkeit_koerper(body)
+            fp, neu = fa.abwicklung(comp, flaeche if flaeche is not None and flaeche.body == body else None, body, fe)
             masse = fa.abwicklung_masse(fp)
             t = fa.blechdicke_mm(body)
             q = _quelle(body) or {}
@@ -150,7 +154,8 @@ def _abw(self, args):
             nr_text = auftrag.teil_label(angaben["auftrag"], nr, mit_auftrag)
             pruef.append({"name": name, "nr": nr, "material": {"name": mat} if mat else None, "dicke": t, "abwicklung": True,
                           "operationen": q.get("operationen"), "ri": None})
-            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s" % (nr_text, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "")
+            zeile = "Teil %s %s: Abwicklung %.1f × %.1f mm%s%s" % (nr_text, name, masse["breite"], masse["laenge"], " (neu erzeugt)" if neu else "",
+                                                                 "" if art == "exakt" else " – PRÜFMODUS «Fusion entscheidet»: Abwickelbarkeit NICHT nachgewiesen (%s)" % art_grund)
             basis = "%s_%s" % (nr_text, _dateiname(e, name, mat, t))
             dxf_pfad = None
             if inp.itemById("dxf").value:
