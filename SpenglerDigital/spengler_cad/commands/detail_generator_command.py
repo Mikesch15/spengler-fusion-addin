@@ -39,11 +39,14 @@ def erfassen_erstellt(args):
     s = inp.addSelectionInput("komp", "Detail-Komponente", "Komponente (Occurrence), die das Detail enthält")
     s.addSelectionFilter("Occurrences")
     s.setSelectionLimits(1, 1)
-    k = inp.addSelectionInput("kante", "Anschlusskante", "Gerade Kante, an der das Detail später angesetzt wird")
+    k = inp.addSelectionInput("kante", "Anschlusskante", "Kante, an der das Detail später angesetzt wird (gerade oder Kreisbogen)")
     k.addSelectionFilter("LinearEdges")
+    k.addSelectionFilter("CircularEdges")
     k.setSelectionLimits(1, 1)
-    f = inp.addSelectionInput("flaeche", "Bezugsfläche (optional)", "Fläche, deren Normale die Z-Richtung des Anschlusses bestimmt")
+    f = inp.addSelectionInput("flaeche", "Bezugsfläche (optional)", "Fläche, deren LOKALE Normale am Kantenanfang die Z-Richtung des Anschlusses bestimmt (eben, Zylinder, Kegel)")
     f.addSelectionFilter("PlanarFaces")
+    f.addSelectionFilter("CylindricalFaces")
+    f.addSelectionFilter("ConicalFaces")
     f.setSelectionLimits(0, 1)
     inp.addStringValueInput("name", "Name", "")
     inp.addStringValueInput("kategorie", "Kategorie", models.KATEGORIE_OHNE)
@@ -54,6 +57,10 @@ def erfassen_erstellt(args):
         dd.listItems.add("%s = %s" % (p["name"], p["expression"]), False)
     if not Z["up"]:
         inp.addTextBoxCommandInput("keine", "", "Keine Fusion-Benutzerparameter im Dokument – das Detail wird ohne variable Masse gespeichert.", 2, True)
+    rr = inp.addDropDownCommandInput("radiusrolle", "Anschlussradius-Parameter (für «an Zylinder anpassen»)", adsk.core.DropDownStyles.TextListDropDownStyle)
+    rr.listItems.add("– keiner –", True)
+    for p in Z["up"]:
+        rr.listItems.add(p["name"], False)
     inp.addTextBoxCommandInput("info", "", help_content.text("details").replace("\n", "<br>"), 6, True)
     base.handler(adsk.core.CommandEventHandler, cmd.execute, erfassen_ausfuehren)
 
@@ -82,19 +89,35 @@ def _erfassen(self, args):
     v = models.neue_detailvorlage(name)
     v["category"] = inp.itemById("kategorie").value.strip() or models.KATEGORIE_OHNE
     v["description"] = inp.itemById("beschreibung").value
-    v["anchor"].update({"frame": rahmen, "edgeLength": units.cm_zu_mm(k_nat.length), "edgeType": "gerade"})
+    kantenart = "gerade" if fa._kurventyp(k_nat) == "linie" else "gekruemmt"
+    ref = fa.referenz_aus_fusion(face=f_nat, edge=k_nat)
+    bezug = f_nat or fa.bezugsflaeche(k_nat)
+    radius = None
+    try:
+        if ref["flaeche"] == "zylinder":
+            radius = bezug.geometry.radius * 10.0
+    except Exception:
+        pass
+    # Lokales Koordinatensystem PLUS Referenz am Ankerpunkt: Flächen-/Kurventyp, Normale, Krümmung, Radius der Bezugsfläche
+    v["anchor"].update({"frame": rahmen, "edgeLength": units.cm_zu_mm(k_nat.length), "edgeType": kantenart,
+                        "referenz": {"flaeche": ref["flaeche"], "kurve": ref["kurve"], "normale": list(ref["normale"]), "kruemmung": ref["kruemmung"],
+                                     "flaechenradius": radius}})
     dd = inp.itemById("params")
     for i in range(dd.listItems.count):
         if dd.listItems.item(i).isSelected:
             p = Z["up"][i]
             einheit = "mm" if p["unit"] in ("mm", "cm", "m", "in") else ("deg" if p["unit"] in ("deg", "rad") else "")
             wert = units.cm_zu_mm(p["value"]) if einheit == "mm" else (units.rad_zu_grad(p["value"]) if einheit == "deg" else p["value"])
-            v["parameters"].append(dict(models.parameter(p["name"], p["name"], einheit, round(wert, 6), beschreibung=p["comment"]),
-                                        fusionName=p["name"], originalExpression=p["expression"]))
+            eintrag = dict(models.parameter(p["name"], p["name"], einheit, round(wert, 6), beschreibung=p["comment"]),
+                           fusionName=p["name"], originalExpression=p["expression"])
+            rr_ = inp.itemById("radiusrolle")
+            if rr_ is not None and rr_.selectedItem is not None and rr_.selectedItem.name == p["name"]:
+                eintrag["role"] = "anschlussradius"
+            v["parameters"].append(eintrag)
         else:
             v["fixedParameters"].append({"name": Z["up"][i]["name"], "expression": Z["up"][i]["expression"]})
     t = fa.blechdicke_mm(k_nat.body)
-    v["compatibility"].update({"thickness": t, "edgeType": "gerade"})
+    v["compatibility"].update({"thickness": t, "edgeType": kantenart})
     try:
         tl = fa.design().timeline
         v["featureMapping"] = [tl.item(i).name for i in range(tl.count)]
@@ -143,6 +166,9 @@ def anwenden_erstellt(args):
     f.setSelectionLimits(0, 1)
     inp.addBoolValueInput("drehen", "Um 180° wenden (Richtung der Kante umkehren)", True, "", False)
     inp.addValueInput("abstand", "Abstand zur Fläche (entlang der lokalen Normale)", "mm", adsk.core.ValueInput.createByReal(0.0))
+    md = inp.addDropDownCommandInput("modus", "Einsetzmodus", adsk.core.DropDownStyles.TextListDropDownStyle)
+    md.listItems.add("A – starr tangential einsetzen (keine Anpassung)", True)
+    md.listItems.add("B – an Zylinder anpassen (Anschlussradius, PROTOTYP)", False)
     inp.addBoolValueInput("integrieren", "Ins bestehende Modell integrieren (keine eigene Komponente)", True, "", True)
     inp.addGroupCommandInput("parameter", "Parameter")
     inp.addTextBoxCommandInput("pruefung", "Passung", "", 5, True)
@@ -242,11 +268,23 @@ def _einsetzen(inp, integrieren=False):
             ziel = dict(ziel, origin=[o + abstand * z for o, z in zip(ziel["origin"], ziel["z"])])
         ref_flaeche = flaeche or max(list(kante.faces), key=lambda f_: f_.area)
         typ = fa.flaechentyp(ref_flaeche)
-        if typ != "eben" or fa._kurventyp(kante) != "linie":
-            hinweise = hinweise + ["Bezug %s/%s: Detail STARR tangential angesetzt (lokale Normale und Tangente am Kantenanfang), nicht an die Krümmung angepasst." % (
+        werte = _werte(inp, d)
+        md_ = inp.itemById("modus")
+        anpassen = md_ is not None and md_.selectedItem is not None and md_.selectedItem.index == 1
+        if anpassen:
+            from ..core import unterstuetzung as u
+            sperre = u.pruefen("detail_anpassen", u.flaechenklasse(typ), u.kantentyp(fa._kurventyp(kante)))
+            if sperre:
+                raise fa.AdapterFehler(sperre)
+            try:
+                rname, rwert = detail_validation.anpassung(d, typ, ref_flaeche.geometry.radius * 10.0)
+            except ValueError as e:
+                raise fa.AdapterFehler(str(e))
+            werte = dict(werte, **{rname: rwert})
+        if (typ != "eben" or fa._kurventyp(kante) != "linie") and not anpassen:
+            hinweise = hinweise + ["Bezug %s/%s: Modus A – Detail STARR tangential angesetzt (lokale Normale und Tangente am Kantenanfang), NICHT an die Krümmung angepasst." % (
                 typ, fa._kurventyp(kante))]
         ziel_body_token = kante.body.entityToken     # vor dem Import lesen – die Kante ist danach evtl. ungültig
-        werte = _werte(inp, d)
         T = frames.ausrichtung(d["anchor"]["frame"], ziel)
         repo = VorlagenRepository()
         f3d = repo.geometrie_pfad(d["source"]["file"])

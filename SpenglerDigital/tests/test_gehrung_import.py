@@ -112,3 +112,24 @@ class DetailEinsetzen(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class DetailAnpassen(unittest.TestCase):
+    """Modus B «an Zylinder anpassen» (Prototyp): nur über einen Anschlussradius-Parameter, keine freie Verformung – reine Logik, KEIN Fusion-Test."""
+    def vorlage(self, *rollen, lo=None, hi=None):
+        return {"parameters": [{"name": "H", "role": None}] + [{"name": "R%d" % i, "role": r, "min": lo, "max": hi} for i, r in enumerate(rollen)]}
+
+    def test_anschlussradius_wird_gesetzt(self):
+        from spengler_cad.details import detail_validation as dv
+        self.assertEqual(dv.anpassung(self.vorlage("anschlussradius"), "zylinder", 101.0), ("R0", 101.0))
+
+    def test_ablehnungen(self):
+        from spengler_cad.details import detail_validation as dv
+        for v, typ, r, text in ((self.vorlage("anschlussradius"), "kegel", 100, "nur auf Zylinderflächen"),
+                                (self.vorlage(), "zylinder", 100, "keinen"),
+                                (self.vorlage("anschlussradius", "anschlussradius"), "zylinder", 100, "mehrere"),
+                                (self.vorlage("anschlussradius", lo=200, hi=500), "zylinder", 100, "ausserhalb"),
+                                (self.vorlage("anschlussradius"), "zylinder", 0, "nicht lesbar")):
+            with self.assertRaises(ValueError) as cm:
+                dv.anpassung(v, typ, r)
+            self.assertIn(text, str(cm.exception))

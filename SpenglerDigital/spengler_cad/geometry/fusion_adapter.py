@@ -2751,6 +2751,7 @@ def detail_integrieren(occ, ziel_body, neue_param=()):
         raise AdapterFehler("Das Detail enthält keinen Körper, der sich ins Modell übernehmen liesse.")
     warnungen, erzeugt = [], []
     vol_vorher = ziel_body.volume
+    war_blech = ist_blech(ziel_body)
     try:
         tbm = adsk.fusion.TemporaryBRepManager.get()
         kopien = [tbm.copy(b) for b in werkzeuge]
@@ -2785,9 +2786,10 @@ def detail_integrieren(occ, ziel_body, neue_param=()):
             raise AdapterFehler("Nach dem Vereinigen: " + p)
         if abs(body.volume - vol_vorher) < 1e-9:
             raise AdapterFehler("Das Detail hat den Körper nicht verändert (kein Volumenzuwachs) – Position/Ausrichtung prüfen.")
-        if ist_blech(ziel_body) and not ist_blech(body):
-            warnungen.append("Der Körper ist nach dem Vereinigen kein Blechkörper mehr – Abwicklung und Blechregeln sind für ihn "
-                             "womöglich nicht mehr verfügbar. Mit Strg+Z lässt sich der ganze Schritt zurücknehmen.")
+        if war_blech and not ist_blech(body):
+            # Ein Kombinieren-Erfolg beweist keinen gültigen Blechkörper: die Integration wird zurückgenommen (Korrekturauftrag Phase 6).
+            raise AdapterFehler("Nach dem Vereinigen ist der Zielkörper kein Blechkörper mehr – Integration zurückgenommen. Das Detail bitte ohne Integration "
+                                "(eigene Komponente) einsetzen.")
         elif ist_blech(body):
             warnungen.append("Zielkörper ist ein Blechkörper: bitte Abwicklung/Biegezonen nach dem Vereinigen prüfen (nicht live geprüft).")
     except Exception as e:

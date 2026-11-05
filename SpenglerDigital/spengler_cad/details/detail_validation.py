@@ -94,3 +94,22 @@ def parameter_zuordnen(fusion_namen, neue_namen):
         else:
             offen.append(n)
     return zuordnung, offen
+
+
+def anpassung(vorlage, flaeche_typ, flaechenradius_mm):
+    """Modus «An gekrümmte Fläche anpassen» (Prototyp, Korrekturauftrag Phase 6): KEINE freie Verformung, sondern die Vorlage muss einen Parameter mit
+    der Rolle «anschlussradius» haben – er wird auf den Radius der Zielfläche gesetzt, die Vorlage modelliert die Krümmung selbst (Verformungsrichtung
+    damit eindeutig: radial zur Zylinderachse). → (Parametername, Wert in mm). Wirft ValueError mit verständlichem Grund."""
+    if flaeche_typ != "zylinder":
+        raise ValueError("Anpassen ist nur auf Zylinderflächen definiert (gewählt: «%s») – sonst starr einsetzen." % flaeche_typ)
+    if not flaechenradius_mm or flaechenradius_mm <= 0:
+        raise ValueError("Der Radius der Zielfläche ist nicht lesbar.")
+    rollen = [p for p in vorlage.get("parameters", []) if p.get("role") == "anschlussradius"]
+    if len(rollen) != 1:
+        raise ValueError("Die Detailvorlage hat %s Parameter mit der Rolle «Anschlussradius» – Anpassen braucht genau einen (beim Erfassen wählen)."
+                         % ("keinen" if not rollen else "mehrere"))
+    p = rollen[0]
+    lo, hi = p.get("min"), p.get("max")
+    if (lo is not None and flaechenradius_mm < lo) or (hi is not None and flaechenradius_mm > hi):
+        raise ValueError("Zylinderradius %.1f mm liegt ausserhalb des Bereichs der Vorlage (%s … %s mm)." % (flaechenradius_mm, lo, hi))
+    return p["name"], round(float(flaechenradius_mm), 4)
