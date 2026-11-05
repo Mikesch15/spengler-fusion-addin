@@ -110,3 +110,16 @@ def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, r
     if abs(gross - soll_laenge) > 1.0 or abs(klein - soll_breite) > tol:
         return "warnung", "Ausserhalb der Toleranz: " + kopf
     return "ok", kopf
+
+
+def zustand_vergleich(vorher, nachher, schluessel, vol_tol_mm3=0.5):
+    """Modellzustand vor/nach einem Rückbau-Test vergleichen. → (abweichungen [(name, vorher, nachher)], nicht_messbar [name]).
+    Ein nicht messbarer Wert (None, fehlender Schlüssel) ist KEIN «unverändert» – er wird eigens gemeldet und macht den Test ungültig."""
+    abw, offen = [], []
+    for k in tuple(schluessel) + ("vol",):
+        a, b = vorher.get(k), nachher.get(k)
+        if a is None or b is None:
+            offen.append(k)
+        elif (abs(a - b) >= vol_tol_mm3) if k == "vol" else (a != b):
+            abw.append((k, a, b))
+    return abw, offen

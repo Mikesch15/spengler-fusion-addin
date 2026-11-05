@@ -46,31 +46,37 @@ def _blech_bauen(design, root, dicke=1.0, name="Live-Test Blech"):
 
 
 def _zustand(root):
-    """Modellzustand für Rückbau-Vergleiche: Zeitleiste, Skizzen und Körper aller Komponenten, Gesamtvolumen (mm³)."""
+    """Modellzustand für Rückbau-Vergleiche: Zeitleiste (= alle Features), Skizzen, Körper, Konstruktionsebenen/-achsen aller Komponenten, Occurrences,
+    Komponenten, Benutzerparameter, Blechregeln, Canvases, Gesamtvolumen (mm³). Nicht messbare Werte sind None (→ Test ungültig, nie «unverändert»)."""
     def alle(comp):
         yield comp
         for occ in comp.allOccurrences:
             yield occ.component
-    skizzen = koerper = 0
-    vol = 0.0
-    for c in alle(root):
-        skizzen += c.sketches.count
-        koerper += c.bRepBodies.count
-        vol += sum(b.volume for b in c.bRepBodies) * 1000.0
-    d = fa.design()
-
     def zahl(f):
         try:
             return f()
         except Exception:
+            return None                                    # nicht messbar – zählt im Vergleich NICHT als unverändert
+
+    def summe(attr):
+        try:
+            return sum(getattr(c, attr).count for c in alle(root))
+        except Exception:
             return None
-    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": skizzen, "koerper": koerper, "vol": round(vol, 1),
+    try:
+        vol = round(sum(sum(b.volume for b in c.bRepBodies) for c in alle(root)) * 1000.0, 1)
+    except Exception:
+        vol = None
+    d = fa.design()
+    return {"zeitleiste": fa.zeitleiste_stand(), "skizzen": summe("sketches"), "koerper": summe("bRepBodies"), "vol": vol,
+            "konstruktionsebenen": summe("constructionPlanes"), "konstruktionsachsen": summe("constructionAxes"),
             "occurrences": zahl(lambda: root.allOccurrences.count), "komponenten": zahl(lambda: d.allComponents.count),
             "parameter": zahl(lambda: d.userParameters.count), "blechregeln": zahl(lambda: d.designSheetMetalRules.count),
             "canvases": zahl(lambda: root.canvases.count)}
 
 
-ZUSTAND_GLEICH = ("zeitleiste", "skizzen", "koerper", "occurrences", "komponenten", "parameter", "blechregeln", "canvases")
+ZUSTAND_GLEICH = ("zeitleiste", "skizzen", "koerper", "konstruktionsebenen", "konstruktionsachsen", "occurrences", "komponenten",
+                  "parameter", "blechregeln", "canvases")
 
 
 def _oberflaeche(body, seite="oben"):
@@ -233,12 +239,15 @@ def _rueckbau_probe(ctx, stelle, bauen):
         fa.TESTFEHLER.discard(stelle)
     nachher = _zustand(ctx.design.rootComponent)
     # Nur GENAU der eingeschleuste Fehler zählt – ein anderer Adapterfehler vorher wäre kein Beweis für den Rückbau an dieser Stelle.
+    # Ein Fusion-Fehler VOR der Teststelle (andere Meldung) ist FAIL – nur der eingeschleuste Fehler beweist den Rückbau an genau dieser Stelle.
     richtig = fa.testfehler_text(stelle) in meldung
-    abweichung = [k for k in ZUSTAND_GLEICH if nachher[k] != vorher[k]] + (["vol"] if abs(nachher["vol"] - vorher["vol"]) >= 0.5 else [])
-    txt = "%s: %s; Zustand %s%s; Rückbau gemeldet %s" % (
-        stelle, "eingeschleuster Fehler ausgelöst" if richtig else "ANDERER Fehler: " + meldung[:200], "unverändert" if not abweichung else "VERÄNDERT",
-        (" (%s)" % ", ".join("%s %s→%s" % (k, vorher[k], nachher[k]) for k in abweichung)) if abweichung else "", "ok" if ok else "UNVOLLSTÄNDIG")
-    if not richtig or abweichung or not ok:
+    abweichung, offen = messung.zustand_vergleich(vorher, nachher, ZUSTAND_GLEICH)
+    txt = "%s: %s; Zustand %s%s%s; Rückbau gemeldet %s" % (
+        stelle, "eingeschleuster Fehler ausgelöst" if richtig else "ANDERER Fehler (vor der Teststelle oder Fusion-Ablehnung): " + meldung[:200],
+        "unverändert" if not abweichung and not offen else ("VERÄNDERT" if abweichung else "NICHT VOLLSTÄNDIG MESSBAR"),
+        (" (%s)" % ", ".join("%s %s→%s" % x for x in abweichung)) if abweichung else "",
+        (" (nicht messbar: %s)" % ", ".join(offen)) if offen else "", "ok" if ok else "UNVOLLSTÄNDIG")
+    if not richtig or abweichung or offen or not ok:
         raise _Falsch(txt)
     return txt
 
@@ -579,7 +588,10 @@ def ausfuehren(fortschritt=None):
     except Exception:
         original = None
     from .. import VERSION
-    kopf = "FUSION-LIVE-TEST (echte Fusion-API, keine Attrappen) – Add-in %s, Fusion %s, %s" % (VERSION, app.version, time.strftime("%d.%m.%Y %H:%M"))
+    kopf = ("FUSION-LIVE-TEST (echte Fusion-API, keine Attrappen) – Add-in %s, Fusion %s, %s\n"
+            "Teststufe: Fusion-Live-Test in temporären Testdokumenten. Aussagekraft: belegt, dass Fusion die Geometrie erzeugt bzw. ablehnt und die "
+            "gemessenen Werte stimmen. NICHT belegt: fachliche Prüfung im CAD durch den Spengler und Freigabe für die produktive Anwendung." % (
+                VERSION, app.version, time.strftime("%d.%m.%Y %H:%M")))
     erg, dokumente = [], []
     f = fusion_capabilities.pruefen(app)
     fehlt = [t for ok, t in f.values() if not ok]

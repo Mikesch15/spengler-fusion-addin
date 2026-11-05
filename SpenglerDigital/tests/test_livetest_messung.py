@@ -121,3 +121,13 @@ class RadiusGehrungAbwicklung(unittest.TestCase):
 
 if __name__ == "__main__":
     unittest.main()
+
+
+class ZustandVergleich(unittest.TestCase):
+    def test_unveraendert_veraendert_und_nicht_messbar(self):
+        a = {"skizzen": 2, "koerper": 1, "vol": 6000.0}
+        self.assertEqual(m.zustand_vergleich(a, dict(a, vol=6000.2), ("skizzen", "koerper")), ([], []))
+        self.assertEqual(m.zustand_vergleich(a, dict(a, skizzen=3), ("skizzen", "koerper"))[0], [("skizzen", 2, 3)])
+        abw, offen = m.zustand_vergleich(a, dict(a, koerper=None), ("skizzen", "koerper"))
+        self.assertEqual((abw, offen), ([], ["koerper"]), "nicht messbar ist NICHT «unverändert»")
+        self.assertEqual(m.zustand_vergleich(a, a, ("parameter",))[1], ["parameter"], "fehlender Wert gilt als nicht messbar")
