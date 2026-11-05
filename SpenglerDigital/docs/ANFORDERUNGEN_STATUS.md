@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «Nachtauftrag Geometrie und gekrümmte Flächen» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte sind Verlauf.
+**Aktueller Stand: Abschnitt «Korrekturauftrag gekrümmte Flächen – Status je Funktion» am Ende (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -246,7 +246,7 @@ Kennzeichnung: **LIVE** = in Fusion bestätigt · **TEIL** = Logik mit Attrappen
 | `Component.createFlatPattern(face)`, `ExportManager.createDXFFlatPatternExportOptions` | Abwicklung/DXF | nein (nicht als Preview bekannt) | alt | Abbruch mit Meldung |
 Alle Preview-Aufrufe liegen nur in `geometry/fusion_adapter.py` und werden vor dem Aufruf mit `hasattr` geprüft; «Fähigkeiten prüfen» und der Live-Test listen sie (`fusion_capabilities.py`). Ein unkontrollierter geometrischer Ersatz (z. B. 179°-Flansch statt Saum) wird nicht mehr verwendet.
 
-## Nachtauftrag Geometrie und gekrümmte Flächen (5. 11. 2026) – AKTUELLER STAND
+## Nachtauftrag Geometrie und gekrümmte Flächen (5. 11. 2026) – Verlauf, ersetzt durch den Abschnitt «Korrekturauftrag» unten
 Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Release, Version unverändert 0.4.49.** Seit 0.4.42 lief kein Fusion-Live-Test.
 
 **Statuswerte (je Funktion):** implementiert, nicht live getestet · live getestet auf ebener Geometrie · live getestet auf gekrümmter Geometrie · eingeschränkt unterstützt · nicht unterstützt.
@@ -434,3 +434,26 @@ nicht live bestätigt: `SurfaceEvaluator.getCurvature/getFirstDerivative/paramet
 `Design.createInterferenceInput/analyzeInterference`, `sketchArcs.addByThreePoints`, `RevolveFeatures` mit Teilwinkel. Fehlt eine dieser Funktionen,
 wird verständlich abgebrochen (Interferenz: ausdrücklich gekennzeichnete Grobprüfung).
 **BaseFeature-/Kombinieren-Integration** eines 3D-Details friert die Detailgeometrie ein: die parametrische Feature-Historie des Details bleibt NICHT erhalten.
+
+## Korrekturauftrag gekrümmte Flächen – Status je Funktion (5. 11. 2026, AKTUELL)
+Ausgangs-Commit `dc50a15`. **Kein Release, Version 0.4.49 unverändert, main nicht berührt.** Statuswerte: NICHT IMPLEMENTIERT · IMPLEMENTIERT – NICHT LIVE GETESTET ·
+LIVE GETESTET – TECHNISCH BESTANDEN · FACHLICH IM CAD GEPRÜFT · FÜR PRODUKTIVE ANWENDUNG FREIGEGEBEN. Seit 0.4.42 lief **kein** Fusion-Live-Test; kein Punkt
+ist «fachlich geprüft» oder «freigegeben». Grundlage der Live-Angaben: Live-Test 97.002 (0.4.42, Fusion 2706.1.17).
+
+| Funktion | eben | Zylinder | Kegel | doppelt gekrümmt / Freiform |
+|---|---|---|---|---|
+| Grundblech (Soll-Dicke, Zielkomponente, Bögen) | LIVE GETESTET – TECHNISCH BESTANDEN (Basisflansch 0.4.42); Dicke/Komponente/Bögen: IMPLEMENTIERT – NICHT LIVE GETESTET | gerolltes Segment: IMPLEMENTIERT – NICHT LIVE GETESTET (Prototyp) | NICHT IMPLEMENTIERT (per API nicht erzeugbar) | NICHT IMPLEMENTIERT |
+| Flansch | LIVE GETESTET – TECHNISCH BESTANDEN (0.4.42); Kontrollen: IMPLEMENTIERT – NICHT LIVE GETESTET | gerade Mantelkante: IMPLEMENTIERT – NICHT LIVE GETESTET (Prototyp, gesperrt); Bogenkante: NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT |
+| Mehrkant + Gehrung | IMPLEMENTIERT – NICHT LIVE GETESTET | NICHT IMPLEMENTIERT (erst nach Einzelkanten-Prototyp) | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT |
+| Umschlag | IMPLEMENTIERT – NICHT LIVE GETESTET | gerade Mantelkante: IMPLEMENTIERT – NICHT LIVE GETESTET (Prototyp, gesperrt) | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT |
+| Doppelfalz | IMPLEMENTIERT – NICHT LIVE GETESTET (Kantenfolge) | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT |
+| Versatz | IMPLEMENTIERT – NICHT LIVE GETESTET (früher live abgelehnt, offen) | Bogenlänge an gerader Mantelkante: IMPLEMENTIERT – NICHT LIVE GETESTET (Prototyp, gesperrt) | NICHT IMPLEMENTIERT (Normal ≠ radial, nicht definiert umgesetzt) | NICHT IMPLEMENTIERT |
+| Abwicklung / DXF | IMPLEMENTIERT – NICHT LIVE GETESTET (Prüfungen); unsichere Erkennung nur im Prüfmodus «Fusion entscheidet» | IMPLEMENTIERT – NICHT LIVE GETESTET | IMPLEMENTIERT – NICHT LIVE GETESTET (nur wenn Fusion den Körper abwickelt) | abgelehnt (keine exakte DXF) |
+| 3D-Detail starr (Modus A) | LIVE GETESTET – TECHNISCH BESTANDEN (Import/Ausrichtung, Selbsttest 0.4.42); Rückbau/Interferenz: IMPLEMENTIERT – NICHT LIVE GETESTET | IMPLEMENTIERT – NICHT LIVE GETESTET | IMPLEMENTIERT – NICHT LIVE GETESTET | IMPLEMENTIERT – NICHT LIVE GETESTET |
+| 3D-Detail anpassen (Modus B) | – | IMPLEMENTIERT – NICHT LIVE GETESTET (Prototyp, gesperrt; Anschlussradius-Parameter) | NICHT IMPLEMENTIERT | NICHT IMPLEMENTIERT |
+
+**Grenzen (nachvollziehbar):** Kegel – ein gerolltes Kegelblech lässt sich per API nicht erzeugen (kein Lofted-Flange bekannt), deshalb nichts prüfbar;
+die lokale Normale am Kegel ist nicht radial (Halbwinkel) – ein «Versatz» muss vorher fachlich als Normal-, Radial- oder Tangentialversatz festgelegt
+werden. Doppelt gekrümmt (Kugel, Torus) – Gausssche Krümmung ≠ 0, keine exakte Abwicklung; Flansch/Umschlag ohne eindeutige Geometrie. Freiform –
+Abwickelbarkeit nur über Stichproben, ausgefallene Punkte = unsicher; Bearbeitungen nicht definiert. Prototypen sind im normalen Bau GESPERRT und
+werden erst nach bestandenem Live-Test (und fachlicher Prüfung) in `core/unterstuetzung.py` freigegeben.
