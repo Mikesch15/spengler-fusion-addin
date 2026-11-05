@@ -445,3 +445,57 @@ class PrototypenZylinder(_Patch):
             fa.matrix_sperre("flansch", [k])
         self.assertIn("gesperrter Prototyp", str(cm.exception))
         self.assertTrue(fa.matrix_sperre("flansch", [k], prototyp_erlaubt=True), "im Live-Test erlaubt, mit Hinweis")
+
+
+class EigeneGeometrieVorpruefung(_Patch):
+    """Bauweise «eigene Geometrie»: alles, was VOR dem Modellieren abgelehnt werden muss – Attrappen, KEIN Fusion-Test."""
+    OPS = [{"typ": "flansch", "winkel": 90, "laenge": 20, "radius": 1.0}]
+
+    def kante(self, typ="eben"):
+        f = type("F", (), {"area": 100.0})()
+        stirn = type("S", (), {"area": 1.0})()
+        k = type("K", (), {"faces": [f, stirn]})()
+        self.patche(bezugsflaeche=lambda e: f, flaechentyp=lambda x: typ if x is f else "eben", _kurventyp=lambda e: "linie")
+        return k
+
+    def test_zylinder_ist_gesperrter_prototyp(self):
+        fa = _fa()
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.eigene_folge(self.kante("zylinder"), self.OPS, 1.0, 1.0, 0.5, {})
+        self.assertIn("gesperrter Prototyp", str(cm.exception))
+
+    def test_bogenkante_mathematisch_nicht_exakt(self):
+        fa = _fa()
+        k = self.kante()
+        self.patche(_kurventyp=lambda e: "bogen")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.eigene_folge(k, self.OPS, 1.0, 1.0, 0.5, {}, prototyp=True)
+        self.assertIn("Torus", str(cm.exception))
+        self.assertIn("d –", str(cm.exception))
+
+    def test_normale_dreht_sich_entlang_der_kante(self):
+        fa = _fa()
+        from spengler_cad.details import frames
+        k = self.kante("zylinder")
+        dreh = [frames.rahmen_aus_normale((0, 0, z), (1, 0.01 * z, 0), (0, 0, 1)) for z in range(7)]
+        self.patche(rahmen_entlang=lambda e, f, n=5: dreh)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.eigene_folge(k, self.OPS, 1.0, 1.0, 0.5, {}, prototyp=True)
+        self.assertIn("keine Mantellinie", str(cm.exception))
+
+    def test_keine_freie_aussenkante(self):
+        fa = _fa()
+        from spengler_cad.details import frames
+        k = self.kante()
+        gerade = [frames.rahmen_aus_normale((0, 0, z), (1, 0, 0), (0, 0, 1)) for z in range(7)]
+        self.patche(rahmen_entlang=lambda e, f, n=5: gerade, flaechentyp=lambda x: "eben" if x is k.faces[0] else "zylinder")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.eigene_folge(k, self.OPS, 1.0, 1.0, 0.5, {})
+        self.assertIn("keine freie Aussenkante", str(cm.exception))
+
+    def test_ohne_profil_keine_eigene_abwicklung(self):
+        fa = _fa()
+        self.patche(profil_attribut=lambda b: None)
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.eigene_abwicklung(object())
+        self.assertIn("keine eigene Abwicklung", str(cm.exception))

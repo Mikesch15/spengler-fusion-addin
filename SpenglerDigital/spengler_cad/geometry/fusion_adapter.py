@@ -2204,6 +2204,267 @@ def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
         rb.abbrechen(e)
 
 
+# ------------------------------------------------------------------ Bauweise «eigene Geometrie» (Profil-Engine, Auftrag Kantenwerkzeug) – NICHT live geprüft
+PROFIL_ATTR = "profil"
+
+
+def _p3(o, x, y, p):
+    """2D-Profilpunkt (mm) → Fusion-Point3D (cm) im Rahmen O/X/Y (mm, Einheitsvektoren)."""
+    q = [o[i] + p[0] * x[i] + p[1] * y[i] for i in range(3)]
+    return adsk.core.Point3D.create(q[0] / 10.0, q[1] / 10.0, q[2] / 10.0)
+
+
+def _umriss_zeichnen(sk, umriss, o, x, y):
+    linien, boegen = sk.sketchCurves.sketchLines, sk.sketchCurves.sketchArcs
+    for el in umriss:
+        if el[0] == "linie":
+            linien.addByTwoPoints(sk.modelToSketchSpace(_p3(o, x, y, el[1])), sk.modelToSketchSpace(_p3(o, x, y, el[2])))
+        else:
+            boegen.addByThreePoints(sk.modelToSketchSpace(_p3(o, x, y, el[1])), sk.modelToSketchSpace(_p3(o, x, y, el[2])),
+                                    sk.modelToSketchSpace(_p3(o, x, y, el[3])))
+
+
+def _profil_waehlen(sk, flaeche_mm2):
+    bester, abw = None, None
+    for i in range(sk.profiles.count):
+        pr = sk.profiles.item(i)
+        try:
+            a = pr.areaProperties().area * 100.0
+        except Exception:
+            continue
+        d = abs(a - flaeche_mm2)
+        if abw is None or d < abw:
+            bester, abw = pr, d
+    if bester is None or abw > max(0.01, 1e-4 * flaeche_mm2):
+        raise AdapterFehler("Der Querschnitt ergab in der Skizze keine passende geschlossene Fläche (Soll %.2f mm²)." % flaeche_mm2)
+    return bester
+
+
+def _extrudieren_geprueft(comp, prof, laenge_mm, operation, koerper, soll_mm3, rb):
+    """Extrusion um laenge_mm; Richtung so gewählt, dass das Volumen um soll_mm3 wächst (±0.1 %). Falsche Richtung wird verworfen."""
+    ef = comp.features.extrudeFeatures
+    vol0 = _comp_volumen(comp) or 0.0
+    versuche = []
+    for vz in (1.0, -1.0):
+        ei = ef.createInput(prof, operation)
+        ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * laenge_mm / 10.0))
+        if koerper is not None:
+            try:
+                ei.participantBodies = [koerper]
+            except Exception:
+                pass
+        try:
+            f_ = ef.add(ei)
+        except Exception as e:
+            versuche.append("Richtung %+g: %s" % (vz, (str(e).strip().splitlines() or ["?"])[-1][:120]))
+            continue
+        dv = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
+        if abs(dv - soll_mm3) <= max(0.05, 1e-3 * soll_mm3):
+            return rb.merke(f_)
+        versuche.append("Richtung %+g: Volumen %+.3f mm³ statt %+.3f mm³" % (vz, dv, soll_mm3))
+        p_ = _loeschen(f_)
+        if p_:
+            raise AdapterFehler("Verworfene Extrusion nicht entfernbar: " + p_)
+    raise AdapterFehler("Die Profil-Extrusion passt nicht (%s)." % "; ".join(versuche))
+
+
+def _flaechenarten_pruefen(body):
+    """Nur Ebenen und Zylinder (exakt abwickelbar) dürfen entstehen – sonst ist die eigene Geometrie fehlerhaft."""
+    typen = sorted({flaechentyp(f) for f in body.faces})
+    falsch = [t for t in typen if t not in ("eben", "zylinder")]
+    return ["unerwartete Flächenart(en) %s im Profilkörper" % ", ".join(falsch)] if falsch else []
+
+
+def profil_attribut(body):
+    try:
+        a = body.attributes.itemByName(ATTR_GRUPPE, PROFIL_ATTR)
+        return json.loads(a.value) if a else None
+    except Exception:
+        return None
+
+
+def _profil_attribut_setzen(body, daten):
+    try:
+        a = body.attributes.itemByName(ATTR_GRUPPE, PROFIL_ATTR)
+        if a:
+            a.deleteMe()
+        if daten is not None:
+            body.attributes.add(ATTR_GRUPPE, PROFIL_ATTR, json.dumps(daten))
+    except Exception:
+        logger.warnung("Profil-Attribut nicht gesetzt")
+
+
+def profil_koerper(comp, profil, dicke_mm, ri_mm, k, breite_mm, name="Profilteil"):
+    """PROTOTYP: neuer Körper aus einem Profil (z. B. Zylindersegment: core/profil_engine.segment_profil) – Querschnitt in der XZ-Ebene, Extrusion
+    entlang Y um breite_mm. Geprüft: Querschnitt ohne Selbstschnitt, Volumen = exakt, nur Ebenen/Zylinder mit den Soll-Radien. Das Profil wird am
+    Körper gespeichert (eigene Abwicklung). KEIN Fusion-Blechkörper. → Körper. Testfehler: eigen_nach_extrusion. NICHT live geprüft."""
+    from ..core import profil_engine as pe
+    try:
+        q = pe.querschnitt(profil, dicke_mm, ri_mm, k)
+    except pe.ProfilFehler as e:
+        raise AdapterFehler("Profil: %s" % e)
+    probleme = pe.pruefen(q)
+    if probleme:
+        raise AdapterFehler("Profil nicht baubar: " + "; ".join(probleme))
+    rb = Rueckbau("Profilteil «%s»" % name)
+    o, x, y = (0.0, 0.0, 0.0), (1.0, 0.0, 0.0), (0.0, 0.0, 1.0)
+    try:
+        with _Aktiviert(_occurrence_von(comp)):
+            n0 = comp.bRepBodies.count
+            sk = rb.merke(comp.sketches.add(comp.xZConstructionPlane))
+            _umriss_zeichnen(sk, q["umriss"], o, x, y)
+            prof = _profil_waehlen(sk, q["flaeche_mm2"])
+            feat = _extrudieren_geprueft(comp, prof, breite_mm, adsk.fusion.FeatureOperations.NewBodyFeatureOperation, None, q["flaeche_mm2"] * breite_mm, rb)
+            _testfehler("eigen_nach_extrusion")
+            if comp.bRepBodies.count != n0 + 1:
+                raise AdapterFehler("Die Extrusion ergab %d statt 1 neuen Körper." % (comp.bRepBodies.count - n0))
+            body = comp.bRepBodies.item(comp.bRepBodies.count - 1)
+            bb = body.boundingBox
+            e = (0.0, 1.0, 0.0) if bb.maxPoint.y > -bb.minPoint.y else (0.0, -1.0, 0.0)
+            vergleich = pe.rueckvergleich(q, breite_mm, body.volume * 1000.0, zylinderradien_mm(body))
+            probleme = koerper_pruefen(body) + _flaechenarten_pruefen(body) + ([] if vergleich["ok"] else vergleich["texte"])
+            if probleme:
+                raise AdapterFehler("Profilteil fehlerhaft: " + "; ".join(probleme))
+            try:
+                body.name = name
+            except Exception:
+                pass
+            _profil_attribut_setzen(body, {"profil": profil, "t": dicke_mm, "ri": ri_mm, "k": k, "breite": breite_mm, "O": o, "X": x, "Y": y, "E": e})
+            markieren(feat, {"eigeneGeometrie": 1, "profil": profil})
+            logger.info("Profilteil erzeugt (eigene Geometrie)", name=name, zuschnitt=round(q["zuschnitt"], 3), breite=breite_mm)
+            return body
+    except Exception as ex:
+        rb.abbrechen(ex)
+
+
+def _ende_des_profils(attr, edge, t):
+    """Liegt die Kante am Ende oder Anfang der gespeicherten Profil-Mittellinie? → (seite, vorzeichen) oder (None, None)."""
+    from ..core import bend_geometry as bg
+    import math
+    if not attr or not attr.get("X"):
+        return None, None
+    res = bg.berechne(0.0, attr["profil"], attr["t"], attr["ri"], attr["k"])
+    pfad = res["pfad"]
+    o, x, y, e = attr["O"], attr["X"], attr["Y"], attr["E"]
+    p0, p1 = _punkt_mm(edge.startVertex.geometry), _punkt_mm(edge.endVertex.geometry)
+    m = [(a + b) / 2.0 for a, b in zip(p0, p1)]
+    th_end = 0.0
+    for el in pfad:
+        if el["typ"] == "bogen":
+            th_end += math.radians(el["winkel"])
+    for seite, p2, th in (("ende", pfad[-1]["p2"], th_end), ("anfang", pfad[0]["p1"], 0.0)):
+        q = [o[i] + p2[0] * x[i] + p2[1] * y[i] for i in range(3)]
+        w = [m[i] - q[i] for i in range(3)]
+        w = [w[i] - sum(w[j] * e[j] for j in range(3)) * e[i] for i in range(3)]
+        if math.sqrt(sum(c * c for c in w)) <= t / 2.0 + 0.05:
+            links = [-math.sin(th) * x[i] + math.cos(th) * y[i] for i in range(3)]
+            return seite, links
+    return None, None
+
+
+def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, prototyp=False):
+    """Bauweise «eigene Geometrie»: Kantenoperationen (Aufkantung, Umschlag, Folgen = Einfach-/Doppelfalz) als EIN exakter Querschnitt senkrecht zu
+    einer GERADEN Kante, entlang der Kante extrudiert und mit dem Körper vereinigt. Vorher geprüft: Matrix (Flächenklasse × Kantentyp, Bauweise eigen),
+    Normale entlang der Kante konstant (Mantellinie), freie Aussenkante, Querschnitt ohne Selbstschnitt. Nachher: Volumenzuwachs exakt, nur
+    Ebenen/Zylinder, Körper gültig. Atomar mit Rückbau. Das Profil des Körpers wird für die eigene Abwicklung fortgeschrieben, wenn die Kante am
+    Profilende liegt. → erzeugte Objekte. Testfehler: eigen_nach_extrusion. NICHT live geprüft."""
+    from ..core import geometrie_referenz as gr
+    from ..core import profil_engine as pe
+    from ..core import unterstuetzung as u
+    hinweise = hinweise if hinweise is not None else []
+    f = bezugsflaeche(edge)
+    fk = u.flaechenklasse(flaechentyp(f) if f is not None else "unbekannt")
+    kt = u.kantentyp(_kurventyp(edge))
+    for art in sorted({o_["typ"] for o_ in ops} & set(u.OPS)):
+        grund = u.pruefen_bauweise(art, fk, kt, "eigen", prototyp)
+        if grund:
+            raise AdapterFehler(grund)
+    if kt != "gerade":
+        raise AdapterFehler("Eigene Geometrie nur entlang einer geraden Kante (prismatisches Profil).")
+    rahmen = rahmen_entlang(edge, f, 7)
+    ok, txt, drehung = gr.orientierung_entlang(rahmen)
+    if drehung is None or drehung > 0.05:
+        raise AdapterFehler("Die Flächennormale dreht sich entlang der Kante um %.3f° – die Kante ist keine Mantellinie, ein Profil schlösse nicht überall "
+                            "tangential an (keine exakte Geometrie)." % (drehung or -1))
+    andere = [g for g in edge.faces if not _gleiche(g, f)]
+    if len(andere) != 1 or flaechentyp(andere[0]) != "eben":
+        raise AdapterFehler("Die Kante ist keine freie Aussenkante mit ebener Stirnfläche – das Profil hätte keinen sauberen Anschluss.")
+    start = edge.startVertex.geometry
+    n = tuple(flaechennormale(f, start))
+    uu = _einheit(tuple(flaechennormale(andere[0], start)))
+    p0, p1 = _v(start), _v(edge.endVertex.geometry)
+    e_ = _einheit(_plus(p1, p0, 1.0, -1.0))
+    if abs(_skal(uu, n)) > 0.05 or abs(_skal(uu, e_)) > 0.05:
+        raise AdapterFehler("Die Stirnfläche steht nicht senkrecht auf der Blechfläche – kein sauberer Profilanschluss.")
+    t = dicke_mm or blechdicke_mm(edge.body)
+    if not t:
+        raise AdapterFehler("Blechdicke unbekannt – für die eigene Geometrie Materialprofil wählen.")
+    try:
+        q = pe.querschnitt(pe.ops_zu_profil(ops, t, ri_mm), t, ri_mm, k)
+    except pe.ProfilFehler as ex:
+        raise AdapterFehler("Profil: %s" % ex)
+    probleme = pe.pruefen(q)
+    if probleme:
+        raise AdapterFehler("Profil nicht baubar: " + "; ".join(probleme))
+    o = tuple(c * 10.0 - nn * t / 2.0 for c, nn in zip(p0, n))
+    body = edge.body
+    comp = body.parentComponent
+    attr = profil_attribut(body)
+    seite, links = _ende_des_profils(attr, edge, t) if attr else (None, None)
+    laenge = edge.length * 10.0
+    rb = Rueckbau("Eigene Geometrie an der Kante")
+    try:
+        pi = comp.constructionPlanes.createInput()
+        pi.setByDistanceOnPath(edge, adsk.core.ValueInput.createByReal(0.0))
+        ebene = rb.merke(comp.constructionPlanes.add(pi))
+        sk = rb.merke(comp.sketches.add(ebene))
+        _umriss_zeichnen(sk, q["umriss"], o, uu, n)
+        prof = _profil_waehlen(sk, q["flaeche_mm2"])
+        n0 = comp.bRepBodies.count
+        feat = _extrudieren_geprueft(comp, prof, laenge, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, q["flaeche_mm2"] * laenge, rb)
+        _testfehler("eigen_nach_extrusion")
+        if comp.bRepBodies.count != n0:
+            raise AdapterFehler("Das Profil hat sich nicht mit dem Körper vereinigt (%d statt %d Körper)." % (comp.bRepBodies.count, n0))
+        neu = koerper_neu(getattr(body, "entityToken", None)) or comp.bRepBodies.item(0)
+        probleme = koerper_pruefen(neu)
+        art, grund = abwickelbarkeit_koerper(neu)
+        if art != "exakt":
+            probleme.append("Abwickelbarkeit nach dem Bau: %s (%s)" % (art, grund))
+        if probleme:
+            raise AdapterFehler("Ergebnis fehlerhaft: " + "; ".join(probleme))
+        markieren(feat, dict(markierung or {}, eigeneGeometrie=1, ops=ops))
+        if attr and seite == "ende":
+            vz = 1.0 if _skal(n, tuple(links)) > 0 else -1.0
+            attr["profil"] = pe.anhaengen(attr["profil"], ops, t, ri_mm, vz)
+            _profil_attribut_setzen(neu, attr)
+            hinweise.append("Eigene Geometrie: Profil des Teils fortgeschrieben – eigene Abwicklung des ganzen Teils möglich.")
+        elif attr:
+            _profil_attribut_setzen(neu, None)
+            hinweise.append("Eigene Geometrie: Kante liegt nicht am Profilende – die eigene Abwicklung des Teils ist danach nicht mehr verfügbar.")
+        hinweise.append("Eigene Geometrie (Profil entlang der Kante): %d Biegung(en), Zuschnitt-Zugabe %.2f mm, nur Ebenen/Zylinder – exakt abwickelbar." % (
+            len(q["biegungen"]), q["zuschnitt"]))
+        return list(rb.objekte)
+    except Exception as ex:
+        rb.abbrechen(ex)
+
+
+def eigene_abwicklung(body):
+    """Eigene 2D-Abwicklung eines Profilteils (unabhängig von Fusion Flat Pattern) mit Rückvergleich gegen den 3D-Körper.
+    → (zuschnitt für dxf_writer.elemente_dxf, Rückvergleich). Ohne gespeichertes Profil: AdapterFehler («nicht unterstützt»). NICHT live geprüft."""
+    from ..core import profil_engine as pe
+    attr = profil_attribut(body)
+    if not attr:
+        raise AdapterFehler("Für diesen Körper gibt es keine eigene Abwicklung (kein Profilteil der eigenen Geometrie).")
+    q = pe.querschnitt(attr["profil"], attr["t"], attr["ri"], attr["k"])
+    vergleich = pe.rueckvergleich(q, attr["breite"], body.volume * 1000.0, zylinderradien_mm(body))
+    art, grund = abwickelbarkeit_koerper(body)
+    if art != "exakt":
+        raise AdapterFehler("Eigene Abwicklung verweigert – der Körper ist nicht exakt abwickelbar: %s." % grund)
+    if not vergleich["ok"]:
+        raise AdapterFehler("Eigene Abwicklung passt nicht zum 3D-Körper (Körper nachträglich verändert?): " + "; ".join(vergleich["texte"]))
+    return pe.abwicklung(q, attr["breite"], getattr(body, "name", "Profilteil")), vergleich
+
+
 def grundblech_bauen(comp, laenge_mm, breite_mm, dicke_mm=1.0):
     """Rechteckiges Grundblech (Ecke im Ursprung, X = Länge, Y = Breite). Nicht live geprüft."""
     return blech_aus_profil(comp, [[(0, 0), (laenge_mm, 0), (laenge_mm, breite_mm), (0, breite_mm)]], dicke_mm)
