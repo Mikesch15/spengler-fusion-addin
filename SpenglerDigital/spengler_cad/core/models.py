@@ -204,7 +204,8 @@ def standard_einstellungen():
         "ablagen": {"liste": [], "aktiv": ""},                  # freie Ordner für Modelle ohne Kundenauftrag (core/ablage.py)
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",
-        "cloud": {"syncOnStart": True, "updateCheckOnStart": True},   # Spengler-Digital-App (nur wenn angemeldet)
+        "cloud": {"syncOnStart": True, "updateCheckOnStart": True,    # Spengler-Digital-App (nur wenn angemeldet)
+                  "livetestNachUpdate": True, "livetestFern": True},  # automatischer Live-Test (diagnostics/auto_livetest)
         # Kantenwerkzeug: Bauweise (nativ = Fusion-Blech, eigen = Profilgeometrie). Prototypen lassen sich hier NICHT freigeben (core/experimentell).
         "geometrie": {"bauweise": "nativ"},
     }

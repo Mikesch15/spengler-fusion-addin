@@ -30,11 +30,9 @@ def _senden(ergebnisse, text, marke=0, cloud=None):
     return True
 
 
-@base.sicher("Live-Test")
-def _ausfuehren_innen(self, args):
+def lauf(senden=True, melden=True):
+    """Live-Test ausführen (auch ohne Dialog, für den automatischen Lauf). → (Ergebnisliste, gesendet)."""
     from ..diagnostics import live_test
-    senden = args.command.commandInputs.itemById("senden").value
-    ui = base.ui()
     marke = logger.marke()
     ergebnisse, kopf = live_test.ausfuehren()
     text = bericht.text(ergebnisse, kopf)
@@ -51,9 +49,17 @@ def _ausfuehren_innen(self, args):
             gesendet = _senden(ergebnisse, text, marke)
         except Exception:
             logger.ausnahme("Live-Test nicht gesendet")
+    if not melden:
+        return ergebnisse, gesendet
     base.melden("Live-Test", "%s\n\n%s\n\n%s%s" % (bericht.kurz(ergebnisse), bericht.meldung(ergebnisse),
                 "Bericht an Spengler Digital gesendet." if gesendet else ("Nicht gesendet (nicht angemeldet oder ausgeschaltet)." if senden else "Nicht gesendet."),
                 ("\nBericht-Datei: " + datei) if datei else ""), bericht.gesamtstatus(ergebnisse) == "fehler" and not gesendet)
+    return ergebnisse, gesendet
+
+
+@base.sicher("Live-Test")
+def _ausfuehren_innen(self, args):
+    lauf(args.command.commandInputs.itemById("senden").value, True)
 
 
 def _ausfuehren(args):

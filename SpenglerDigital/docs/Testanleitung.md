@@ -319,6 +319,10 @@ Objekte des Testdokuments bleiben erhalten (Zustandsvergleich im Bericht).
 
 **Test 6 – entfällt ab 0.4.57** (es wird keine Prüf-Abwicklung mehr angelegt oder gelöscht).
 
+**Ab 0.4.64 automatisch:** Nach jedem Update läuft der Live-Test einmal je Version von selbst, ca. 45 s nach dem Fusion-Start (Ergebnis an Spengler
+Digital, danach kurze Meldung). Zusätzlich kann Spengler Digital einen Lauf anfordern (Testpunkt 97.900 «offen»); er startet, sobald Fusion 10 Minuten
+untätig ist. Beides abschaltbar unter Vorlagen & Einstellungen, «Beim Start». Fusion muss dafür laufen und das Konto angemeldet sein.
+
 **Ab 0.4.59 im Live-Test zusätzlich:** Schritt «Rückbau bei provoziertem Fehler» führt ALLE Proben aus (Root 1.0 mm, neue Komponente 0.65 mm, Gruppe) und
 nennt bei «UNVOLLSTÄNDIG» das Restobjekt; Schritt «Testkörper gerolltes Blech (Konturflansch)» – scheitert er, stehen die vier Prototyp-Schritte auf
 NICHT GETESTET; Gehrung ohne gefundene Gehrungsflächen = Warnung mit Flächendiagnose; Abstand Detail↔Fläche nicht messbar = FEHLER. Abnahme Rückbau:

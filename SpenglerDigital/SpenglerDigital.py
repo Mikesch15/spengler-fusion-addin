@@ -63,11 +63,21 @@ def run(context):
             settings_command.beim_start()
         except Exception:
             logger.ausnahme("Start-Abgleich")
+        try:   # automatischer Live-Test (nach Update / auf Fern-Anforderung bei Leerlauf) – nie ein Startfehler
+            from spengler_cad.commands import auto_livetest_command
+            auto_livetest_command.starten()
+        except Exception:
+            logger.ausnahme("Automatischer Live-Test: Start")
     except Exception:
         _ui().messageBox("Spengler Digital CAD startet nicht:\n" + traceback.format_exc())
 
 
 def stop(context):
+    try:
+        from spengler_cad.commands import auto_livetest_command
+        auto_livetest_command.stoppen()
+    except Exception:
+        pass
     try:
         from spengler_cad.commands import command_registry
         command_registry.entfernen()
