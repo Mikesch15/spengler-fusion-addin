@@ -3136,7 +3136,14 @@ def _flaeche_in_ebene(body, n, p_cm, tol_mm=0.05):
     return beste
 
 
-def _saeule_bauen(comp, token, a, rb):
+def _eckblock_punkte(a, rv_mm):
+    """Quadrat [0, rv] × [0, rv] an der Ecke O (Basis-Aussenebene, mm): die Stelle, an der Fusion die beiden Biegungen am Boden freistellt (Viertelkreis-Loch,
+    Live 0.4.77: man sah hindurch). Nur für 90°-Ecken."""
+    e1, y, O = a["e1"], a["y"], a["O"]
+    return [tuple(O[i] + u * e1[i] + v * y[i] for i in range(3)) for u, v in ((0.0, 0.0), (rv_mm, 0.0), (rv_mm, rv_mm), (0.0, rv_mm))]
+
+
+def _saeule_bauen(comp, token, a, rb, pts=None, hoehe_mm=None):
     """Ecksäule über die ganze Höhe (Aussenmass h1): schliesst den Spalt und das Loch der Stossecke an der Ecke. Skizze auf der Aussenfläche der Basis, Richtung
     nach der Skizzennormalen (zum Körper hin) festgelegt – nicht über das Volumen geraten (das Volumen hängt davon ab, wie viel Basis an der Ecke fehlt).
     Nicht live geprüft."""
@@ -3144,7 +3151,8 @@ def _saeule_bauen(comp, token, a, rb):
     flaeche = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
     if flaeche is None:
         raise AdapterFehler("Aussenfläche der Basis für die Ecksäule nicht gefunden.")
-    pts = _eckfuellung_punkte(a)
+    pts = pts if pts is not None else _eckfuellung_punkte(a)
+    hoehe_mm = hoehe_mm if hoehe_mm is not None else a["h1"]
     n_p = len(pts)
     sk = rb.merke(comp.sketches.add(flaeche))
     P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
@@ -3162,15 +3170,15 @@ def _saeule_bauen(comp, token, a, rb):
     vol0 = _comp_volumen(comp) or 0.0
     ef = comp.features.extrudeFeatures
     ei = ef.createInput(prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
-    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * a["h1"] / 10.0))
+    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * hoehe_mm / 10.0))
     try:
         ei.participantBodies = [body]
     except Exception:
         pass
     feat = rb.merke(ef.add(ei))
     gewinn = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
-    if not (0.0 < gewinn <= flaeche_mm2 * a["h1"] * 1.001):
-        raise AdapterFehler("Ecksäule: Volumenzuwachs %.2f mm³ unplausibel (höchstens %.2f)." % (gewinn, flaeche_mm2 * a["h1"]))
+    if not (0.0 <= gewinn <= flaeche_mm2 * hoehe_mm * 1.001):
+        raise AdapterFehler("Eckfüllung: Volumenzuwachs %.2f mm³ unplausibel (höchstens %.2f)." % (gewinn, flaeche_mm2 * hoehe_mm))
     return feat, gewinn
 
 
@@ -3266,6 +3274,14 @@ def quetschfalte_bauen(a):
             _testfehler("quetschfalte_saeule")
             _s, gewinn = _saeule_bauen(comp, token, a, rb)
             hinweise.append("Ecke bis zum Wandende gefüllt, über die ganze Höhe (+%.1f mm³)" % gewinn)
+            # Eckfreistellung am Boden (Loch zwischen den beiden Biegungen) mit einem Block der Grösse des äusseren Biegeradius füllen (90°-Ecke)
+            radien = zylinderradien_mm(koerper_neu(token) or body)
+            if radien and abs(a["beta"] - 90.0) < 0.5:
+                rv = max(radien)
+                _b, gew2 = _saeule_bauen(comp, token, a, rb, pts=_eckblock_punkte(a, rv), hoehe_mm=rv)
+                hinweise.append("Eckloch am Boden gefüllt (Block %.2f mm, +%.2f mm³)" % (rv, gew2))
+            else:
+                hinweise.append("Eckloch am Boden nicht gefüllt (keine Biegung gefunden oder keine 90°-Ecke)")
         else:
             hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
         # 2. Lage 1 auf die Aussenfläche der Wand (Fläche nach dem Füllstück neu holen – die Wandfläche kann sich geändert haben)

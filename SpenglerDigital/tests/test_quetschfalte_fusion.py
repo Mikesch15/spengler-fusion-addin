@@ -302,3 +302,12 @@ class Eckfuellung(unittest.TestCase):
         a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
         self.assertAlmostEqual(a["ende1"], 0.0, places=6)
         self.assertAlmostEqual(a["ende2"], 0.0, places=6)
+
+
+class Eckblock(unittest.TestCase):
+    """Live 0.4.77: Fusion stellt die Ecke am Boden frei (Viertelkreis-Loch zwischen den Biegungen, weiss = durchsichtig) – der Eckblock füllt sie."""
+    def test_quadrat_in_der_ecke(self):
+        fa = _fa()
+        a = {"e1": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "O": (0.0, 0.0, 0.0)}
+        pts = fa._eckblock_punkte(a, 1.6)
+        self.assertEqual([(round(p[0], 6), round(p[1], 6)) for p in pts], [(0.0, 0.0), (1.6, 0.0), (1.6, 1.6), (0.0, 1.6)])
