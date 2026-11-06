@@ -3071,7 +3071,112 @@ def quetschfalte_analysieren(face1, face2, richtung):
         raise AdapterFehler("Interner Fehler: die Faltenspitzen liegen nicht in der Wandebene (Abstand %.3f mm) – abgebrochen." % max(abst))
     return {"zuschnitt": zus, "geprueft": f_, "beta": beta, "phi1": phi1, "phi2": phi2, "h1": h1, "h2": h2, "dicke": t, "wand": wand,
             "wand_flaeche": wand_flaeche, "dreieck_mm": pts, "O": O, "getauscht": getauscht, "richtung": richtung,
-            "e1": e1, "e2": e2, "z": z, "koerper": body, "laenge1": laenge1, "laenge2": laenge2}
+            "e1": e1, "e2": e2, "z": z, "koerper": body, "laenge1": laenge1, "laenge2": laenge2,
+            "n1_aussen": n1, "n2_aussen": n2, "y": y, "nb": nb, "pb_cm": pb}
+
+
+def _saeulen_punkte(a):
+    """Grundriss der Ecksäule in der Basis-Aussenebene (mm): der Überlappungsbereich der beiden Wand-Platten (Dicke t) an der Ecke O – schliesst den
+    Spalt der Stossecke. Nur für senkrechte Aufkantungen (φ = 90°) und jede Kantenstellung β. → 4 Punkte."""
+    t = a["dicke"]
+    n1i = tuple(-c for c in a["n1_aussen"])
+    n2i = tuple(-c for c in a["n2_aussen"])
+    e1, y, O = a["e1"], a["y"], a["O"]
+    a11, a12, a21, a22 = _skal(n1i, e1), _skal(n1i, y), _skal(n2i, e1), _skal(n2i, y)
+    det = a11 * a22 - a12 * a21
+    if abs(det) < 1e-9:
+        raise AdapterFehler("Ecksäule: die Wandebenen sind parallel.")
+    pts = []
+    for s1, s2 in ((0.0, 0.0), (t, 0.0), (t, t), (0.0, t)):
+        al = (s1 * a22 - a12 * s2) / det
+        be = (a11 * s2 - a21 * s1) / det
+        pts.append(tuple(O[i] + al * e1[i] + be * y[i] for i in range(3)))
+    return pts
+
+
+def _flaeche_in_ebene(body, n, p_cm, tol_mm=0.05):
+    """Grösste ebene Fläche des Körpers in der Ebene (Normale n, Punkt p in cm) mit gleicher Normalenrichtung."""
+    beste = None
+    for f in body.faces:
+        try:
+            if not isinstance(f.geometry, adsk.core.Plane):
+                continue
+            if _skal(_einheit(flaechennormale(f)), n) < 0.999:
+                continue
+            if abs(_skal(_plus(_v(f.pointOnFace), p_cm, 1.0, -1.0), n)) * 10.0 > tol_mm:
+                continue
+            if beste is None or f.area > beste.area:
+                beste = f
+        except Exception:
+            continue
+    return beste
+
+
+def _saeule_bauen(comp, token, a, rb):
+    """Ecksäule über die ganze Höhe (Aussenmass h1): schliesst den Spalt und das Loch der Stossecke an der Ecke. Skizze auf der Aussenfläche der Basis, Richtung
+    nach der Skizzennormalen (zum Körper hin) festgelegt – nicht über das Volumen geraten (das Volumen hängt davon ab, wie viel Basis an der Ecke fehlt).
+    Nicht live geprüft."""
+    body = koerper_neu(token) or comp.bRepBodies.item(0)
+    flaeche = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
+    if flaeche is None:
+        raise AdapterFehler("Aussenfläche der Basis für die Ecksäule nicht gefunden.")
+    pts = _saeulen_punkte(a)
+    sk = rb.merke(comp.sketches.add(flaeche))
+    P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
+    for i in range(4):
+        sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 4])
+    d1, d2 = _plus(pts[1], pts[0], 1.0, -1.0), _plus(pts[3], pts[0], 1.0, -1.0)
+    flaeche_mm2 = math.sqrt(sum(c * c for c in _kreuz3(d1, d2)))
+    prof = _profile_summe_waehlen(sk, flaeche_mm2)
+    xd, yd = sk.xDirection, sk.yDirection
+    normale = _kreuz3((xd.x, xd.y, xd.z), (yd.x, yd.y, yd.z))
+    vz = 1.0 if _skal(normale, tuple(-c for c in a["nb"])) > 0 else -1.0          # +1 = entlang der Skizzennormalen = in den Körper hinein
+    vol0 = _comp_volumen(comp) or 0.0
+    ef = comp.features.extrudeFeatures
+    ei = ef.createInput(prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * a["h1"] / 10.0))
+    try:
+        ei.participantBodies = [body]
+    except Exception:
+        pass
+    feat = rb.merke(ef.add(ei))
+    gewinn = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
+    if not (0.0 < gewinn <= flaeche_mm2 * a["h1"] * 1.001):
+        raise AdapterFehler("Ecksäule: Volumenzuwachs %.2f mm³ unplausibel (höchstens %.2f)." % (gewinn, flaeche_mm2 * a["h1"]))
+    return feat, gewinn
+
+
+def _falte_runden(comp, token, a, rb):
+    """Gerundete Faltkanten: die äusseren Kanten der Falte an der Faltlinie (Hypotenuse) und an der Ecklinie bekommen einen Radius – so sieht die Falte wie eine
+    gefaltete Umbiegung aus, nicht wie ein aufgesetzter Block. Kosmetik: scheitert die Rundung, bleibt alles andere unverändert. → Anzahl gerundeter Kanten."""
+    body = koerper_neu(token) or comp.bRepBodies.item(0)
+    t = a["dicke"]
+    n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
+    pts = a["dreieck_mm"]
+    kappe = [tuple(p[i] + n_aussen[i] * 2.0 * t for i in range(3)) for p in pts]      # Punkte auf der Deckfläche der Falte
+    ziele = ((kappe[0], kappe[2]), (kappe[0], kappe[1]))                             # Faltlinie O–C und Ecklinie O–P
+    kanten = adsk.core.ObjectCollection.create()
+    for e in body.edges:
+        try:
+            if _kurventyp(e) != "linie":
+                continue
+            s, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
+            for z0, z1 in ziele:
+                for u, w in ((z0, z1), (z1, z0)):
+                    if max(abs(10.0 * s[i] - u[i]) for i in range(3)) < 0.05 and max(abs(10.0 * en[i] - w[i]) for i in range(3)) < 0.05:
+                        kanten.add(e)
+        except Exception:
+            continue
+    if kanten.count == 0:
+        raise AdapterFehler("Die Faltkanten für die Rundung wurden nicht gefunden.")
+    vol0 = _comp_volumen(comp) or 0.0
+    ff = comp.features.filletFeatures
+    fi = ff.createInput()
+    fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(1.5 * t / 10.0), True)
+    feat = rb.merke(ff.add(fi))
+    if (_comp_volumen(comp) or 0.0) > vol0 + 1e-9:
+        raise AdapterFehler("Die Rundung hat das Volumen vergrössert – verworfen.")
+    return feat, kanten.count
 
 
 def quetschfalte_text(a):
@@ -3125,6 +3230,30 @@ def quetschfalte_bauen(a):
             probleme.append("Volumenzuwachs %.2f mm³ statt %.2f mm³" % (zuwachs, 2 * flaeche_mm2 * t))
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
+        hinweise = []
+        # Ecke schliessen (Live 0.4.74: Spalt und Loch der Stossecke blieben offen): Ecksäule über die ganze Höhe, nur bei senkrechten Aufkantungen
+        if abs(a["phi1"] - 90.0) < 0.5 and abs(a["phi2"] - 90.0) < 0.5:
+            _testfehler("quetschfalte_saeule")
+            _s, gewinn = _saeule_bauen(comp, token, a, rb)
+            hinweise.append("Ecke mit einer Säule über die ganze Höhe geschlossen (+%.1f mm³)" % gewinn)
+        else:
+            hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
+        try:
+            _testfehler("quetschfalte_rundung")
+            _f, n_kanten = _falte_runden(comp, token, a, rb)
+            hinweise.append("%d Faltkanten gerundet" % n_kanten)
+        except Exception as e_rund:
+            if isinstance(e_rund, AdapterFehler) and "Testfehler" in str(e_rund):
+                raise
+            logger.warnung("Faltkanten nicht gerundet", grund=(str(e_rund).strip().splitlines() or ["?"])[-1][:160])
+            hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
+        neu = koerper_neu(token) or comp.bRepBodies.item(0)
+        nach = koerper_pruefen(neu)
+        if getattr(neu, "isSheetMetal", None) is False:
+            nach.append("das Teil ist kein Fusion-Blechkörper mehr")
+        if nach:
+            raise AdapterFehler("Ergebnis der Quetschfalte nach Ecksäule/Rundung fehlerhaft: " + "; ".join(nach))
+        a["hinweise_bau"] = hinweise
         try:
             neu.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, json.dumps({"beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t,
                                                                   "richtung": a["richtung"], "wand": a["wand"], "dreieck_mm": [[round(c, 4) for c in p] for p in pts],

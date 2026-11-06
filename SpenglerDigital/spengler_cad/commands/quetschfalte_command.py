@@ -103,6 +103,8 @@ def _ausfuehren_innen(self, args):
         return
     fa.zeitleiste_gruppieren(von, "Spengler: Quetschfalte")
     zeilen = ["Quetschfalte gebaut (%d Objekte, zwei Lagen auf der Aussenseite), Teil «%s»." % (len(objekte), name), fa.quetschfalte_text(a)]
+    if a.get("hinweise_bau"):
+        zeilen.append("Ecke: " + "; ".join(a["hinweise_bau"]) + ".")
     if inp.itemById("dxf").value:
         try:
             ordner = os.path.join(paths.daten_ordner(), "Quetschfalte")

@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.71)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.76)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,13 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.71)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.76)
+
+- **0.4.76 – Quetschfalte: erster Test am echten Modell (Live 0.4.74):** gebaut, aber «nicht gefaltet, nur verdickt» und Spalt/Loch in der Ecke. Neu: Länge der
+  Aufkantungen wird geprüft (Falte ragte über das Wandende); **Ecksäule über die ganze Höhe** schliesst den Spalt der Stossecke (nur senkrechte
+  Aufkantungen), **gerundete Faltkanten** an Faltlinie und Ecklinie (Radius 1.5 t, kosmetisch – scheitert die Rundung, bleibt der Rest); Sperre der
+  Fusion-Abwicklung zusätzlich über eine Markierung an der Komponente. Anwender: Falte über die GANZE Höhe der Aufkantung; eigene Abwicklung in drei Stufen
+  (1 eigene Abwicklung normaler Teile als Gegenprobe neben Fusion, 2 Quetschfalte einrechnen, 3 DXF/Werkstattblatt des ganzen Teils). NICHT live geprüft.
 
 - **0.4.71 – QUETSCHFALTE an der Ecke zweier Aufkantungen (Anwender 6. 11. 2026, Variante a):** Befehl «Quetschfalte an Ecke» (Konstruieren). Auswahl: je eine
   ebene Fläche der beiden Aufkantungen (Innen- oder Aussenseite) + Richtung «hinten rechts/links» (Blick von der Sichtseite: Wand 2 liegt rechts). Höhen,

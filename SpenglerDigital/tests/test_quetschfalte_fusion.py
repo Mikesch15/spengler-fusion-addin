@@ -246,3 +246,26 @@ class WandLaenge(unittest.TestCase):
         fa = _fa()
         a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
         self.assertAlmostEqual(a["laenge2"], 100.0, places=6)
+
+
+class Ecksaeule(unittest.TestCase):
+    """Live 0.4.74: Spalt und Loch der Stossecke blieben offen – die Ecksäule schliesst sie (Überlappung der beiden Wand-Platten)."""
+    def setUp(self):
+        fa = _fa()
+        orig = fa.blechdicke_mm
+        fa.blechdicke_mm = lambda b: 1.0
+        self.addCleanup(setattr, fa, "blechdicke_mm", orig)
+
+    def test_grundriss_der_saeule_rechtwinklig(self):
+        fa = _fa()
+        a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
+        pts = fa._saeulen_punkte(a)
+        r = sorted((round(p[0], 6), round(p[1], 6), round(p[2], 6)) for p in pts)
+        self.assertEqual(r, [(0.0, 0.0, 0.0), (0.0, 1.0, 0.0), (1.0, 0.0, 0.0), (1.0, 1.0, 0.0)], "Quadrat t × t an der Ecke, t = 1 mm")
+
+    def test_analyse_liefert_daten_fuer_den_bau(self):
+        fa = _fa()
+        a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
+        for k in ("n1_aussen", "n2_aussen", "y", "nb", "pb_cm", "h1", "phi1", "phi2"):
+            self.assertIn(k, a)
+        self.assertEqual(a["nb"], (0.0, 0.0, -1.0), "Aussenfläche der Basis zeigt nach unten")
