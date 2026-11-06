@@ -2517,17 +2517,46 @@ def _profil_waehlen(sk, flaeche_mm2):
     return bester
 
 
-def _skizze_in_ebene(comp, flaeche, rb):
+def _profile_summe_waehlen(sk, flaeche_mm2):
+    """Profil(e), deren Flächen zusammen das gezeichnete Dreieck ergeben. Live 0.4.71/0.4.72: Fusion legt zusätzliche Kurven in die Skizze (8 statt 3) und
+    zerschneidet das Dreieck (z. B. 167.27 + 32.73 = 200.00 mm²) – ein einzelnes Profil mit der Sollfläche gibt es dann nicht. → Profile oder
+    ObjectCollection mehrerer Profile (createInput nimmt beides). Einzelnes passendes Profil hat Vorrang. Nicht live geprüft."""
+    import itertools
+    liste = []
+    for i in range(sk.profiles.count):
+        pr = sk.profiles.item(i)
+        try:
+            liste.append((pr.areaProperties().area * 100.0, pr))
+        except Exception:
+            continue
+    tol = max(0.05, 1e-3 * flaeche_mm2)
+    for a, pr in liste:
+        if abs(a - flaeche_mm2) <= tol:
+            return pr
+    for n in range(2, min(len(liste), 6) + 1):
+        for combo in itertools.combinations(liste, n):
+            if abs(sum(a for a, _ in combo) - flaeche_mm2) <= tol:
+                oc = adsk.core.ObjectCollection.create()
+                for _a, pr in combo:
+                    oc.add(pr)
+                logger.info("Dreieck in der Skizze zerschnitten – Teilprofile zusammen extrudiert", teile=[round(a, 2) for a, _ in combo])
+                return oc
+    return _profil_waehlen(sk, flaeche_mm2)            # wirft den Fehler mit Kurven- und Flächenangabe
+
+
+def _skizze_in_ebene(comp, flaeche, rb, ebene_geo=None):
     """Skizze in der Ebene einer ebenen Fläche über eine KONSTRUKTIONSEBENE (setByPlane), nicht direkt auf der Fläche: Auf einer Fläche projiziert Fusion
     deren Kanten automatisch in die Skizze und zerschneidet damit das gezeichnete Profil (Live 0.4.71: «keine passende geschlossene Fläche», das Dreieck
     reichte über den Flächenrand hinaus). Rückfall: Skizze direkt auf der Fläche. Nicht live geprüft."""
     try:
         pi = comp.constructionPlanes.createInput()
-        pi.setByPlane(flaeche.geometry)
+        pi.setByPlane(ebene_geo if ebene_geo is not None else flaeche.geometry)
         ebene = rb.merke(comp.constructionPlanes.add(pi))
         return rb.merke(comp.sketches.add(ebene))
     except Exception as e:
         logger.warnung("Skizze über Konstruktionsebene nicht möglich – direkt auf der Fläche", fehler=(str(e).strip().splitlines() or ["?"])[-1][:120])
+        if flaeche is None:
+            raise AdapterFehler("Die Skizzenebene der Falte liess sich nicht anlegen (Fusion: %s)." % ((str(e).strip().splitlines() or ["?"])[-1][:120]))
         return rb.merke(comp.sketches.add(flaeche))
 
 
@@ -3073,26 +3102,19 @@ def quetschfalte_bauen(a):
     token = body.entityToken
     try:
         for lage in (1, 2):
+            ebene_geo = None
             if lage == 2:
+                # Ebene der zweiten Lage direkt aus Wandebene + Blechdicke (nicht über «die neue Aussenfläche der ersten Platte» suchen: Fusion teilt die Deckfläche
+                # bei zerschnittenem Profil u. U. in mehrere Flächen)
                 body = koerper_neu(token) or comp.bRepBodies.item(0)
+                ursprung = adsk.core.Point3D.create(*(p_aussen[i] + n_aussen[i] * t / 10.0 for i in range(3)))
+                ebene_geo = adsk.core.Plane.create(ursprung, adsk.core.Vector3D.create(*n_aussen))
                 wand = None
-                for f in body.faces:                         # neue Aussenfläche der ersten Platte: gleiche Normale, um t nach aussen versetzt, Dreiecksfläche
-                    try:
-                        if not isinstance(f.geometry, adsk.core.Plane) or _skal(_einheit(flaechennormale(f)), n_aussen) < 0.999:
-                            continue
-                        d = _skal(_plus(_v(f.pointOnFace), p_aussen, 1.0, -1.0), n_aussen) * 10.0
-                        if abs(d - t) <= 0.02 and abs(f.area * 100.0 - flaeche_mm2) <= 0.03 * flaeche_mm2:
-                            wand = f
-                            break
-                    except Exception:
-                        continue
-                if wand is None:
-                    raise AdapterFehler("Die Aussenfläche der ersten Falten-Lage wurde nicht gefunden – zweite Lage nicht gebaut.")
-            sk = _skizze_in_ebene(comp, wand, rb)
+            sk = _skizze_in_ebene(comp, wand, rb, ebene_geo)
             P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
             for i in range(3):
                 sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
-            prof = _profil_waehlen(sk, flaeche_mm2)
+            prof = _profile_summe_waehlen(sk, flaeche_mm2)
             feat = _extrudieren_geprueft(comp, prof, t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, flaeche_mm2 * t, rb)
             _testfehler("quetschfalte_lage%d" % lage)
             if comp.bRepBodies.count != n0:

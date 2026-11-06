@@ -190,3 +190,69 @@ class SkizzeUndProfil(unittest.TestCase):
         Ebenen.createInput = lambda s: (_ for _ in ()).throw(RuntimeError("keine Ebene"))
         fa._skizze_in_ebene(comp, flaeche, fa.Rueckbau("t"))
         self.assertEqual(aufrufe[-1], ("skizze", flaeche))
+
+
+class ZerschnittenesDreieck(unittest.TestCase):
+    """Live 0.4.71/0.4.72: 3 Profile mit 855.07 / 179.46 / 20.54 bzw. 882.00 / 167.27 / 32.73 mm² – das 200-mm²-Dreieck ist in zwei Teile zerschnitten."""
+    def _skizze(self, flaechen):
+        class Pr(object):
+            def __init__(self, a):
+                self.a = a
+
+            def areaProperties(self):
+                return type("A", (), {"area": self.a / 100.0})()
+        profile = [Pr(a) for a in flaechen]
+        return type("S", (), {"profiles": type("L", (), {"count": len(profile), "item": lambda s, i: profile[i]})(),
+                              "sketchCurves": type("C", (), {"count": 8})()})(), profile
+
+    def test_zwei_teile_ergeben_das_dreieck(self):
+        fa = _fa()
+
+        class Sammlung(object):
+            def __init__(self):
+                self.teile = []
+
+            @staticmethod
+            def create():
+                return Sammlung()
+
+            def add(self, p):
+                self.teile.append(p)
+        orig = fa.adsk.core.ObjectCollection
+        fa.adsk.core.ObjectCollection = Sammlung
+        self.addCleanup(setattr, fa.adsk.core, "ObjectCollection", orig)
+        for flaechen in ((855.07, 179.46, 20.54), (882.00, 167.27, 32.73)):
+            sk, profile = self._skizze(flaechen)
+            r = fa._profile_summe_waehlen(sk, 200.0)
+            self.assertIsInstance(r, Sammlung, "mehrere Teilprofile werden zusammen extrudiert")
+            self.assertEqual(len(r.teile), 2)
+            self.assertAlmostEqual(sum(p.a for p in r.teile), 200.0, delta=0.05, msg=str(flaechen))
+            self.assertNotIn(profile[0], r.teile, "das grosse Aussenprofil (855/882 mm²) gehört nicht dazu")
+
+    def test_einzelnes_profil_hat_vorrang(self):
+        fa = _fa()
+        sk, profile = self._skizze((855.07, 200.0, 20.54))
+        self.assertIs(fa._profile_summe_waehlen(sk, 200.0), profile[1])
+
+    def test_nichts_passend_wirft_mit_angaben(self):
+        fa = _fa()
+        sk, _ = self._skizze((855.07, 100.0))
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._profile_summe_waehlen(sk, 200.0)
+        self.assertIn("8 Kurven", str(cm.exception))
+
+
+class ZweiteLageEbene(unittest.TestCase):
+    def test_ebene_direkt_aus_geometrie_ohne_flaeche(self):
+        fa = _fa()
+        gesetzt = []
+
+        class Ebenen(object):
+            def createInput(self):
+                return type("I", (), {"setByPlane": lambda s, g: gesetzt.append(g)})()
+
+            def add(self, i):
+                return object()
+        comp = type("C", (), {"constructionPlanes": Ebenen(), "sketches": type("S", (), {"add": lambda s, e: object()})()})()
+        fa._skizze_in_ebene(comp, None, fa.Rueckbau("t"), "EBENE")
+        self.assertEqual(gesetzt, ["EBENE"], "zweite Lage: Ebene aus Wandebene + Blechdicke, keine Flächensuche")
