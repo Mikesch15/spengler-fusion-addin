@@ -118,12 +118,13 @@ def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, r
     (soll_breite_fusion). Früher: Biegung innerhalb des Grundblechs angenommen und ± (2t + 2) mm je Flansch toleriert – das verdeckte bei Ri = t
     rund 2 mm Abweichung (und zeigte sie bei Ri 20 als 20 mm). Toleranz jetzt 0.3 mm je Flansch (K-Faktor der Regel ± 0.1 ≈ ± 0.16 mm)."""
     ri = dicke if ri is None else ri
-    soll_breite = basis_breite + flansche * (soll_breite_aussenmass(0.0, hoehe, dicke, ri, k))
+    # Native Flansche liegen (bis die Lage «innen» Standard ist) «ab Kante»: Fusion-Konvention, live exakt belegt
+    soll_breite = basis_breite + flansche * (soll_breite_fusion(0.0, hoehe, dicke, ri, k))
     # Seiten nach der kleineren Abweichung zuordnen (die Abwicklung kann breiter als lang sein: 111.1 × 100 bei Flansch 40 / R 20)
     a_, b_ = (breite, laenge) if abs(breite - soll_laenge) + abs(laenge - soll_breite) < abs(laenge - soll_laenge) + abs(breite - soll_breite) else (laenge, breite)
     gross, klein = a_, b_
     tol = 0.3 * flansche
-    kopf = "Abwicklung %.2f × %.2f mm (erwartet %.2f × %.2f ± %.2f; Aussenmass: Biegung innen, Höhe aussen; Ri %.1f, K %.2f)" % (
+    kopf = "Abwicklung %.2f × %.2f mm (erwartet %.2f × %.2f ± %.2f; Fusion «ab Kante», Höhe aussen; Ri %.1f, K %.2f)" % (
         gross, klein, soll_laenge, soll_breite, tol, ri, k)
     if abs(gross - soll_laenge) > 0.2 * soll_laenge or abs(klein - soll_breite) > 0.2 * soll_breite:
         return "fehler", "Die Abwicklung passt nicht zum 3D-Modell: " + kopf

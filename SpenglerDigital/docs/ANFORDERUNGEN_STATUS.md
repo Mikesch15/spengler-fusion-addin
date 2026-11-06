@@ -706,6 +706,9 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
 - **0.4.62 – AUSSENMASS (Anwender 6. 11. 2026: «unsere Masse sind immer Aussenmasse»):** Fusion-Flansch ohne Angabe in der Vorlage: Höhe aussen,
   Biegung innen (Aussenfläche bündig mit der Kante; Teil aussen so gross wie das Grundblech) – lässt sich das nicht einstellen, wird nicht gebaut.
   Zugabe/Zuschnitt (Palette, Bauplan, Werkstattblatt) und eigene Geometrie: Schenkel bis zur ÄUSSEREN virtuellen Kante ((ri + t)·tan(α/2)).
+  **0.4.63: Lage «innen» wieder zurückgestellt** – Live 0.4.62: Fusion schneidet dabei das Grundblech zurück, die gewählte Kante wird ungültig
+  («thisASMEdge»), 8 Flansch-Schritte scheiterten. Native Flansche wieder «ab Kante» (Höhe aussen bleibt); Live-Test meldet das offene Aussenmass
+  als Warnung. Lösung: Kantenabbild vor dem Bau, dann «innen» als Standard.
   Offen: eigene Geometrie schneidet das Grundblech noch nicht zurück (Biegung ab Kante, Teil um (ri + t) grösser – wird im Ergebnis gemeldet).
   Live 0.4.61: 43 ok; Eckspalt einzeln 1.41 / gemeinsam 1.00 mm erklärt die +11 mm³; Spalt-Ecke nach Vorgabe zulässig. Neu gebaute Kanten
   liegen gegenüber ≤ 0.4.61 um (ri + t) anders; bestehende Modelle unverändert. Nicht live geprüft.

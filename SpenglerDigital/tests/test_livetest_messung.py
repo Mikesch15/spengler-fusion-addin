@@ -114,12 +114,11 @@ class RadiusGehrungAbwicklung(unittest.TestCase):
         self.assertAlmostEqual(m.soll_breite_fusion(60.0, 40.0, 1.0, 20.0, 0.44), 111.107, places=2)
         # Aussenmass (Standard ab 0.4.62): Biegung innen → Grundblech um ri + t kürzer
         self.assertAlmostEqual(m.soll_breite_aussenmass(60.0, 40.0, 1.0, 20.0, 0.44), 90.107, places=2)
-        s, t = m.pruefe_abwicklung(90.1, 100.0, 100.0, 60.0, 40.0, 1.0, 20.0, 0.44)
+        s, t = m.pruefe_abwicklung(111.1, 100.0, 100.0, 60.0, 40.0, 1.0, 20.0, 0.44)
         self.assertEqual(s, "ok", t)
-        s, t = m.pruefe_abwicklung(100.0, 78.26, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)
+        s, t = m.pruefe_abwicklung(100.0, 80.26, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)
         self.assertEqual(s, "ok", t)
-        self.assertEqual(m.pruefe_abwicklung(111.1, 100.0, 100.0, 60.0, 40.0, 1.0, 20.0, 0.44)[0], "fehler",
-                         "Biegung ausserhalb (altes Fusion-Standardverhalten) = 21 mm zu breit")
+        self.assertEqual(m.pruefe_abwicklung(100.0, 78.6, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)[0], "warnung")
         self.assertEqual(m.pruefe_abwicklung(100.0, 60.0, 100.0, 60.0, 20.0, 1.0)[0], "fehler", "Flansch fehlt in der Abwicklung")
 
     def test_text(self):

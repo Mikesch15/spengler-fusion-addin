@@ -512,8 +512,8 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
             LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = getattr(inp, "isMiteredCorners", None)   # an der EINGABE zurückgelesen (Feature gibt es nicht her)
         except Exception:
             LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = None
-    # Aussenmass (Anwender 6. 11. 2026): ohne Angabe Höhe AUSSEN gemessen und Biegung INNEN (Aussenfläche des Flanschs bündig mit der Kante –
-    # das Teil bleibt aussen so gross wie das Grundblech). Vorlagen mit eigener Lage/Bezug behalten diese. Nicht live geprüft.
+    # Aussenmass (Anwender 6. 11. 2026): ohne Angabe Höhe AUSSEN gemessen. Biegung «innen» (Teil aussen so gross wie das Grundblech) ist noch
+    # zurückgestellt – siehe STANDARD_LAGE. Vorlagen mit eigener Lage/Bezug behalten diese.
     bezug = bezug or STANDARD_BEZUG
     lage = lage or STANDARD_LAGE
     if bezug:
@@ -556,7 +556,10 @@ LAGEN = {"kante": "StartEdgeBendPositionType", "innen": "InsideBendPositionType"
 BEZUEGE = {"aussen": "OuterFacesFlangeHeightDatumType", "innen": "InnerFacesFlangeHeightDatumType", "tangential": "TangentToBendFlangeHeightDatumType"}
 
 
-STANDARD_BEZUG, STANDARD_LAGE = "aussen", "innen"     # Aussenmass – siehe flansch()
+# Höhe aussen (= Fusion-Vorgabe, live belegt). Lage «innen» für das Aussenmass ist ZURÜCKGESTELLT: Live 0.4.62 – mit Biegung innen schneidet Fusion
+# das Grundblech zurück, die gewählte Kante wird ungültig («InternalValidationError : thisASMEdge»), Folgeschritte/Kontrollen scheitern. Erst wenn
+# alle Zugriffe auf die alte Kante über ein Abbild VOR dem Bau laufen, wird «innen» Standard. Bis dahin: Fusion-Vorgabe «ab Kante» (None).
+STANDARD_BEZUG, STANDARD_LAGE = "aussen", None
 
 
 def _lage_enum(lage):
