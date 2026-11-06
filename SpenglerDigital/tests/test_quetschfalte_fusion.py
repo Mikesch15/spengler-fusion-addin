@@ -269,3 +269,36 @@ class Ecksaeule(unittest.TestCase):
         for k in ("n1_aussen", "n2_aussen", "y", "nb", "pb_cm", "h1", "phi1", "phi2"):
             self.assertIn(k, a)
         self.assertEqual(a["nb"], (0.0, 0.0, -1.0), "Aussenfläche der Basis zeigt nach unten")
+
+
+class Eckfuellung(unittest.TestCase):
+    """Live 0.4.76: der Spalt der Stossecke war grösser als die Blechdicke → die Ecke füllt bis zum gemessenen Wandende."""
+    def _a(self, ende1, ende2, beta=90.0):
+        return {"dicke": 1.0, "beta": beta, "e1": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "O": (0.0, 0.0, 0.0), "ende1": ende1, "ende2": ende2,
+                "n1_aussen": (0.0, -1.0, 0.0), "n2_aussen": (-1.0, 0.0, 0.0)}
+
+    def test_l_form_bis_zu_den_wandenden(self):
+        fa = _fa()
+        pts = fa._eckfuellung_punkte(self._a(3.0, 2.0))
+        xy = [(round(p[0], 6), round(p[1], 6)) for p in pts]
+        self.assertEqual(xy, [(0.0, 0.0), (3.0, 0.0), (3.0, 1.0), (1.0, 1.0), (1.0, 2.0), (0.0, 2.0)])
+
+    def test_ohne_spalt_nur_quadrat_ohne_doppelte_punkte(self):
+        fa = _fa()
+        pts = fa._eckfuellung_punkte(self._a(0.0, 0.0))
+        xy = [(round(p[0], 6), round(p[1], 6)) for p in pts]
+        self.assertEqual(xy, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (0.0, 1.0)], "kein Punkt doppelt, sonst Linie der Länge 0")
+
+    def test_ein_spalt_nur_an_einer_wand(self):
+        fa = _fa()
+        xy = [(round(p[0], 6), round(p[1], 6)) for p in fa._eckfuellung_punkte(self._a(0.0, 4.0))]
+        self.assertEqual(xy, [(0.0, 0.0), (1.0, 0.0), (1.0, 1.0), (1.0, 4.0), (0.0, 4.0)])
+
+    def test_analyse_misst_wandenden(self):
+        fa = _fa()
+        orig = fa.blechdicke_mm
+        fa.blechdicke_mm = lambda b: 1.0
+        self.addCleanup(setattr, fa, "blechdicke_mm", orig)
+        a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
+        self.assertAlmostEqual(a["ende1"], 0.0, places=6)
+        self.assertAlmostEqual(a["ende2"], 0.0, places=6)

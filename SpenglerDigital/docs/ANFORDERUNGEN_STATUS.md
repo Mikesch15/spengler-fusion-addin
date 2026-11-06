@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.76)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.77)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,12 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.76)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.77)
+
+- **0.4.77 – Quetschfalte: «Tasche» getrennt, Ecke bis zum Wandende gefüllt (Anwender nach Live 0.4.76):** Die Falte war mit der Wand verschmolzen («nur verdickt»), die Lücke
+  in der Ecke blieb (Spalt grösser als die Blechdicke). Neu: die zwei Lagen sind EIGENE Körper «Quetschfalte Lage 1/2» (Neuer Körper, anliegend, nicht verschmolzen,
+  Lage 2 mit gerundeten Faltkanten); die Ecke wird im Blechkörper bis zu den gemessenen Wandenden gefüllt (L-Grundriss bei 90°, über die ganze Höhe).
+  Fusions Abwicklung bleibt gesperrt. NICHT live geprüft.
 
 - **0.4.76 – Quetschfalte: erster Test am echten Modell (Live 0.4.74):** gebaut, aber «nicht gefaltet, nur verdickt» und Spalt/Loch in der Ecke. Neu: Länge der
   Aufkantungen wird geprüft (Falte ragte über das Wandende); **Ecksäule über die ganze Höhe** schliesst den Spalt der Stossecke (nur senkrechte
