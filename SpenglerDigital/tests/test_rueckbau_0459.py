@@ -258,3 +258,19 @@ class MachbarkeitQuetschfalte(unittest.TestCase):
         self.assertEqual(fa._kreuz3((1, 0, 0), (0, 1, 0)), (0, 0, 1))
         from spengler_cad.diagnostics import live_test_kantenwerkzeug as k
         self.assertIn("MACHBARKEIT Quetschfalte", " ".join(n for n, _f, _b in k.SCHRITTE))
+
+
+class AbsturzSchutz(DatenTest):
+    """Live 0.4.67: Fusion stürzte im Test ab. Marke vor jedem Schritt → nächster Lauf erkennt den Schritt und überspringt ihn."""
+    def test_marke_absturz_sperre(self):
+        from spengler_cad.diagnostics import live_test as lt
+        self.assertEqual(lt.absturz_pruefen("0.4.68"), (None, {}), "ohne Marke kein Absturz")
+        lt.marke_setzen("0.4.68", 47, "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen")
+        name, sperren = lt.absturz_pruefen("0.4.68")                 # Marke blieb liegen = Fusion beendet
+        self.assertEqual(name, "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen")
+        self.assertTrue(lt.gesperrt(name, sperren, "0.4.68"))
+        self.assertFalse(lt.gesperrt(name, sperren, "0.4.69"), "neue Version = neuer Versuch")
+        self.assertEqual(lt.absturz_pruefen("0.4.68")[0], None, "Marke wurde verbraucht")
+        lt.marke_setzen("0.4.68", 1, "x")
+        lt.marke_loeschen()                                            # regulär beendet
+        self.assertEqual(lt.absturz_pruefen("0.4.68")[0], None)

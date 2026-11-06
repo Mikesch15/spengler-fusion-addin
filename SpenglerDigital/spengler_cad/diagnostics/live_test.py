@@ -2,6 +2,7 @@
 Fusion nicht prüfbar sind (Flansch, Umschlag, Gehrung, Versatz, Abwicklung, DXF …). Jeder Schritt läuft für sich und wird abgefangen – ein Fehler
 stoppt den Test nicht. Die Dokumente des Benutzers werden nie verändert; alle Testdokumente werden am Ende ungespeichert geschlossen.
 NICHT live geprüft (das IST der Live-Test); Fusion-Wege für das Test-Blech sind Annahmen und im Bericht nachvollziehbar."""
+import json
 import os
 import tempfile
 import time
@@ -668,6 +669,74 @@ def _alles_schliessen(dokumente):
             logger.warnung("Testdokument nicht geschlossen")
 
 
+# ------------------------------------------------------------------ Absturzschutz (Live 0.4.67: Fusion stürzte im Test ab, der Bericht kam nie an)
+def _marke_datei():
+    from ..storage import paths
+    return os.path.join(paths.daten_ordner(), "livetest_lauf.json")
+
+
+def _absturz_datei():
+    from ..storage import paths
+    return os.path.join(paths.daten_ordner(), "livetest_abstuerze.json")
+
+
+def marke_setzen(version, nr, name):
+    """VOR jedem Schritt auf die Festplatte schreiben (mit fsync) – nach einem Fusion-Absturz steht hier der Schritt, in dem er passierte."""
+    try:
+        with open(_marke_datei(), "w", encoding="utf-8") as f:
+            f.write(json.dumps({"version": version, "nr": nr, "name": name, "zeit": time.strftime("%d.%m.%Y %H:%M:%S")}))
+            f.flush()
+            os.fsync(f.fileno())
+    except Exception:
+        pass
+
+
+def marke_loeschen():
+    try:
+        os.remove(_marke_datei())
+    except Exception:
+        pass
+
+
+def abstuerze_lesen():
+    try:
+        with open(_absturz_datei(), encoding="utf-8") as f:
+            return json.loads(f.read())
+    except Exception:
+        return {}
+
+
+def absturz_pruefen(version):
+    """Beim Start eines Laufs: blieb eine Marke vom letzten Lauf liegen, ist Fusion in diesem Schritt abgestürzt → merken (Schritt wird künftig
+    übersprungen, bis die Add-in-Version wechselt). → (Name des abgestürzten Schritts oder None, Dict version-abhängiger Sperren)."""
+    try:
+        with open(_marke_datei(), encoding="utf-8") as f:
+            m = json.loads(f.read())
+    except Exception:
+        return None, abstuerze_lesen()
+    marke_loeschen()
+    sperren = abstuerze_lesen()
+    sperren[m.get("name", "?")] = {"version": m.get("version"), "zeit": m.get("zeit"), "nr": m.get("nr")}
+    try:
+        with open(_absturz_datei(), "w", encoding="utf-8") as f:
+            f.write(json.dumps(sperren))
+    except Exception:
+        pass
+    return m.get("name"), sperren
+
+
+# Vorsorglich gesperrt: Fusion stürzte im Live-Test 0.4.67 ab, vermutlich in diesem neuen Schritt (der einzige neue). Wird erst wieder freigegeben, wenn
+# die Absturzursache geklärt ist.
+VORSORGLICH_GESPERRT = {"MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen": "Absturz von Fusion im Live-Test 0.4.67 (Ursache in Klärung)"}
+
+
+def gesperrt(name, sperren, version):
+    if name in VORSORGLICH_GESPERRT:
+        return True
+    s = sperren.get(name)
+    return bool(s) and s.get("version") == version
+
+
 def ausfuehren(fortschritt=None):
     """Alle Schritte nacheinander. → (Ergebnisliste, Kopfzeile). fortschritt(text) wird je Schritt aufgerufen (darf fehlen)."""
     app = adsk.core.Application.get()
@@ -686,8 +755,29 @@ def ausfuehren(fortschritt=None):
     erg.append({"name": "Fähigkeiten der Fusion-Version", "status": "warnung" if fehlt else "ok",
                 "detail": ("Fehlt: " + "; ".join(fehlt)) if fehlt else "alle geprüften Funktionen vorhanden", "dauer": None})
     blech_ok = True
+    abgestuerzt, sperren = absturz_pruefen(VERSION)
+    if abgestuerzt:
+        erg.append({"name": "FUSION IST ABGESTÜRZT beim letzten Lauf", "status": "fehler",
+                    "detail": "Der letzte Live-Test endete im Schritt «%s» (Fusion beendet). Dieser Schritt wird in diesem Lauf übersprungen." % abgestuerzt, "dauer": None})
     try:
+        # Rundblech und 3D-Detail (eigener Selbsttest, öffnet selbst ein Dokument)
+        t0 = time.time()
+        marke_setzen(VERSION, 0, "Rundblech und 3D-Detail (Export/Import/Ausrichtung)")
+        try:
+            from . import selftest
+            text = selftest.ausfuehren()
+            dokumente.append(app.activeDocument)
+            schlecht = [z for z in text.splitlines() if z.startswith("✗")]
+            erg.append({"name": "Rundblech und 3D-Detail (Export/Import/Ausrichtung)", "status": "fehler" if schlecht else "ok",
+                        "detail": "\n".join(schlecht) if schlecht else "ok", "dauer": time.time() - t0})
+        except Exception as e:
+            erg.append({"name": "Rundblech und 3D-Detail", "status": "fehler", "detail": _letzte_zeile(e), "dauer": time.time() - t0})
+            logger.ausnahme("Live-Test Rundblech/Detail")
         for nr, (name, funktion, braucht_blech) in enumerate(SCHRITTE, 1):
+            if gesperrt(name, sperren, VERSION):
+                erg.append({"name": name, "status": "uebersprungen", "detail": "NICHT GETESTET: %s" % VORSORGLICH_GESPERRT.get(name, "Fusion ist in diesem Schritt abgestürzt (Version %s)" % VERSION), "dauer": None})
+                continue
+            marke_setzen(VERSION, nr, name)
             if fortschritt:
                 try:
                     fortschritt("Schritt %d von %d: %s" % (nr, len(SCHRITTE), name))
@@ -723,19 +813,8 @@ def ausfuehren(fortschritt=None):
                 adsk.doEvents()
             except Exception:
                 pass
-        # Rundblech und 3D-Detail (eigener Selbsttest, öffnet selbst ein Dokument)
-        t0 = time.time()
-        try:
-            from . import selftest
-            text = selftest.ausfuehren()
-            dokumente.append(app.activeDocument)
-            schlecht = [z for z in text.splitlines() if z.startswith("✗")]
-            erg.append({"name": "Rundblech und 3D-Detail (Export/Import/Ausrichtung)", "status": "fehler" if schlecht else "ok",
-                        "detail": "\n".join(schlecht) if schlecht else "ok", "dauer": time.time() - t0})
-        except Exception as e:
-            erg.append({"name": "Rundblech und 3D-Detail", "status": "fehler", "detail": _letzte_zeile(e), "dauer": time.time() - t0})
-            logger.ausnahme("Live-Test Rundblech/Detail")
     finally:
+        marke_loeschen()                       # Lauf regulär beendet → kein Absturz
         _alles_schliessen(dokumente)
         try:
             if original is not None:
