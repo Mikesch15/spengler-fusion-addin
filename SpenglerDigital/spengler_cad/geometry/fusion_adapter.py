@@ -326,6 +326,18 @@ def referenz_aus_fusion(face=None, edge=None, punkt=None, seite=1):
 
 
 # ------------------------------------------------------------------ Neue Aussenkante bestimmen
+class _Abbild(object):
+    """Unveränderliches Abbild einer Kante VOR dem Bau: Geometrie (transiente Kopie, bleibt gültig) und Länge. Live 0.4.62: mit Biegung «innen»
+    schneidet Fusion das Grundblech zurück, die Kante selbst wird ungültig – alle Zugriffe NACH dem Bau laufen über dieses Abbild. Nicht live geprüft."""
+    def __init__(self, edge):
+        self.geometry = edge.geometry
+        self.length = edge.length
+
+
+def _abbild(edge):
+    return edge if isinstance(edge, _Abbild) else _Abbild(edge)
+
+
 def _linie(edge):
     g = edge.geometry
     p0 = g.startPoint
@@ -556,10 +568,10 @@ LAGEN = {"kante": "StartEdgeBendPositionType", "innen": "InsideBendPositionType"
 BEZUEGE = {"aussen": "OuterFacesFlangeHeightDatumType", "innen": "InnerFacesFlangeHeightDatumType", "tangential": "TangentToBendFlangeHeightDatumType"}
 
 
-# Höhe aussen (= Fusion-Vorgabe, live belegt). Lage «innen» für das Aussenmass ist ZURÜCKGESTELLT: Live 0.4.62 – mit Biegung innen schneidet Fusion
-# das Grundblech zurück, die gewählte Kante wird ungültig («InternalValidationError : thisASMEdge»), Folgeschritte/Kontrollen scheitern. Erst wenn
-# alle Zugriffe auf die alte Kante über ein Abbild VOR dem Bau laufen, wird «innen» Standard. Bis dahin: Fusion-Vorgabe «ab Kante» (None).
-STANDARD_BEZUG, STANDARD_LAGE = "aussen", None
+# AUSSENMASS (Anwender 6. 11. 2026): Höhe aussen + Biegung INNEN. Live 0.4.62: mit Biegung innen schneidet Fusion das Grundblech zurück, die gewählte
+# Kante wird ungültig («InternalValidationError : thisASMEdge») – deshalb in 0.4.63 zurückgenommen. Seit 0.4.66 laufen alle Zugriffe NACH dem Bau
+# über ein Abbild der Kante, das VOR dem Bau gemacht wurde (_Abbild; Einzelkante, Gruppe, Live-Test). NICHT live geprüft.
+STANDARD_BEZUG, STANDARD_LAGE = "aussen", "innen"
 
 
 def _lage_enum(lage):
@@ -1411,6 +1423,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, 
                 except Exception:
                     token = None
                 phase = "Schritt %d" % i
+            vorher = _abbild(aktuell)          # VOR dem Bau – die Kante kann danach ungültig sein (Biegung innen)
             try:
                 feat = _schritt_bauen(aktuell, op, gespiegelt, dicke_mm, prototyp)
             except AdapterFehler as ex_versatz:
@@ -1423,6 +1436,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, 
                         continue
                     _kante_sonde(k_alt, "Ersatzkante %d" % nr_alt)
                     try:
+                        vorher = _abbild(k_alt)
                         feat = _schritt_bauen(k_alt, op, gespiegelt, dicke_mm, prototyp)
                         aktuell = k_alt
                         logger.info("Flansch an der Ersatzkante der Stirnfläche gebaut", ersatz=nr_alt)
@@ -1437,14 +1451,14 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, 
             neu = None
             if i < len(ops):
                 phase = "Nach Schritt %d (Kante für Schritt %d suchen)" % (i, i + 1)
-                neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+                neu = neue_aussenkante(feat, vorher, op["laenge"], dicke_mm or 1.0)
                 phase = "Schritt %d" % i
             elif geprueft and i > 1:
                 try:
-                    neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
+                    neu = neue_aussenkante(feat, vorher, op["laenge"], dicke_mm or 1.0)
                 except AdapterFehler:
                     hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
-            gemessen = _gemessen(aktuell, neu, rahmen[0]) if (geprueft and neu is not None) else None
+            gemessen = _gemessen(vorher, neu, rahmen[0]) if (geprueft and neu is not None) else None
             if geprueft and i == 1 and gemessen is not None and abs(op["winkel"]) < 175:
                 # Schritt 1 definiert «oben»: der Anteil quer zu u, mit dem Vorzeichen des Winkels
                 quer = _einheit(_ohne_komponente(gemessen, rahmen[1]))
@@ -1461,8 +1475,8 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, 
                     aktuell = _kante_aufloesen(token, aktuell) if token else aktuell
                     feat = _schritt_bauen(aktuell, op, True, dicke_mm, prototyp)
                     erzeugt.append(feat)
-                    neu = neue_aussenkante(feat, aktuell, op["laenge"], dicke_mm or 1.0)
-                    nochmal = richtung_stimmt(lauf, op["winkel"], _gemessen(aktuell, neu, rahmen[0]) or gemessen, rahmen[1], v)
+                    neu = neue_aussenkante(feat, vorher, op["laenge"], dicke_mm or 1.0)
+                    nochmal = richtung_stimmt(lauf, op["winkel"], _gemessen(vorher, neu, rahmen[0]) or gemessen, rahmen[1], v)
                     if nochmal is False:
                         raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab und liess sich auch gespiegelt nicht herstellen." % i)
                     hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
@@ -1471,7 +1485,7 @@ def folge_anbringen(edge, ops, dicke_mm, markierung, hinweise=None, start=None, 
             elif geprueft and i > 1 and (v is None or gemessen is None):
                 hinweise.append("Schritt %d: Richtung nicht geprüft (Messung nicht möglich) – bitte Ergebnis prüfen." % i)
             lauf += op["winkel"]
-            hinweise.extend(schlitze_pruefen(feat, aktuell, dicke_mm or 1.0))
+            hinweise.extend(schlitze_pruefen(feat, vorher, dicke_mm or 1.0))
             markieren(feat, dict(markierung, schritt=i))
             logger.info("Schritt erzeugt", nr=i, typ=op["typ"], winkel=op["winkel"], laenge=op["laenge"])
             if neu is not None:
@@ -1812,6 +1826,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
         laengen = [e.length for e in edges]
         eck = ecke_daten(list(edges)) if len(edges) == 2 else None
         vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
+        abb = [_abbild(e) for e in edges]       # VOR dem Bau (Biegung innen macht die Kanten ungültig)
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
         phase = "Kontrolle des gemeinsamen Flansches"
@@ -1828,10 +1843,10 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
         if len(ops) == 1:
             return erzeugt
         phase = "Nach dem gemeinsamen Flansch (Kanten für Schritt 2 suchen)"
-        neue = [neue_aussenkante(feat, e, op["laenge"], dicke_mm or 1.0) for e in edges]
+        neue = [neue_aussenkante(feat, e, op["laenge"], dicke_mm or 1.0) for e in abb]
         v = None
         if rahmen[0] is not None and abs(op["winkel"]) < 175:
-            gemessen = _gemessen(edges[0], neue[0], rahmen[0][0])
+            gemessen = _gemessen(abb[0], neue[0], rahmen[0][0])
             quer = _einheit(_ohne_komponente(gemessen, rahmen[0][1])) if gemessen is not None else None
             v = tuple(x * (1 if op["winkel"] > 0 else -1) for x in quer) if quer else None
         aktuell, lauf, i = list(neue), op["winkel"], 2
@@ -1841,19 +1856,20 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                 break
             phase = "Gemeinsamer Schritt %d" % i
             laengen = [e.length for e in aktuell]
+            abb_i = [_abbild(e) for e in aktuell]
             vol0, n0 = _comp_volumen(comp), _koerperzahl(comp)
             feats = _schritt_gruppe(aktuell, o, dicke_mm, False)
             erzeugt.extend(feats)
             nxt = None
             if i < len(ops) or (rahmen[0] is not None and v is not None):
                 try:
-                    nxt = _neue_kanten(feats, aktuell, o["laenge"], dicke_mm)
+                    nxt = _neue_kanten(feats, abb_i, o["laenge"], dicke_mm)
                 except AdapterFehler:
                     if i < len(ops):
                         raise
                     hinweise.append("Schritt %d: Richtung konnte nicht geprüft werden (neue Kante nicht eindeutig)." % i)
             if nxt is not None and rahmen[0] is not None and v is not None:
-                gem = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                gem = _gemessen(abb_i[0], nxt[0], rahmen[0][0])
                 if gem is not None and richtung_stimmt(lauf, o["winkel"], gem, rahmen[0][1], v) is False:
                     phase = "Gemeinsamer Schritt %d (gespiegelt neu anlegen)" % i
                     for f in feats:
@@ -1863,8 +1879,8 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                         raise AdapterFehler("Der falsch gerichtete Schritt liess sich nicht entfernen: " + "; ".join(probleme))
                     feats = _schritt_gruppe(aktuell, o, dicke_mm, True)
                     erzeugt.extend(feats)
-                    nxt = _neue_kanten(feats, aktuell, o["laenge"], dicke_mm)
-                    gem2 = _gemessen(aktuell[0], nxt[0], rahmen[0][0])
+                    nxt = _neue_kanten(feats, abb_i, o["laenge"], dicke_mm)
+                    gem2 = _gemessen(abb_i[0], nxt[0], rahmen[0][0])
                     if gem2 is not None and richtung_stimmt(lauf, o["winkel"], gem2, rahmen[0][1], v) is False:
                         raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab." % i)
                     hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)

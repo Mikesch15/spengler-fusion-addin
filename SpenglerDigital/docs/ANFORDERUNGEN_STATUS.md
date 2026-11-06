@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.62)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.66)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,12 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.62)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.66)
+
+- **0.4.66 – Aussenmass erneut (Biegung innen):** Zugriffe auf die Kante NACH dem Bau laufen über ein Abbild, das VOR dem Bau gemacht wird
+  (`_abbild`; Einzelkante, Gruppe mit Gehrung, Live-Test). Lage «innen» ist wieder Standard. Live 0.4.65: Flansch 90° Höhe 20.0 mm, Grundriss +2.0 mm
+  (Biegung ab Kante) – der Live-Test prüft, dass der Grundriss jetzt gleich bleibt. NICHT live geprüft; bei Rückfall wieder «ab Kante» (STANDARD_LAGE).
+  Live 0.4.65 sonst: 43 ok, 3 Warnungen (Stossecke 1.00 mm, fachlich zulässig), 1 Fehler (Zylinder-Versatz: neue Mantelkante nicht gefunden – offen).
 
 - **0.4.62 – AUSSENMASS (Anwender 6. 11. 2026: «unsere Masse sind immer Aussenmasse»):** Fusion-Flansch ohne Angabe in der Vorlage: Höhe aussen,
   Biegung innen (Aussenfläche bündig mit der Kante; Teil aussen so gross wie das Grundblech) – lässt sich das nicht einstellen, wird nicht gebaut.

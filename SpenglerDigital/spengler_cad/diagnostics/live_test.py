@@ -176,6 +176,12 @@ def _op(typ="flansch", winkel=90.0, laenge=FLANSCH, radius=None, versatz=None):
     return {"typ": typ, "winkel": winkel, "laenge": laenge, "radius": radius, "bezug": None, "lage": None, "versatz": versatz}
 
 
+class _KantenLaenge(object):
+    """Kante nach dem Bau: nur noch die vorher gemessene Länge (Fusion-Kante kann ungültig sein)."""
+    def __init__(self, mm):
+        self.length = mm / 10.0
+
+
 def _flansch_versuch(ctx, **kw):
     """Flansch an der ersten langen Kante; probiert Ober- und Unterseite, merkt sich, was Fusion annimmt."""
     fehler = []
@@ -183,7 +189,8 @@ def _flansch_versuch(ctx, **kw):
         try:
             ctx.seite = seite
             kante = _rand_kanten(ctx)[0]
-            return fa.flansch(kante, **kw), kante, seite
+            laenge = _laenge_mm(kante)              # VOR dem Bau: mit Biegung «innen» ist die Kante danach ungültig
+            return fa.flansch(kante, **kw), _KantenLaenge(laenge), seite
         except Exception as e:
             fehler.append("%s: %s" % (seite, _letzte_zeile(e)))
     raise RuntimeError(" | ".join(fehler))
@@ -359,8 +366,9 @@ def t_flansch(ctx):
 def t_flansch_hinten(ctx):
     vor = _messen(ctx)
     kante = _rand_kanten(ctx)[0]
+    laenge = _laenge_mm(kante)
     fa.flansch(kante, winkel=-90, laenge_mm=FLANSCH)
-    return "Flansch nach hinten (−90°): " + _bewerten(messung.pruefe_flansch(vor, _messen(ctx), -90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kante)))
+    return "Flansch nach hinten (−90°): " + _bewerten(messung.pruefe_flansch(vor, _messen(ctx), -90, FLANSCH, ctx.dicke or 1.0, laenge))
 
 
 def t_flansch_winkel(ctx):
@@ -416,6 +424,7 @@ def t_umschlag_radius(ctx):
 def t_gehrung_flansch(ctx):
     """Zwei Eckkanten gemeinsam (Gehrung) gegen zwei Einzelflansche: Volumen und Flächenzahl verglichen."""
     kanten = _eckkanten(ctx)
+    laenge_summe = _laenge_mm(kanten[0]) + _laenge_mm(kanten[1])       # VOR dem Bau (Biegung «innen» macht die Kanten ungültig)
     vor = _messen(ctx)
     feat = fa.flansch(kanten, winkel=90, laenge_mm=FLANSCH)
     gemeinsam = _messen(ctx)
@@ -447,7 +456,7 @@ def t_gehrung_flansch(ctx):
     t += "; " + txt
     if bew != "ok" and s == "ok":
         s = "fehler" if bew == "fehler" else "warnung"
-    ratio = messung.pruefe_flansch(vor, gemeinsam, 90, FLANSCH, ctx.dicke or 1.0, _laenge_mm(kanten[0]) + _laenge_mm(kanten[1]))
+    ratio = messung.pruefe_flansch(vor, gemeinsam, 90, FLANSCH, ctx.dicke or 1.0, laenge_summe)
     if ratio[0] == "fehler":
         s, t = "fehler", "Gemeinsamer Flansch: " + ratio[1]
     eingabe = fa.LETZTE_FLANSCH_EINGABE.get("isMiteredCorners")

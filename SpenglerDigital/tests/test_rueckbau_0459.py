@@ -229,3 +229,24 @@ class SeitenflaecheNichtStationaer(unittest.TestCase):
         haupt = type("F", (), {"area": 8.0 * 15.7, "edges": [E(8.0), E(15.7)]})()
         self.assertTrue(fa._ist_seitenflaeche(seite, 0.1))
         self.assertFalse(fa._ist_seitenflaeche(haupt, 0.1))
+
+
+class KantenAbbild(unittest.TestCase):
+    def test_abbild_bleibt_nutzbar_wenn_kante_ungueltig_wird(self):
+        """Aussenmass (Biegung innen): Fusion schneidet das Grundblech zurück, die Kante wird ungültig (Live 0.4.62: thisASMEdge)."""
+        fa = _fa()
+
+        class Kante(object):
+            geometry, length = "geom", 3.0
+
+            def __getattribute__(self, n):
+                if n == "entityToken":
+                    raise RuntimeError("2 : InternalValidationError : thisASMEdge")
+                return object.__getattribute__(self, n)
+        k = Kante()
+        a = fa._abbild(k)
+        self.assertEqual((a.geometry, a.length), ("geom", 3.0))
+        self.assertIs(fa._abbild(a), a, "ein Abbild bleibt ein Abbild")
+        with self.assertRaises(RuntimeError):
+            k.entityToken
+        self.assertFalse(hasattr(a, "entityToken"), "das Abbild greift nie auf die Fusion-Kante zu")

@@ -1026,8 +1026,7 @@ class MassUndLageTest(unittest.TestCase):
         """Anwender 6. 11. 2026: Masse sind Aussenmasse → ohne Angabe Höhe aussen, Biegung innen (vorher: Fusion-Standard «ab Kante»)."""
         inp = Eingabe("angle", "heightDatumType", "bendPositionType")
         fa.flansch(kante_mit(Sammlung(inp)), 90, 20)
-        self.assertEqual(inp.werte["heightDatumType"], "H-AUSSEN")
-        self.assertNotIn("bendPositionType", inp.werte, "Lage «innen» zurückgestellt (Live 0.4.62: Kante wird ungültig)")
+        self.assertEqual((inp.werte["heightDatumType"], inp.werte["bendPositionType"]), ("H-AUSSEN", "B-INNEN"))
 
     def test_ohne_einstellmoeglichkeit_kein_bau_ohne_aussenmass(self):
         ff = Sammlung(Eingabe("angle", aussenmass=False))
