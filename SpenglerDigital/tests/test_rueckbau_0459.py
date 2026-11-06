@@ -265,12 +265,17 @@ class AbsturzSchutz(DatenTest):
     def test_marke_absturz_sperre(self):
         from spengler_cad.diagnostics import live_test as lt
         self.assertEqual(lt.absturz_pruefen("0.4.68"), (None, {}), "ohne Marke kein Absturz")
-        lt.marke_setzen("0.4.68", 47, "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen")
+        lt.marke_setzen("0.4.68", 47, "Irgendein Schritt")
         name, sperren = lt.absturz_pruefen("0.4.68")                 # Marke blieb liegen = Fusion beendet
-        self.assertEqual(name, "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen")
+        self.assertEqual(name, "Irgendein Schritt")
         self.assertTrue(lt.gesperrt(name, sperren, "0.4.68"))
         self.assertFalse(lt.gesperrt(name, sperren, "0.4.69"), "neue Version = neuer Versuch")
         self.assertEqual(lt.absturz_pruefen("0.4.68")[0], None, "Marke wurde verbraucht")
         lt.marke_setzen("0.4.68", 1, "x")
         lt.marke_loeschen()                                            # regulär beendet
         self.assertEqual(lt.absturz_pruefen("0.4.68")[0], None)
+
+    def test_machbarkeit_vorsorglich_gesperrt(self):
+        from spengler_cad.diagnostics import live_test as lt
+        n = "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen"
+        self.assertTrue(lt.gesperrt(n, {}, "0.4.68"))
