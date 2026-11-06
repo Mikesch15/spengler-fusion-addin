@@ -257,7 +257,8 @@ class MachbarkeitQuetschfalte(unittest.TestCase):
         fa = _fa()
         self.assertEqual(fa._kreuz3((1, 0, 0), (0, 1, 0)), (0, 0, 1))
         from spengler_cad.diagnostics import live_test_kantenwerkzeug as k
-        self.assertIn("MACHBARKEIT Quetschfalte", " ".join(n for n, _f, _b in k.SCHRITTE))
+        namen = [n for n, _f, _b in k.SCHRITTE if n.startswith("MACHBARKEIT Quetschfalte")]
+        self.assertEqual(len(namen), 4, "vier Stufen, je eigener Schritt mit Absturzmarke")
 
 
 class AbsturzSchutz(DatenTest):
@@ -277,8 +278,8 @@ class AbsturzSchutz(DatenTest):
 
     def test_machbarkeit_vorsorglich_gesperrt(self):
         from spengler_cad.diagnostics import live_test as lt
-        n = "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen"
-        self.assertTrue(lt.gesperrt(n, {}, "0.4.68"))
+        self.assertTrue(lt.gesperrt("MACHBARKEIT Quetschfalte 4/4: Fusion-Abwicklung nach der Platte", {}, "0.4.70"))
+        self.assertFalse(lt.gesperrt("MACHBARKEIT Quetschfalte 3/4: Blechkörper erhalten und gültig", {}, "0.4.70"), "Stufen 1–3 laufen")
 
 
 class FlanschVolumenAussenmass(unittest.TestCase):

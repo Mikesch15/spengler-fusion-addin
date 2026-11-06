@@ -2771,10 +2771,12 @@ def _native_abwicklung_absichern(comp, body, rb):
         m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
 
 
-def platte_anfuegen_probe(body, schenkel_mm=5.0):
+def platte_anfuegen_probe(body, schenkel_mm=5.0, stufe=3):
     """MACHBARKEIT Quetschfalte (Anwender 6. 11. 2026: das Blechteil selbst verändern): eine dreieckige Platte der Blechdicke flach auf die Aussenfläche der
     Aufkantung legen (wie eine gequetschte Falte) und mit dem Körper vereinigen. Prüft danach: ein Körper, Blechkörper erhalten, Körper gültig, und
-    versucht Fusions Abwicklung. → (ok, Text, Abwicklung-Text). Arbeitet NUR in einem Testdokument (die Abwicklung wird nicht entfernt). NICHT live geprüft."""
+    versucht Fusions Abwicklung. → (ok, Text, Abwicklung-Text). Arbeitet NUR in einem Testdokument (die Abwicklung wird nicht entfernt).
+    STUFEN (Fusion stürzte im Live-Test 0.4.67 ab – jede Stufe ist ein eigener Live-Schritt mit Absturzmarke): 1 = Skizze mit Dreieck auf der Aufkantung,
+    2 = + Platte extrudieren und vereinigen, 3 = + Körper gültig, Blechkörper erhalten, 4 = + Fusions Abwicklung. NICHT live geprüft."""
     comp = body.parentComponent
     t = blechdicke_mm(body) or 1.0
     # Aufkantung: ebene Fläche, Normale ⟂ zur Hauptfläche, nicht Stirn-/Seitenfläche, grösste
@@ -2809,18 +2811,26 @@ def platte_anfuegen_probe(body, schenkel_mm=5.0):
         for i in range(3):
             sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
         prof = _profil_waehlen(sk, 0.5 * schenkel_mm * schenkel_mm)
+        if stufe < 2:
+            return True, "Stufe 1: Skizze mit Dreieck %.0f × %.0f mm auf der Aufkantungsfläche gezeichnet, Profil gefunden (noch nichts extrudiert)" % (
+                schenkel_mm, schenkel_mm), ""
         n0 = comp.bRepBodies.count
         vol0 = _comp_volumen(comp) or 0.0
         feat = _extrudieren_geprueft(comp, prof, t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, 0.5 * schenkel_mm * schenkel_mm * t, rb)
         if comp.bRepBodies.count != n0:
             raise AdapterFehler("Die Platte hat sich nicht mit dem Körper vereinigt (%d statt %d Körper)." % (comp.bRepBodies.count, n0))
+        zusatz = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
+        if stufe < 3:
+            return True, "Stufe 2: Platte %.0f × %.0f mm × %.2f mm extrudiert und vereinigt (ein Körper, Volumen %+.2f mm³, Soll %.2f)" % (
+                schenkel_mm, schenkel_mm, t, zusatz, 0.5 * schenkel_mm * schenkel_mm * t), ""
         neu = koerper_neu(getattr(body, "entityToken", None)) or comp.bRepBodies.item(0)
         probleme = koerper_pruefen(neu)
         blech = getattr(neu, "isSheetMetal", None)
-        zusatz = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
         text = "Platte %.0f × %.0f mm × %.2f mm angefügt (Volumen %+.2f mm³), Körper gültig: %s, Blechkörper erhalten: %s" % (
             schenkel_mm, schenkel_mm, t, zusatz, "ja" if not probleme else "NEIN (%s)" % "; ".join(probleme), blech)
         abw = ""
+        if stufe < 4:
+            return (not probleme and bool(blech)), "Stufe 3: " + text, ""
         if blech:
             try:
                 fp, _neu = abwicklung(comp, None, neu)

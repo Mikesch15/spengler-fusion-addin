@@ -155,20 +155,37 @@ def t_eigen_rueckbau(ctx):
     return "\n".join(t)
 
 
-def t_quetschfalte_machbarkeit(ctx):
-    """MACHBARKEIT Quetschfalte (Variante a, Anwender 6. 11. 2026): Aufkantung bauen, dann eine Platte der Blechdicke flach auf die Aufkantung legen und
-    mit dem Teil vereinigen. Beantwortet: bleibt es Fusion-Blech, und wickelt Fusion es noch ab? Das Ergebnis ist eine INFORMATION für den Bau des
-    Werkzeugs – bleibt das Blech erhalten, ist der Schritt ok; sonst Warnung mit dem genauen Grund."""
+def _quetschfalte_stufe(ctx, stufe):
+    """MACHBARKEIT Quetschfalte (Variante a, Anwender 6. 11. 2026) in vier Stufen, jede ein eigener Live-Schritt mit Absturzmarke (Fusion stürzte in
+    0.4.67 im gebündelten Schritt ab). Aufkantung bauen, dann je Stufe: 1 Skizze, 2 Platte anfügen, 3 Blechkörper prüfen, 4 Fusion-Abwicklung."""
     lt = _lt()
     fa.flansch(lt._rand_kanten(ctx, "oben")[0], winkel=90, laenge_mm=lt.FLANSCH)
     body = ctx.root.bRepBodies.item(0)
-    ok, text, abw = fa.platte_anfuegen_probe(body)
-    erg = text + "\n" + (abw or "keine Fusion-Abwicklung versucht (kein Blechkörper mehr)")
-    if not ok:
-        raise lt._Warnung(erg + "\n→ Das Teil bleibt NICHT als Fusion-Blech erhalten: die Quetschfalte braucht dann einen anderen Weg.")
+    ok, text, abw = fa.platte_anfuegen_probe(body, stufe=stufe)
+    if stufe < 4:
+        if not ok:
+            raise lt._Warnung(text + "\n→ Das Teil bleibt NICHT als Fusion-Blech erhalten: die Quetschfalte braucht dann einen anderen Weg.")
+        return text
+    erg = text + "\n" + abw
     if "NICHT möglich" in abw or "Fehler" in abw:
-        raise lt._Warnung(erg + "\n→ Blech erhalten, aber Fusions Abwicklung scheitert: Zuschnitt und DXF kommen vom Add-in (Variante a).")
+        raise lt._Warnung(erg + "\n→ Fusions Abwicklung scheitert: Zuschnitt und DXF kommen vom Add-in (Variante a), «Abwicklung & DXF» darf auf solchen Teilen Fusions Abwicklung nicht benutzen.")
     return erg
+
+
+def t_quetschfalte_1(ctx):
+    return _quetschfalte_stufe(ctx, 1)
+
+
+def t_quetschfalte_2(ctx):
+    return _quetschfalte_stufe(ctx, 2)
+
+
+def t_quetschfalte_3(ctx):
+    return _quetschfalte_stufe(ctx, 3)
+
+
+def t_quetschfalte_4(ctx):
+    return _quetschfalte_stufe(ctx, 4)
 
 
 SCHRITTE = [
@@ -178,5 +195,8 @@ SCHRITTE = [
     ("KANTENWERKZEUG eigen: Prototyp 2 Zylindersegment + Aufkantung, eigene Abwicklung, DXF", t_prototyp2, False),
     ("KANTENWERKZEUG eigen: Negativ- und Grenzfälle", t_eigen_negativ, True),
     ("KANTENWERKZEUG eigen: Rückbau", t_eigen_rueckbau, True),
-    ("MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen", t_quetschfalte_machbarkeit, True),
+    ("MACHBARKEIT Quetschfalte 1/4: Skizze auf der Aufkantung", t_quetschfalte_1, True),
+    ("MACHBARKEIT Quetschfalte 2/4: Platte anfügen (Extrusion, Vereinigung)", t_quetschfalte_2, True),
+    ("MACHBARKEIT Quetschfalte 3/4: Blechkörper erhalten und gültig", t_quetschfalte_3, True),
+    ("MACHBARKEIT Quetschfalte 4/4: Fusion-Abwicklung nach der Platte", t_quetschfalte_4, True),
 ]

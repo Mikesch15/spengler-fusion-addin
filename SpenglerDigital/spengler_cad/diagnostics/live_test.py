@@ -727,7 +727,9 @@ def absturz_pruefen(version):
 
 # Vorsorglich gesperrt: Fusion stürzte im Live-Test 0.4.67 ab, vermutlich in diesem neuen Schritt (der einzige neue). Wird erst wieder freigegeben, wenn
 # die Absturzursache geklärt ist.
-VORSORGLICH_GESPERRT = {"MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen": "Absturz von Fusion im Live-Test 0.4.67 (Ursache in Klärung)"}
+VORSORGLICH_GESPERRT = {"MACHBARKEIT Quetschfalte 4/4: Fusion-Abwicklung nach der Platte":
+                        "Fusion stürzte im gebündelten Machbarkeitstest 0.4.67 ab; die Stufen 1–3 laufen, diese Stufe (Fusion-Abwicklung an der Platte) "
+                        "bleibt gesperrt, bis die Ursache geklärt ist – für Variante a nicht nötig (Zuschnitt/DXF vom Add-in)"}
 
 
 def gesperrt(name, sperren, version):
