@@ -75,3 +75,25 @@ class Eingaben(unittest.TestCase):
         self.assertIn("<svg", s)
         self.assertIn("#c0392b", s, "Faltlinie der Quetschfalte rot")
         self.assertIn("Überschuss ψ 90.0°", s)
+
+
+class EckeInDxf(unittest.TestCase):
+    def test_ecke_neben_abwicklung(self):
+        import os, tempfile
+        from spengler_cad.manufacturing import dxf_writer, quetschfalte_dxf as qd
+        d = dxf_writer.Dxf()
+        d.rechteck(0, 0, 100, 60, "0")
+        pfad = os.path.join(tempfile.mkdtemp(), "a.dxf")
+        d.speichern(pfad)
+        z = q.zuschnitt(90.0, 40.0)
+        ok, text = qd.ecke_anhaengen(pfad, z)
+        self.assertTrue(ok, text)
+        inhalt = open(pfad, encoding="utf-8").read()
+        self.assertIn("BIEGUNG_QUETSCHFALTE", inhalt)
+        self.assertTrue(inhalt.rstrip().endswith("EOF"))
+        self.assertEqual(inhalt.count("ENDSEC"), d.inhalt().count("ENDSEC"))
+
+    def test_unlesbare_datei(self):
+        from spengler_cad.manufacturing import quetschfalte_dxf as qd
+        ok, _ = qd.ecke_anhaengen("/nichtda/x.dxf", q.zuschnitt(90.0, 40.0))
+        self.assertFalse(ok)

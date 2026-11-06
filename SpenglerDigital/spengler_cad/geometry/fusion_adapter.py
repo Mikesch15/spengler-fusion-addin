@@ -3331,7 +3331,7 @@ def quetschfalte_bauen(a):
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
         a["hinweise_bau"] = hinweise + ["Falte und Ecke liegen in der eigenen Komponente «Quetschfalte»; das Blech ist unverändert (Fusions Abwicklung funktioniert)"]
-        daten = json.dumps({"beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
+        daten = json.dumps({"phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
                             "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]], "abstand_lagen_mm": g,
                             "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}})
         try:
@@ -3712,7 +3712,32 @@ def dxf_abwicklung(fp, dateipfad):
         raise AdapterFehler("Der DXF-Export ist fehlgeschlagen (Fusion: %s): %s" % ((str(e).strip().splitlines() or ["?"])[-1], dateipfad))
     if not ok or not os.path.exists(dateipfad) or os.path.getsize(dateipfad) == 0:
         raise AdapterFehler("Fusion hat die DXF-Datei nicht erzeugt: %s" % dateipfad)
+    _quetschfalte_in_dxf(fp, dateipfad)
     return dateipfad
+
+
+LETZTE_DXF_HINWEIS = ""
+
+
+def _quetschfalte_in_dxf(fp, dateipfad):
+    """Hat das Blech eine Quetschfalte (eigene Komponente), den Ecken-Zuschnitt neben die Abwicklung in die DXF setzen. Nie Ausnahme. Nicht live geprüft."""
+    global LETZTE_DXF_HINWEIS
+    LETZTE_DXF_HINWEIS = ""
+    try:
+        comp = fp.parentComponent
+        for i in range(comp.bRepBodies.count):
+            d = quetschfalte_getrennt_attribut(comp.bRepBodies.item(i))
+            if not d:
+                continue
+            from ..core import quetschfalte as qf
+            from ..manufacturing import quetschfalte_dxf as qd
+            z = qf.zuschnitt(d["beta"], d["h1"], d.get("phi1", 90.0), d.get("phi2", 90.0))
+            ok, text = qd.ecke_anhaengen(dateipfad, z)
+            LETZTE_DXF_HINWEIS = text if ok else "Quetschfalte NICHT in der DXF: " + text
+            logger.info("Quetschfalte in DXF", ok=ok, text=text)
+            return
+    except Exception as e:
+        LETZTE_DXF_HINWEIS = "Quetschfalte NICHT in der DXF (%s)" % e
 
 
 # ------------------------------------------------------------------ Rundblech als Drehkörper

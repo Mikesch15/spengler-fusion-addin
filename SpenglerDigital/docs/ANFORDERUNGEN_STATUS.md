@@ -1,6 +1,11 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.79)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.80)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.80 – Quetschfalte in der DXF-Abwicklung (Anwender nach Live 0.4.79: «Abwicklung funktioniert, zeigt die Quetschfalte nicht an», Falte besteht aus vielen Einzelteilen):**
+  Fusions Abwicklung kennt die Falte (eigene Komponente) nicht. `dxf_abwicklung` setzt jetzt den Ecken-Zuschnitt (Layer AUSSCHNITT/BIEGUNG_*) RECHTS NEBEN die
+  Abwicklung in dieselbe DXF (`quetschfalte_dxf.ecke_anhaengen`, Daten aus dem Merkzeichen am Blech). Bewusst NICHT in die Blechkontur eingerechnet (Stufe 2b offen:
+  Lage in der Abwicklung, Biegezugaben). Die Fusion-Abwicklung selbst (Fläche) zeigt die Falte weiterhin nicht. Offen: weniger Einzelteile (Körper zusammenfassen). Nicht live geprüft.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
