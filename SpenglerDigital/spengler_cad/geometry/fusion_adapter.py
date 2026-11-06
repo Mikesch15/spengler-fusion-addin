@@ -2754,6 +2754,74 @@ def _native_abwicklung_absichern(comp, body, rb):
         m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr))
 
 
+def platte_anfuegen_probe(body, schenkel_mm=5.0):
+    """MACHBARKEIT Quetschfalte (Anwender 6. 11. 2026: das Blechteil selbst verändern): eine dreieckige Platte der Blechdicke flach auf die Aussenfläche der
+    Aufkantung legen (wie eine gequetschte Falte) und mit dem Körper vereinigen. Prüft danach: ein Körper, Blechkörper erhalten, Körper gültig, und
+    versucht Fusions Abwicklung. → (ok, Text, Abwicklung-Text). Arbeitet NUR in einem Testdokument (die Abwicklung wird nicht entfernt). NICHT live geprüft."""
+    comp = body.parentComponent
+    t = blechdicke_mm(body) or 1.0
+    # Aufkantung: ebene Fläche, Normale ⟂ zur Hauptfläche, nicht Stirn-/Seitenfläche, grösste
+    haupt = stationaere_flaeche_waehlen(body)
+    if haupt is None:
+        raise AdapterFehler("Keine ebene Hauptfläche gefunden – Machbarkeitstest nicht möglich.")
+    nh = tuple(flaechennormale(haupt))
+    kandidaten = []
+    for f in body.faces:
+        try:
+            if not isinstance(f.geometry, adsk.core.Plane) or _ist_seitenflaeche(f, t / 10.0):
+                continue
+            n = tuple(flaechennormale(f))
+            if abs(_skal(n, nh)) < 0.05:
+                kandidaten.append((f.area, f, n))
+        except Exception:
+            continue
+    if not kandidaten:
+        raise AdapterFehler("Keine Aufkantungsfläche gefunden – zuerst eine Aufkantung bauen.")
+    kandidaten.sort(key=lambda x: -x[0])
+    _a, flaeche, n = kandidaten[0]
+    p = _v(flaeche.pointOnFace)
+    # Achsen in der Fläche: v = Richtung der Hauptflächen-Normale (Aufkantung steht senkrecht dazu), u = n × v
+    v = _einheit(nh)
+    u = _einheit(_kreuz3(n, v))
+    z = schenkel_mm / 10.0
+    pts = [p, tuple(p[i] + z * u[i] for i in range(3)), tuple(p[i] + z * v[i] for i in range(3))]
+    rb = Rueckbau("Machbarkeit Quetschfalte")
+    try:
+        sk = rb.merke(comp.sketches.add(flaeche))
+        P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*q)) for q in pts]
+        for i in range(3):
+            sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
+        prof = _profil_waehlen(sk, 0.5 * schenkel_mm * schenkel_mm)
+        n0 = comp.bRepBodies.count
+        vol0 = _comp_volumen(comp) or 0.0
+        feat = _extrudieren_geprueft(comp, prof, t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, 0.5 * schenkel_mm * schenkel_mm * t, rb)
+        if comp.bRepBodies.count != n0:
+            raise AdapterFehler("Die Platte hat sich nicht mit dem Körper vereinigt (%d statt %d Körper)." % (comp.bRepBodies.count, n0))
+        neu = koerper_neu(getattr(body, "entityToken", None)) or comp.bRepBodies.item(0)
+        probleme = koerper_pruefen(neu)
+        blech = getattr(neu, "isSheetMetal", None)
+        zusatz = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
+        text = "Platte %.0f × %.0f mm × %.2f mm angefügt (Volumen %+.2f mm³), Körper gültig: %s, Blechkörper erhalten: %s" % (
+            schenkel_mm, schenkel_mm, t, zusatz, "ja" if not probleme else "NEIN (%s)" % "; ".join(probleme), blech)
+        abw = ""
+        if blech:
+            try:
+                fp, _neu = abwicklung(comp, None, neu)
+                m = abwicklung_masse(fp)
+                abw = "Fusion-Abwicklung nach der Platte: %.2f × %.2f mm" % (m["breite"], m["laenge"])
+            except AdapterFehler as e:
+                abw = "Fusion-Abwicklung nach der Platte NICHT möglich: %s" % str(e).splitlines()[0][:200]
+            except Exception as e:
+                abw = "Fusion-Abwicklung nach der Platte Fehler: %s" % (str(e).strip().splitlines() or ["?"])[-1][:200]
+        return (not probleme and bool(blech)), text, abw
+    except Exception as e:
+        rb.abbrechen(e)
+
+
+def _kreuz3(a, b):
+    return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
+
+
 def eigene_abwicklung(body):
     """Eigene 2D-Abwicklung eines Profilteils (unabhängig von Fusion Flat Pattern) mit Rückvergleich gegen den 3D-Körper.
     → (zuschnitt für dxf_writer.elemente_dxf, Rückvergleich). Ohne gespeichertes Profil: AdapterFehler («nicht unterstützt»). NICHT live geprüft."""

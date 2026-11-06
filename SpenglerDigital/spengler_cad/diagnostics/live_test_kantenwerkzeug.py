@@ -155,6 +155,22 @@ def t_eigen_rueckbau(ctx):
     return "\n".join(t)
 
 
+def t_quetschfalte_machbarkeit(ctx):
+    """MACHBARKEIT Quetschfalte (Variante a, Anwender 6. 11. 2026): Aufkantung bauen, dann eine Platte der Blechdicke flach auf die Aufkantung legen und
+    mit dem Teil vereinigen. Beantwortet: bleibt es Fusion-Blech, und wickelt Fusion es noch ab? Das Ergebnis ist eine INFORMATION für den Bau des
+    Werkzeugs – bleibt das Blech erhalten, ist der Schritt ok; sonst Warnung mit dem genauen Grund."""
+    lt = _lt()
+    fa.flansch(lt._rand_kanten(ctx, "oben")[0], winkel=90, laenge_mm=lt.FLANSCH)
+    body = ctx.root.bRepBodies.item(0)
+    ok, text, abw = fa.platte_anfuegen_probe(body)
+    erg = text + "\n" + (abw or "keine Fusion-Abwicklung versucht (kein Blechkörper mehr)")
+    if not ok:
+        raise lt._Warnung(erg + "\n→ Das Teil bleibt NICHT als Fusion-Blech erhalten: die Quetschfalte braucht dann einen anderen Weg.")
+    if "NICHT möglich" in abw or "Fehler" in abw:
+        raise lt._Warnung(erg + "\n→ Blech erhalten, aber Fusions Abwicklung scheitert: Zuschnitt und DXF kommen vom Add-in (Variante a).")
+    return erg
+
+
 SCHRITTE = [
     ("KANTENWERKZEUG eigen: Aufkantung (Regression eben)", t_eigen_aufkantung, True),
     ("KANTENWERKZEUG eigen: Aufkantung + Einfachfalz", t_eigen_einfachfalz, True),
@@ -162,4 +178,5 @@ SCHRITTE = [
     ("KANTENWERKZEUG eigen: Prototyp 2 Zylindersegment + Aufkantung, eigene Abwicklung, DXF", t_prototyp2, False),
     ("KANTENWERKZEUG eigen: Negativ- und Grenzfälle", t_eigen_negativ, True),
     ("KANTENWERKZEUG eigen: Rückbau", t_eigen_rueckbau, True),
+    ("MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen", t_quetschfalte_machbarkeit, True),
 ]

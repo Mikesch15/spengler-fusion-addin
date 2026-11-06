@@ -250,3 +250,11 @@ class KantenAbbild(unittest.TestCase):
         with self.assertRaises(RuntimeError):
             k.entityToken
         self.assertFalse(hasattr(a, "entityToken"), "das Abbild greift nie auf die Fusion-Kante zu")
+
+
+class MachbarkeitQuetschfalte(unittest.TestCase):
+    def test_kreuzprodukt_und_schritt_vorhanden(self):
+        fa = _fa()
+        self.assertEqual(fa._kreuz3((1, 0, 0), (0, 1, 0)), (0, 0, 1))
+        from spengler_cad.diagnostics import live_test_kantenwerkzeug as k
+        self.assertIn("MACHBARKEIT Quetschfalte", " ".join(n for n, _f, _b in k.SCHRITTE))
