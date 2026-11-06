@@ -279,3 +279,16 @@ class AbsturzSchutz(DatenTest):
         from spengler_cad.diagnostics import live_test as lt
         n = "MACHBARKEIT Quetschfalte: Platte an die Aufkantung anfügen"
         self.assertTrue(lt.gesperrt(n, {}, "0.4.68"))
+
+
+class FlanschVolumenAussenmass(unittest.TestCase):
+    """Live 0.4.68: 135°-Flansch Höhe 15 → Volumen 59 %, Winkelfalz 135°/10 → 36 % von «Länge × Höhe × Dicke» (Biegung innen schneidet den Fuss zurück)."""
+    def test_verhaeltnisse_wie_live_gemessen(self):
+        from spengler_cad.core import bend_geometry as bg
+        r = lambda h, w: bg.flansch_volumen_pro_laenge(h, w, 1.0, 1.0) / (1.0 * h)
+        self.assertAlmostEqual(r(15.0, 135.0), 0.59, delta=0.02)       # live 59 %
+        self.assertAlmostEqual(r(10.0, 135.0), 0.37, delta=0.02)       # live 36 % (557 / 1566)
+        self.assertAlmostEqual(r(20.0, 90.0), 0.92, delta=0.02)        # 90° nahe 1
+        self.assertAlmostEqual(r(15.0, 45.0), 0.97, delta=0.03)        # live 45°: 97 %
+        self.assertGreater(bg.flansch_volumen_pro_laenge(10.0, 135.0, 1.0, 1.0, aussenmass=False),
+                           bg.flansch_volumen_pro_laenge(10.0, 135.0, 1.0, 1.0), "«ab Kante»: Grundblech bleibt, mehr Zuwachs")

@@ -114,11 +114,13 @@ class RadiusGehrungAbwicklung(unittest.TestCase):
         self.assertAlmostEqual(m.soll_breite_fusion(60.0, 40.0, 1.0, 20.0, 0.44), 111.107, places=2)
         # Aussenmass (Standard ab 0.4.62): Biegung innen → Grundblech um ri + t kürzer
         self.assertAlmostEqual(m.soll_breite_aussenmass(60.0, 40.0, 1.0, 20.0, 0.44), 90.107, places=2)
-        s, t = m.pruefe_abwicklung(111.1, 100.0, 100.0, 60.0, 40.0, 1.0, 20.0, 0.44)
-        self.assertEqual(s, "ok", t)
-        s, t = m.pruefe_abwicklung(100.0, 80.26, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)
-        self.assertEqual(s, "ok", t)
-        self.assertEqual(m.pruefe_abwicklung(100.0, 78.6, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)[0], "warnung")
+        # LIVE BELEGT 0.4.68 (Fusion 2706.1.17, Aussenmass: Biegung innen, Höhe aussen) – Abwicklungen aus dem Live-Test:
+        for breite, laenge, basis, h, ri, anzahl in ((78.26, 100.0, 60.0, 20.0, 1.0, 1),       # L-Blech: Flansch 20
+                                                     (96.52, 100.0, 60.0, 20.0, 1.0, 2),       # zwei Biegungen
+                                                     (90.11, 100.0, 60.0, 40.0, 20.0, 1)):     # gerolltes Blech R20, Flansch 40
+            s, t = m.pruefe_abwicklung(breite, laenge, 100.0, basis, h, 1.0, ri, 0.44, flansche=anzahl)
+            self.assertEqual(s, "ok", t)
+        self.assertEqual(m.pruefe_abwicklung(100.0, 80.26, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)[0], "warnung", "alte «ab Kante»-Erwartung")
         self.assertEqual(m.pruefe_abwicklung(100.0, 60.0, 100.0, 60.0, 20.0, 1.0)[0], "fehler", "Flansch fehlt in der Abwicklung")
 
     def test_text(self):

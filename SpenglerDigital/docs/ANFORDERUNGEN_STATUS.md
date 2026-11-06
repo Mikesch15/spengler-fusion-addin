@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.66)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.69)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,14 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.66)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.69)
+
+- **AUSSENMASS live BESTÄTIGT (Live 0.4.68, Fusion 2706.1.17):** Flansche mit Biegung innen und Kantenabbild bauen; die Abwicklungen aus Fusion
+  stimmen exakt mit der Aussenmass-Rechnung (L-Blech 78.26, zwei Biegungen 96.52, gerolltes Blech R20 90.11 mm). Offen/behoben in 0.4.69: Volumenkontrolle
+  der Gehrung und des Flansch-Messschritts rechnet jetzt NETTO nach Aussenmass (`flansch_volumen_pro_laenge`; Biegung innen schneidet den Flanschfuss
+  zurück – Winkelfalz 135° lieferte 36 % von L × h × t, Formel 37 %); Abwicklungs-Erwartung wieder nach Aussenmass. Zylinder-Versatz: neue Kante
+  weiterhin nicht gefunden, Diagnose mit Abstand je Drehrichtung ergänzt. Machbarkeitstest Quetschfalte: vorsorglich GESPERRT (Fusion-Absturz 0.4.67).
+  Offen: Rückschnitt des Grundblechs bei der eigenen Geometrie.
 
 - **0.4.66 – Aussenmass erneut (Biegung innen):** Zugriffe auf die Kante NACH dem Bau laufen über ein Abbild, das VOR dem Bau gemacht wird
   (`_abbild`; Einzelkante, Gruppe mit Gehrung, Live-Test). Lage «innen» ist wieder Standard. Live 0.4.65: Flansch 90° Höhe 20.0 mm, Grundriss +2.0 mm

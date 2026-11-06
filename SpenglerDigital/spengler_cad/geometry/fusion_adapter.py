@@ -1124,6 +1124,7 @@ def versatz_zylinder(edge, versatz_mm, dicke_mm):
         # neue Kante: Mantellinie, um ±Δφ um die Achse gedreht (die Seite, auf der das Material jetzt endet)
         mitte = _plus(p0, p1, 0.5, 0.5)
         kandidaten = []
+        naechste = []            # Diagnose: kleinster Abstand je Drehrichtung (mm) – Live 0.4.68: «neue Mantelkante nicht gefunden» ohne Angabe, wie weit daneben
         for sgn in (1.0, -1.0):
             winkel = sgn * gedreht
             wm = _plus(mitte, o, 1.0, -1.0)
@@ -1139,14 +1140,22 @@ def versatz_zylinder(edge, versatz_mm, dicke_mm):
                     if abs(abs(_skal(_v(dk), a)) - 1.0) > 1e-4:
                         continue
                     wq = _plus(ziel, _v(q0), 1.0, -1.0)
-                    if math.sqrt(_skal(_ohne_komponente(wq, _v(dk)), _ohne_komponente(wq, _v(dk)))) < 0.005:
+                    abst = math.sqrt(_skal(_ohne_komponente(wq, _v(dk)), _ohne_komponente(wq, _v(dk))))
+                    naechste.append((abst * 10.0, sgn))
+                    if abst < 0.02:                  # 0.2 mm (vorher 0.05 mm)
                         kandidaten.append(k)
                 except Exception:
                     continue
             if kandidaten:
                 break
         if len(kandidaten) < 1:
-            raise AdapterFehler("Zylinder-Versatz: neue Mantelkante nicht gefunden.")
+            best = {}
+            for d_, s_ in naechste:
+                best[s_] = min(d_, best.get(s_, 1e9))
+            raise AdapterFehler("Zylinder-Versatz: neue Mantelkante nicht gefunden (kleinster Abstand zur erwarteten Lage: Drehrichtung + %s mm, − %s mm; "
+                                "gedreht %.4f°, %d achsparallele Kanten geprüft)." % (
+                                    "%.3f" % best[1.0] if 1.0 in best else "keine Kante", "%.3f" % best[-1.0] if -1.0 in best else "keine Kante",
+                                    math.degrees(gedreht), len(naechste)))
         logger.info("Zylinder-Versatz (Prototyp)", versatz_mm=versatz_mm, dphi_grad=math.degrees(dphi), radius_mm=R * 10)
         return list(rb.objekte), kandidaten[0]
     except Exception as e:
@@ -1621,7 +1630,7 @@ def gruppe_pruefen(kanten):
     return None
 
 
-def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, dicke_mm):
+def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, dicke_mm, winkel_grad=90.0, ri_mm=None, lage=None):
     """Gemeinsamer Flansch nach dem Bauen: Fusion meldet Gehrung (isMiteredCorners, falls lesbar), gültige Körper, kein zusätzlicher Körper,
     Volumenzuwachs passt zu Σ Kantenlänge × Höhe × Dicke (fehlender Flansch, Spalt/Überlappung grösseren Umfangs). Feine Spalte an der Ecke kann
     diese Prüfung NICHT erkennen. → Liste der Probleme. Nicht live geprüft."""
@@ -1632,8 +1641,16 @@ def gehrung_kontrolle(feat, comp, vol0, koerper_vorher, laengen_cm, hoehe_mm, di
     except Exception:
         pass
     probleme += _koerper_kontrolle(comp, koerper_vorher)
-    return probleme + _volumen_kontrolle(comp, vol0, sum(laengen_cm) * (hoehe_mm / 10.0) * (dicke_mm / 10.0), 0.6, 1.5,
-                                         "Flansch fehlt, Spalt oder Überlappung?")
+    # Erwartetes Volumen NETTO nach Aussenmass (Biegung innen schneidet das Grundblech am Flanschfuss zurück) – Live 0.4.68: Winkelfalz 135°
+    # lieferte 36 % von «Länge × Höhe × Dicke», die Geometrie war in Ordnung. Ri aus der Blechregel, wenn die Vorlage keinen Radius vorgibt.
+    from ..core import bend_geometry as bg
+    ri = ri_mm
+    if ri is None:
+        ri = regel_werte(comp)[0]
+    if ri is None:
+        ri = dicke_mm
+    pro_mm = bg.flansch_volumen_pro_laenge(hoehe_mm, winkel_grad, dicke_mm, ri, aussenmass=(lage in (None, "innen")))
+    return probleme + _volumen_kontrolle(comp, vol0, sum(laengen_cm) * pro_mm / 100.0, 0.6, 1.5, "Flansch fehlt, Spalt oder Überlappung?")
 
 
 def kante_entlang_pruefen(alt_rahmen, neue_kante, hoehe_mm, dicke_mm, ri_mm=None, n=5):
@@ -1830,7 +1847,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
         feat = flansch(list(edges), op["winkel"], op["laenge"], op.get("radius"), op["winkel"] < 0, op.get("bezug"), op.get("lage"))
         erzeugt.append(feat)
         phase = "Kontrolle des gemeinsamen Flansches"
-        schlecht = gehrung_kontrolle(feat, comp, vol0, n0, laengen, op["laenge"], t)
+        schlecht = gehrung_kontrolle(feat, comp, vol0, n0, laengen, op["laenge"], t, op["winkel"], op.get("radius"), op.get("lage"))
         if schlecht:
             raise AdapterFehler("Fusion hat den gemeinsamen Flansch gebaut, die Kontrolle schlägt aber fehl: " + "; ".join(schlecht))
         if len(edges) == 2:
@@ -1885,7 +1902,7 @@ def folge_anbringen_gruppe(edges, ops, dicke_mm, markierung, hinweise=None):
                         raise AdapterFehler("Die Richtung von Schritt %d weicht von der Vorlage ab." % i)
                     hinweise.append("Schritt %d: Richtung automatisch umgekehrt (Fusion-Standard wich von der Vorlage ab)." % i)
             if o["typ"] == "flansch" and len(feats) == 1:
-                schlecht = gehrung_kontrolle(feats[0], comp, vol0, n0, laengen, o["laenge"], t)
+                schlecht = gehrung_kontrolle(feats[0], comp, vol0, n0, laengen, o["laenge"], t, o["winkel"], o.get("radius"), o.get("lage"))
                 if schlecht:
                     raise AdapterFehler("Schritt %d: Kontrolle des gemeinsamen Flansches schlägt fehl: %s" % (i, "; ".join(schlecht)))
             else:

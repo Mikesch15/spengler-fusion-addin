@@ -160,6 +160,17 @@ def profil_aus_operationen(basis_mm, ops, t, versatz_zeigen=False):
     return prof
 
 
+def flansch_volumen_pro_laenge(hoehe, winkel, t, ri, aussenmass=True):
+    """Netto-Volumenzuwachs eines Kantenflanschs je mm Kantenlänge (mm²) – Aussenmass (Höhe aussen, Biegung INNEN; live belegt 0.4.68: Abwicklungen =
+    Aussenmass-Rechnung): Biegebogen (α·(ri + t/2)·t) + gerader Teil (h − rv) − Rückschnitt des Grundblechs (rv), rv = (ri + t)·tan(α/2).
+    aussenmass=False (Lage «ab Kante» in der Vorlage): Grundblech bleibt, Zuwachs = Bogen + (h − rv). Immer ≥ 0."""
+    a = math.radians(abs(float(winkel)))
+    rv = (ri + t) * math.tan(a / 2.0) if abs(winkel) < 175 else (ri + t)
+    bogen = a * (ri + t / 2.0)
+    netto = bogen + hoehe - rv - (rv if aussenmass else 0.0)
+    return max(netto, 0.0) * t
+
+
 def zugabe_abwicklung(ops, t, ri, k, basis_mm=100.0):
     """Theoretische Abwicklungslänge, die die Operationen an der Kante zusätzlich brauchen (mm, Blechmitte)."""
     res = berechne(0.0, profil_aus_operationen(basis_mm, ops, t), t, ri, k)
