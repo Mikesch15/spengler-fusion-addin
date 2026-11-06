@@ -16,7 +16,7 @@ Z = {"aktiv": time.time(), "stop": None, "laeuft": False}
 def _einstellung(schluessel):
     from ..storage.settings_service import Einstellungen
     try:
-        return Einstellungen().laden().get("cloud", {}).get(schluessel, True) is not False
+        return Einstellungen().laden().get("cloud", {}).get(schluessel, False) is True      # nur wenn ausdrücklich eingeschaltet
     except Exception:
         return False
 
@@ -73,13 +73,13 @@ def _schleife(stop):
     if stop.wait(45):                              # Fusion erst fertig starten lassen
         return
     try:
-        if _einstellung("livetestNachUpdate") and al.noetig_nach_update() and _cloud().angemeldet:
+        if _einstellung("livetestAutoNachUpdate") and al.noetig_nach_update() and _cloud().angemeldet:
             app.fireCustomEvent(EREIGNIS, "update")
     except Exception:
         logger.ausnahme("Automatischer Live-Test (nach Update)")
     while not stop.wait(al.ABFRAGE_S):
         try:
-            if Z["laeuft"] or not _einstellung("livetestFern"):
+            if Z["laeuft"] or not _einstellung("livetestAutoFern"):
                 continue
             c = _cloud()
             # nur Zeit prüfen – der aktive Befehl ist eine Fusion-API-Abfrage und wird im Hauptthread (_ausloesen) geprüft

@@ -205,7 +205,7 @@ def standard_einstellungen():
         "order": {"objekt": "", "auftrag": "", "jahr": None},   # zuletzt verwendete Angaben für Stückliste/Etiketten
         "projectLibraryFolder": "",
         "cloud": {"syncOnStart": True, "updateCheckOnStart": True,    # Spengler-Digital-App (nur wenn angemeldet)
-                  "livetestNachUpdate": True, "livetestFern": True},  # automatischer Live-Test (diagnostics/auto_livetest)
+                  "livetestAutoNachUpdate": False, "livetestAutoFern": False},  # automatischer Live-Test – ab Werk AUS (Anwender 6. 11. 2026: von Hand)
         # Kantenwerkzeug: Bauweise (nativ = Fusion-Blech, eigen = Profilgeometrie). Prototypen lassen sich hier NICHT freigeben (core/experimentell).
         "geometrie": {"bauweise": "nativ"},
     }

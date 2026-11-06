@@ -28,7 +28,8 @@ class AutoLivetest(unittest.TestCase):
         self.assertEqual((z["test_id"], z["status"]), ("97.900", "ok"))
         self.assertIn("40 ok", z["notiz"])
 
-    def test_einstellungen_standard_an(self):
+    def test_einstellungen_standard_aus(self):
+        """Anwender 6. 11. 2026: Live-Test lieber von Hand – automatisch nur, wenn ausdrücklich eingeschaltet."""
         from spengler_cad.core import models
         import inspect
-        self.assertIn('"livetestNachUpdate": True, "livetestFern": True', inspect.getsource(models))
+        self.assertIn('"livetestAutoNachUpdate": False, "livetestAutoFern": False', inspect.getsource(models))

@@ -49,7 +49,7 @@ async function zeigeKonto() {
   $("kAngemeldet").style.display = k.angemeldet ? "block" : "none";
   const c = Z.einstellungen.cloud || {};
   $("kSyncStart").checked = c.syncOnStart !== false; $("kUpdStart").checked = c.updateCheckOnStart !== false;
-  $("kLtUpdate").checked = c.livetestNachUpdate !== false; $("kLtFern").checked = c.livetestFern !== false;
+  $("kLtUpdate").checked = c.livetestAutoNachUpdate === true; $("kLtFern").checked = c.livetestAutoFern === true;
   if (!k.angemeldet) { $("syncStatus").textContent = "nur lokal (nicht angemeldet)"; return; }
   const ko = k.konto;
   $("kWer").innerHTML = `Angemeldet als <b>${esc(ko.name || ko.benutzer)}</b> (${esc(ko.rolle)}) · Firma <b>${esc(ko.firma || "–")}</b>`;
@@ -81,7 +81,7 @@ $("kAbgleich").onclick = async () => {
   if (r) { await laden(); meldung(r.text, r.fehler.length || r.konflikte.length ? "fehler" : "ok"); }
 };
 $("kUpdate").onclick = async () => { const r = await tun(() => senden("update_installieren")); if (r) meldung(r, "ok"); };
-for (const [id, k] of [["kSyncStart", "syncOnStart"], ["kUpdStart", "updateCheckOnStart"], ["kLtUpdate", "livetestNachUpdate"], ["kLtFern", "livetestFern"]]) {
+for (const [id, k] of [["kSyncStart", "syncOnStart"], ["kUpdStart", "updateCheckOnStart"], ["kLtUpdate", "livetestAutoNachUpdate"], ["kLtFern", "livetestAutoFern"]]) {
   $(id).addEventListener("change", async () => {
     Z.einstellungen.cloud = Object.assign(Z.einstellungen.cloud || {}, { [k]: $(id).checked });
     await tun(() => senden("einstellungen_speichern", { einstellungen: Z.einstellungen }), "Gespeichert.");
