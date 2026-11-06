@@ -23,6 +23,9 @@ def _rueckversatz(op, t, ri_std):
         return 0.0
     if op.get("modus") == "hem" or abs(op["winkel"]) >= 175:
         return rm + t / 2.0
+    if op.get("mass") == "aussen":
+        # Aussenmass (Anwender 6. 11. 2026: «unsere Masse sind immer Aussenmasse»): Schenkel bis zur ÄUSSEREN virtuellen Kante gemessen
+        return (rm + t / 2.0) * math.tan(math.radians(abs(op["winkel"])) / 2.0)
     return rm * math.tan(math.radians(abs(op["winkel"])) / 2.0)
 
 
@@ -144,6 +147,7 @@ def profil_aus_operationen(basis_mm, ops, t, versatz_zeigen=False):
     """Kantenoperationen (ab der Kante) → Profiloperationen mit einem Basisschenkel davor.
 
     basis_mm: Länge des bestehenden Blechs bis zur (virtuellen) Kante, nur für Rechnung/Zeichnung.
+    Alle Längen sind AUSSENMASSE bis zur äusseren virtuellen Kante (Anwender 6. 11. 2026); Biegungen tragen dafür mass = "aussen".
     """
     prof = [{"typ": "schenkel", "L": float(basis_mm)}]
     for op in ops:
@@ -151,7 +155,7 @@ def profil_aus_operationen(basis_mm, ops, t, versatz_zeigen=False):
         v = op.get("versatz")
         if versatz_zeigen and isinstance(v, (int, float)) and v:      # nur Darstellung: die Biegung rückt um v nach innen (+) bzw. aussen (−)
             prof[-1]["L"] = max(1.0, prof[-1]["L"] - float(v))
-        prof.append({"typ": "biegung", "winkel": float(op["winkel"]), "ri": op.get("radius"), "modus": modus})
+        prof.append({"typ": "biegung", "winkel": float(op["winkel"]), "ri": op.get("radius"), "modus": modus, "mass": "aussen"})
         prof.append({"typ": "schenkel", "L": float(op["laenge"])})
     return prof
 

@@ -146,7 +146,8 @@ def kanten_profil(ops, t, ri, k, versatz_zeigen=False):
     from ..core.bend_geometry import profil_aus_operationen
     if not ops:
         raise ProfilFehler("Keine Operationen")
-    erste = {"typ": "biegung", "winkel": ops[0]["winkel"], "ri": ops[0].get("radius"), "modus": "hem" if ops[0]["typ"] == "umschlag" else "sharp"}
+    erste = {"typ": "biegung", "winkel": ops[0]["winkel"], "ri": ops[0].get("radius"), "modus": "hem" if ops[0]["typ"] == "umschlag" else "sharp",
+             "mass": "aussen"}                                     # Aussenmass wie profil_aus_operationen
     basis = rueckversatz(erste, t, ri)
     # sichtbares Stück Blech vor der Kante (nur Zeichnung): halbe erste Schenkellänge
     zeichen_basis = basis + max(5.0, 0.5 * float(ops[0]["laenge"]))

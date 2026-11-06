@@ -334,9 +334,23 @@ def _flansch_gemessen(ctx, winkel, hoehe, **kw):
     return feat, (s, "Kante der %sseite: %s" % (seite, t))
 
 
+def _spalt_aus(txt):
+    import re
+    m_ = re.search(r"Eckspalt ([0-9.]+) mm", txt or "")
+    return float(m_.group(1)) if m_ else None
+
+
 def t_flansch(ctx):
+    vor = _messen(ctx)
     feat, erg = _flansch_gemessen(ctx, 90, FLANSCH)
-    return _bewerten(erg)
+    nach = _messen(ctx)
+    # AUSSENMASS (Standard ab 0.4.62): Grundriss bleibt aussen gleich gross (Biegung innen), Gesamthöhe aussen = Flanschhöhe
+    dxy = max(abs(nach["min"][i] - vor["min"][i]) for i in (0, 1)) + max(abs(nach["max"][i] - vor["max"][i]) for i in (0, 1))
+    dz = nach["max"][2] - nach["min"][2]
+    t = "Aussenmass: Grundriss %+.3f mm (Soll 0), Gesamthöhe %.3f mm (Soll %.1f)" % (dxy, dz, FLANSCH)
+    if dxy > 0.05 or abs(dz - FLANSCH) > 0.05:
+        raise _Falsch(t + " – Aussenmass nicht eingehalten (Lage/Höhenbezug)")
+    return _bewerten(erg) + "; " + t
 
 
 def t_flansch_hinten(ctx):
@@ -422,6 +436,11 @@ def t_gehrung_flansch(ctx):
     eck = fa.ecke_daten(_eckkanten(ctx))
     feat2 = fa.flansch(_eckkanten(ctx), winkel=90, laenge_mm=FLANSCH)
     bew, txt = fa.gehrung_eckspalt(feat2, eck, ctx.dicke or 1.0)
+    # Anwender 6. 11. 2026: Ecken mit Spalt sind vorerst zulässig → Stossecke mit gemessenem Spalt ≤ t + 0.5 mm gilt als bestanden
+    if bew == "stoss":
+        spalt = _spalt_aus(txt)
+        if spalt is not None and spalt <= (ctx.dicke or 1.0) + 0.5:
+            bew = "ok"
     t += "; " + txt
     if bew != "ok" and s == "ok":
         s = "fehler" if bew == "fehler" else "warnung"

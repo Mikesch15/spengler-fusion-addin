@@ -106,17 +106,24 @@ def soll_breite_fusion(basis_breite, hoehe, dicke, ri, k, winkel=90.0):
     return basis_breite + (ri + k * dicke) * a + (hoehe - rv)
 
 
+def soll_breite_aussenmass(basis_breite, hoehe, dicke, ri, k, winkel=90.0):
+    """Abwicklungsbreite bei AUSSENMASS (Anwender 6. 11. 2026; Standard ab 0.4.62: Biegung innen, Höhe aussen): das Grundblech ist aussen
+    `basis_breite` breit, die Biegung liegt innerhalb → Grundblech um den äusseren Rückversatz kürzer. = Fusion-Konvention «ab Kante» − (ri + t)·tan(α/2)."""
+    import math
+    return soll_breite_fusion(basis_breite, hoehe, dicke, ri, k, winkel) - (ri + dicke) * math.tan(math.radians(winkel) / 2.0)
+
+
 def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, ri=None, k=0.44, flansche=1):
     """Abwicklung eines Blechs (soll_laenge × basis_breite) mit 90°-Flansch(en) der Höhe `hoehe` an der Längskante gegen die Fusion-Konvention
     (soll_breite_fusion). Früher: Biegung innerhalb des Grundblechs angenommen und ± (2t + 2) mm je Flansch toleriert – das verdeckte bei Ri = t
     rund 2 mm Abweichung (und zeigte sie bei Ri 20 als 20 mm). Toleranz jetzt 0.3 mm je Flansch (K-Faktor der Regel ± 0.1 ≈ ± 0.16 mm)."""
     ri = dicke if ri is None else ri
-    soll_breite = basis_breite + flansche * (soll_breite_fusion(0.0, hoehe, dicke, ri, k))
+    soll_breite = basis_breite + flansche * (soll_breite_aussenmass(0.0, hoehe, dicke, ri, k))
     # Seiten nach der kleineren Abweichung zuordnen (die Abwicklung kann breiter als lang sein: 111.1 × 100 bei Flansch 40 / R 20)
     a_, b_ = (breite, laenge) if abs(breite - soll_laenge) + abs(laenge - soll_breite) < abs(laenge - soll_laenge) + abs(breite - soll_breite) else (laenge, breite)
     gross, klein = a_, b_
     tol = 0.3 * flansche
-    kopf = "Abwicklung %.2f × %.2f mm (erwartet %.2f × %.2f ± %.2f; Fusion-Konvention: Biegung ausserhalb der Kante, Höhe aussen; Ri %.1f, K %.2f)" % (
+    kopf = "Abwicklung %.2f × %.2f mm (erwartet %.2f × %.2f ± %.2f; Aussenmass: Biegung innen, Höhe aussen; Ri %.1f, K %.2f)" % (
         gross, klein, soll_laenge, soll_breite, tol, ri, k)
     if abs(gross - soll_laenge) > 0.2 * soll_laenge or abs(klein - soll_breite) > 0.2 * soll_breite:
         return "fehler", "Die Abwicklung passt nicht zum 3D-Modell: " + kopf

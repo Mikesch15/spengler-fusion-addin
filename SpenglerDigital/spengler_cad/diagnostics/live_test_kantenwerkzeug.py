@@ -124,7 +124,7 @@ def t_eigen_negativ(ctx):
     for was, aktion, erwartet in (
             ("Bogenkante", lambda: fa.eigene_folge(bogen[0], [_flansch()], T, RI, K, {}, [], True), ("Torus", "[d –")),
             ("Selbstschnitt", lambda: fa.eigene_folge(lt._rand_kanten(ctx)[0] if ctx.body else bogen[0],
-                                                       [_flansch(20), _flansch(30, 170, 0.5), _flansch(30, 170, 0.5)], T, RI, K, {}, []), "sich selbst"),
+                                                       [_flansch(20), _flansch(40, 170, 0.5), _flansch(40, 170, 0.5)], T, RI, K, {}, []), "sich selbst"),
             ("Radius 0", lambda: fa.eigene_folge(bogen[0], [_flansch(20, 90, 0.0)], T, RI, K, {}, [], True), None)):
         txt = gk._ohne_reste(ctx, was, aktion)
         if "gebaut" in txt.split(":")[1][:8]:

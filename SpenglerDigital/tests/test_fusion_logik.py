@@ -155,9 +155,10 @@ class AussenkanteTest(unittest.TestCase):
 
 
 class Eingabe(object):
-    """Nachgebautes EdgeFlangeInput/HemFeatureInput: nur die übergebenen Eigenschaften existieren."""
-    def __init__(self, *eigenschaften):
-        object.__setattr__(self, "_erlaubt", set(eigenschaften))
+    """Nachgebautes EdgeFlangeInput/HemFeatureInput: nur die übergebenen Eigenschaften existieren – plus Höhenbezug und Lage (die echte
+    EdgeFlangeInput hat beide, Live-Protokoll 0.4.53), weil der Flansch sie für das Aussenmass immer setzt; aussenmass=False lässt sie weg."""
+    def __init__(self, *eigenschaften, aussenmass=True):
+        object.__setattr__(self, "_erlaubt", set(eigenschaften) | ({"heightDatumType", "bendPositionType"} if aussenmass else set()))
         object.__setattr__(self, "werte", {})
 
     def __getattr__(self, n):
@@ -1021,15 +1022,22 @@ class MassUndLageTest(unittest.TestCase):
             fa.flansch(kante_mit(Sammlung(inp)), 90, 20, None, None, bezug, lage)
             self.assertEqual((inp.werte["heightDatumType"], inp.werte["bendPositionType"]), (h, b))
 
-    def test_ohne_angabe_bleibt_fusion_standard(self):
+    def test_ohne_angabe_gilt_aussenmass(self):
+        """Anwender 6. 11. 2026: Masse sind Aussenmasse → ohne Angabe Höhe aussen, Biegung innen (vorher: Fusion-Standard «ab Kante»)."""
         inp = Eingabe("angle", "heightDatumType", "bendPositionType")
         fa.flansch(kante_mit(Sammlung(inp)), 90, 20)
-        self.assertNotIn("heightDatumType", inp.werte)
-        self.assertNotIn("bendPositionType", inp.werte)
+        self.assertEqual((inp.werte["heightDatumType"], inp.werte["bendPositionType"]), ("H-AUSSEN", "B-INNEN"))
+
+    def test_ohne_einstellmoeglichkeit_kein_bau_ohne_aussenmass(self):
+        ff = Sammlung(Eingabe("angle", aussenmass=False))
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.flansch(kante_mit(ff), 90, 20)
+        self.assertIn("Massbezug «aussen»", str(cm.exception))
+        self.assertEqual(ff.hinzu, [])
 
     def test_nicht_einstellbar_bricht_ab(self):
         for eig, text in (("bendPositionType", "Massbezug"), ("heightDatumType", "Lage")):
-            ff = Sammlung(Eingabe("angle", eig))
+            ff = Sammlung(Eingabe("angle", eig, aussenmass=False))
             with self.assertRaises(fa.AdapterFehler) as cm:
                 fa.flansch(kante_mit(ff), 90, 20, None, None, "innen", "aussen")
             self.assertIn(text, str(cm.exception))

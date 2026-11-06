@@ -512,6 +512,10 @@ def flansch(edge, winkel, laenge_mm, radius_mm=None, gespiegelt=None, bezug=None
             LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = getattr(inp, "isMiteredCorners", None)   # an der EINGABE zurückgelesen (Feature gibt es nicht her)
         except Exception:
             LETZTE_FLANSCH_EINGABE["isMiteredCorners"] = None
+    # Aussenmass (Anwender 6. 11. 2026): ohne Angabe Höhe AUSSEN gemessen und Biegung INNEN (Aussenfläche des Flanschs bündig mit der Kante –
+    # das Teil bleibt aussen so gross wie das Grundblech). Vorlagen mit eigener Lage/Bezug behalten diese. Nicht live geprüft.
+    bezug = bezug or STANDARD_BEZUG
+    lage = lage or STANDARD_LAGE
     if bezug:
         if not setze(inp, ["heightDatumType"], getattr(adsk.fusion.FlangeHeightDatumTypes, BEZUEGE[bezug])):
             raise AdapterFehler("Der Massbezug «%s» lässt sich in dieser Fusion-Version nicht einstellen – abgebrochen." % bezug)
@@ -550,6 +554,9 @@ def _flansch_ablehnung(rund, fehler):
 LAGEN = {"kante": "StartEdgeBendPositionType", "innen": "InsideBendPositionType", "aussen": "OutsideBendPositionType",
          "tangential": "TangentToSideBendPositionType"}
 BEZUEGE = {"aussen": "OuterFacesFlangeHeightDatumType", "innen": "InnerFacesFlangeHeightDatumType", "tangential": "TangentToBendFlangeHeightDatumType"}
+
+
+STANDARD_BEZUG, STANDARD_LAGE = "aussen", "innen"     # Aussenmass – siehe flansch()
 
 
 def _lage_enum(lage):
@@ -1043,10 +1050,14 @@ def versatz_zylinder(edge, versatz_mm, dicke_mm):
     try:
         ai = comp.constructionAxes.createInput()
         # Live 0.4.60: «setByCylinderOrConeOrTorus» gibt es nicht – die API-Methode heisst setByRevolvedFace (Zylinder/Kegel/Torus). Nicht live geprüft.
-        if hasattr(ai, "setByRevolvedFace"):
-            ai.setByRevolvedFace(f)
+        # Live 0.4.61: auch setByRevolvedFace fehlt. Fusion-API: setByCircularFace (Zylinder/Kegel/Torus) – sonst die vorhandenen setBy-Methoden nennen
+        for name in ("setByCircularFace", "setByRevolvedFace"):
+            if hasattr(ai, name):
+                getattr(ai, name)(f)
+                break
         else:
-            ai.setByCylinderOrConeOrTorus(f)
+            raise AdapterFehler("Achse des Zylinders lässt sich per API nicht anlegen – vorhandene Methoden: %s" % ", ".join(
+                n for n in dir(ai) if n.startswith("setBy")))
         achse = rb.merke(comp.constructionAxes.add(ai))
         pi = comp.constructionPlanes.createInput()
         pi.setByTwoEdges(achse, edge)
@@ -2684,6 +2695,11 @@ def eigene_folge(edge, ops, dicke_mm, ri_mm, k, markierung, hinweise=None, proto
         hinweise.append("Eigene Geometrie (Profil entlang der Kante): %d Biegung(en); Zuschnitt-Zugabe THEORETISCH %.2f mm (Modell ri + k·t, ri %.2f mm, "
                         "k %.2f – nicht praktisch verifiziert); Flächen nur Ebenen/Zylinder = mathematisch abwickelbar." % (
                             len(q["biegungen"]), q["zuschnitt"], ri_mm, k))
+        if q["biegungen"] and abs(q["biegungen"][0]["winkel"]) < 175:
+            import math
+            mehr = (ri_mm + t) * math.tan(math.radians(abs(q["biegungen"][0]["winkel"])) / 2.0)
+            hinweise.append("ACHTUNG Aussenmass: Höhen sind Aussenmasse, die Biegung beginnt bei der eigenen Geometrie aber noch AN der Kante (kein "
+                            "Rückschnitt des Grundblechs) – das Teil ist dadurch aussen %.2f mm grösser als das Grundblech. Rückschnitt folgt." % mehr)
         return list(rb.objekte)
     except Exception as ex:
         rb.abbrechen(ex)

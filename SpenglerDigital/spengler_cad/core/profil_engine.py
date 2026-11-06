@@ -85,7 +85,7 @@ def ops_zu_profil(ops, t, ri_std):
         ri = op.get("radius") if op.get("radius") is not None else ri_std
         if ri is None or ri < RI_MIN:
             raise ProfilFehler("Innenradius %s mm zu klein (mindestens %.2f mm) – eine scharfe Biegung ist geometrisch degeneriert." % (ri, RI_MIN))
-        biegung = {"typ": "biegung", "winkel": w, "ri": float(ri), "modus": "hem" if op["typ"] == "umschlag" else "sharp"}
+        biegung = {"typ": "biegung", "winkel": w, "ri": float(ri), "modus": "hem" if op["typ"] == "umschlag" else "sharp", "mass": "aussen"}
         rv = bg.rueckversatz(biegung, t, ri_std)
         if i == 0:
             prof.append({"typ": "schenkel", "L": rv})                 # gerader Anteil 0: die Biegung beginnt an der Kante

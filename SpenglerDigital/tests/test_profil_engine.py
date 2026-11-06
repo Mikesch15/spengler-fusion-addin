@@ -16,8 +16,8 @@ class Querschnitt(unittest.TestCase):
     def test_aufkantung_90_exakt(self):
         q = pe.querschnitt(pe.ops_zu_profil([flansch()], T, RI), T, RI, K)
         rm = RI + T / 2
-        # Mittellinie: Bogen rm·π/2 + gerader Schenkel 20 − Rückversatz rm
-        self.assertAlmostEqual(q["mittellinie_mm"], rm * math.pi / 2 + (20 - rm), 9)
+        # Aussenmass (Anwender 6. 11. 2026): Mittellinie = Bogen rm·π/2 + gerader Schenkel 20 − Rückversatz AUSSEN (ri + t)
+        self.assertAlmostEqual(q["mittellinie_mm"], rm * math.pi / 2 + (20 - (RI + T)), 9)
         self.assertEqual([f[0] for f in q["flaechen"]], ["zylinder", "zylinder", "eben"])
         self.assertEqual(sorted(f[1] for f in q["flaechen"] if f[1]), [RI, RI + T])
         self.assertEqual(pe.pruefen(q), [])
@@ -44,9 +44,9 @@ class Querschnitt(unittest.TestCase):
         xs = [round(el["p1"][0], 6) for el in linien]
         # Mittellinien: Aufkantung, umgelegter Aufkantungsteil (aussen), Umschlagschenkel (dazwischen), Stummel am alten Umschlagplatz
         self.assertEqual(xs, [1.5, -4.5, -2.5, -0.5])
-        self.assertAlmostEqual(linien[0]["p2"][1], 20.5)                    # Falzlinie: Aufkantung oben (28.5) − 8
+        self.assertAlmostEqual(linien[0]["p2"][1], 20.0)                    # Falzlinie: Aufkantung oben (Aussenmass 30 → 28.0) − 8
         self.assertAlmostEqual(linien[1]["p1"][1] - linien[1]["p2"][1], 8.0)  # umgelegter Teil 8 mm
-        self.assertAlmostEqual(linien[3]["p2"][1], 20.0, msg="Stummel endet, wo der Umschlag vorher endete")
+        self.assertAlmostEqual(linien[3]["p2"][1], 19.5, msg="Stummel endet, wo der Umschlag vorher endete (28.0 − 8.5)")
         r = sorted(round(b["ri"], 6) for b in q["biegungen"])
         self.assertEqual(r, [0.5, 0.5, 1.0, 2.5], "äussere Paketbiegung Innenradius 2·0.5 + 1 + 0.5")
 
@@ -66,7 +66,8 @@ class Querschnitt(unittest.TestCase):
             pe.ops_zu_profil(ops, T, RI)
 
     def test_selbstschnitt_wird_erkannt(self):
-        ops = [flansch(90, 20), flansch(170, 30, 0.5), flansch(170, 30, 0.5)]
+        # Aussenmass: bei 170° liegt die äussere virtuelle Kante weit draussen ((ri + t)·tan 85° ≈ 17 mm) – Schenkel deshalb 40 mm
+        ops = [flansch(90, 20), flansch(170, 40, 0.5), flansch(170, 40, 0.5)]
         q = pe.querschnitt(pe.ops_zu_profil(ops, T, RI), T, RI, K)
         self.assertTrue(pe.pruefen(q), "Zickzack, der in sich zurückläuft, schneidet sich")
 
@@ -87,7 +88,7 @@ class Prototyp2(unittest.TestCase):
 
     def test_abwicklung_und_rueckvergleich(self):
         q = self.teil()
-        soll = (100 + T / 2) * math.pi / 2 + (RI + T / 2) * math.pi / 2 + (20 - (RI + T / 2))
+        soll = (100 + T / 2) * math.pi / 2 + (RI + T / 2) * math.pi / 2 + (20 - (RI + T))        # Aufkantung 20 = Aussenmass
         self.assertAlmostEqual(q["zuschnitt"], soll, 9, "k = 0.5: Abwicklung = Mittellinie")
         z = pe.abwicklung(q, 80.0)
         self.assertEqual(z["grenzen"], (0.0, 0.0, q["zuschnitt"], 80.0))

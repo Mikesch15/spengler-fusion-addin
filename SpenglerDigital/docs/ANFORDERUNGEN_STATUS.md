@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.60)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.62)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,14 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.60)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.62)
+
+- **0.4.62 – AUSSENMASS (Anwender 6. 11. 2026: «unsere Masse sind immer Aussenmasse»):** Fusion-Flansch ohne Angabe in der Vorlage: Höhe aussen,
+  Biegung innen (Aussenfläche bündig mit der Kante; Teil aussen so gross wie das Grundblech) – lässt sich das nicht einstellen, wird nicht gebaut.
+  Zugabe/Zuschnitt (Palette, Bauplan, Werkstattblatt) und eigene Geometrie: Schenkel bis zur ÄUSSEREN virtuellen Kante ((ri + t)·tan(α/2)).
+  Offen: eigene Geometrie schneidet das Grundblech noch nicht zurück (Biegung ab Kante, Teil um (ri + t) grösser – wird im Ergebnis gemeldet).
+  Live 0.4.61: 43 ok; Eckspalt einzeln 1.41 / gemeinsam 1.00 mm erklärt die +11 mm³; Spalt-Ecke nach Vorgabe zulässig. Neu gebaute Kanten
+  liegen gegenüber ≤ 0.4.61 um (ri + t) anders; bestehende Modelle unverändert. Nicht live geprüft.
 
 - **Live 0.4.59 / 0.4.60:** Rückbau (beide Schritte) und Abstandsmessung Zylinder/Kegel live bestanden. Gehrung: Fusion baut eine Stossecke, keine
   45°-Gehrung (0.4.60 misst den Spalt). Gerolltes Blech: Ursache API-Verwendung (Profile statt Kurven), 0.4.60 mit offenem Profil – nicht live geprüft.
