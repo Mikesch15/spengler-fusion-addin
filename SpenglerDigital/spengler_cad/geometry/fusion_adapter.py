@@ -2544,21 +2544,6 @@ def _profile_summe_waehlen(sk, flaeche_mm2):
     return _profil_waehlen(sk, flaeche_mm2)            # wirft den Fehler mit Kurven- und Flächenangabe
 
 
-def _skizze_in_ebene(comp, flaeche, rb, ebene_geo=None):
-    """Skizze in der Ebene einer ebenen Fläche über eine KONSTRUKTIONSEBENE (setByPlane), nicht direkt auf der Fläche: Auf einer Fläche projiziert Fusion
-    deren Kanten automatisch in die Skizze und zerschneidet damit das gezeichnete Profil (Live 0.4.71: «keine passende geschlossene Fläche», das Dreieck
-    reichte über den Flächenrand hinaus). Rückfall: Skizze direkt auf der Fläche. Nicht live geprüft."""
-    try:
-        pi = comp.constructionPlanes.createInput()
-        pi.setByPlane(ebene_geo if ebene_geo is not None else flaeche.geometry)
-        ebene = rb.merke(comp.constructionPlanes.add(pi))
-        return rb.merke(comp.sketches.add(ebene))
-    except Exception as e:
-        logger.warnung("Skizze über Konstruktionsebene nicht möglich – direkt auf der Fläche", fehler=(str(e).strip().splitlines() or ["?"])[-1][:120])
-        if flaeche is None:
-            raise AdapterFehler("Die Skizzenebene der Falte liess sich nicht anlegen (Fusion: %s)." % ((str(e).strip().splitlines() or ["?"])[-1][:120]))
-        return rb.merke(comp.sketches.add(flaeche))
-
 
 def _extrudieren_geprueft(comp, prof, laenge_mm, operation, koerper, soll_mm3, rb):
     """Extrusion um laenge_mm; Richtung so gewählt, dass das Volumen um soll_mm3 wächst (±0.1 %). Falsche Richtung wird verworfen."""
@@ -3101,24 +3086,17 @@ def quetschfalte_bauen(a):
     vol0 = _comp_volumen(comp) or 0.0
     token = body.entityToken
     try:
-        for lage in (1, 2):
-            ebene_geo = None
-            if lage == 2:
-                # Ebene der zweiten Lage direkt aus Wandebene + Blechdicke (nicht über «die neue Aussenfläche der ersten Platte» suchen: Fusion teilt die Deckfläche
-                # bei zerschnittenem Profil u. U. in mehrere Flächen)
-                body = koerper_neu(token) or comp.bRepBodies.item(0)
-                ursprung = adsk.core.Point3D.create(*(p_aussen[i] + n_aussen[i] * t / 10.0 for i in range(3)))
-                ebene_geo = adsk.core.Plane.create(ursprung, adsk.core.Vector3D.create(*n_aussen))
-                wand = None
-            sk = _skizze_in_ebene(comp, wand, rb, ebene_geo)
-            P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
-            for i in range(3):
-                sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
-            prof = _profile_summe_waehlen(sk, flaeche_mm2)
-            feat = _extrudieren_geprueft(comp, prof, t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, flaeche_mm2 * t, rb)
-            _testfehler("quetschfalte_lage%d" % lage)
-            if comp.bRepBodies.count != n0:
-                raise AdapterFehler("Lage %d hat sich nicht mit dem Teil vereinigt (%d statt %d Körper)." % (lage, comp.bRepBodies.count, n0))
+        # EINE Extrusion mit der doppelten Blechdicke: die zwei Lagen der Falte werden ohnehin zu einem Körper vereinigt. Live 0.4.73: eine zweite Skizzenebene
+        # (Konstruktionsebene aus Geometrie, setByPlane) ist in diesem Dokument nicht möglich («Environment is not supported»).
+        sk = rb.merke(comp.sketches.add(wand))
+        P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
+        for i in range(3):
+            sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
+        prof = _profile_summe_waehlen(sk, flaeche_mm2)             # Fusion legt Zusatzkurven in die Skizze und zerschneidet das Dreieck
+        feat = _extrudieren_geprueft(comp, prof, 2 * t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, flaeche_mm2 * 2 * t, rb)
+        _testfehler("quetschfalte_lage1")
+        if comp.bRepBodies.count != n0:
+            raise AdapterFehler("Die Falte hat sich nicht mit dem Teil vereinigt (%d statt %d Körper)." % (comp.bRepBodies.count, n0))
         neu = koerper_neu(token) or comp.bRepBodies.item(0)
         probleme = koerper_pruefen(neu)
         if getattr(neu, "isSheetMetal", None) is False:

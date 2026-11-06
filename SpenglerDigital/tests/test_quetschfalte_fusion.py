@@ -164,33 +164,6 @@ class SkizzeUndProfil(unittest.TestCase):
         self.assertIn("3 Kurven", t)
         self.assertIn("120.00, 80.00", t, "Live 0.4.71: ohne diese Angabe war die Ursache nicht erkennbar")
 
-    def test_skizze_ueber_konstruktionsebene_mit_rueckfall(self):
-        fa = _fa()
-        rb = fa.Rueckbau("t")
-        aufrufe = []
-
-        class Ebenen(object):
-            def createInput(self):
-                return type("I", (), {"setByPlane": lambda s, g: aufrufe.append(("plane", g))})()
-
-            def add(self, i):
-                return object()
-
-        class Skizzen(object):
-            def add(self, ziel):
-                aufrufe.append(("skizze", ziel))
-                return object()
-        comp = type("C", (), {"constructionPlanes": Ebenen(), "sketches": Skizzen()})()
-        flaeche = type("F", (), {"geometry": "GEOM"})()
-        fa._skizze_in_ebene(comp, flaeche, rb)
-        self.assertEqual(aufrufe[0], ("plane", "GEOM"))
-        self.assertNotEqual(aufrufe[1][1], flaeche, "Skizze auf der Konstruktionsebene, nicht auf der Fläche (keine Auto-Projektion)")
-        # Rückfall, wenn die Ebene nicht anlegbar ist
-        aufrufe.clear()
-        Ebenen.createInput = lambda s: (_ for _ in ()).throw(RuntimeError("keine Ebene"))
-        fa._skizze_in_ebene(comp, flaeche, fa.Rueckbau("t"))
-        self.assertEqual(aufrufe[-1], ("skizze", flaeche))
-
 
 class ZerschnittenesDreieck(unittest.TestCase):
     """Live 0.4.71/0.4.72: 3 Profile mit 855.07 / 179.46 / 20.54 bzw. 882.00 / 167.27 / 32.73 mm² – das 200-mm²-Dreieck ist in zwei Teile zerschnitten."""
@@ -240,19 +213,3 @@ class ZerschnittenesDreieck(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa._profile_summe_waehlen(sk, 200.0)
         self.assertIn("8 Kurven", str(cm.exception))
-
-
-class ZweiteLageEbene(unittest.TestCase):
-    def test_ebene_direkt_aus_geometrie_ohne_flaeche(self):
-        fa = _fa()
-        gesetzt = []
-
-        class Ebenen(object):
-            def createInput(self):
-                return type("I", (), {"setByPlane": lambda s, g: gesetzt.append(g)})()
-
-            def add(self, i):
-                return object()
-        comp = type("C", (), {"constructionPlanes": Ebenen(), "sketches": type("S", (), {"add": lambda s, e: object()})()})()
-        fa._skizze_in_ebene(comp, None, fa.Rueckbau("t"), "EBENE")
-        self.assertEqual(gesetzt, ["EBENE"], "zweite Lage: Ebene aus Wandebene + Blechdicke, keine Flächensuche")
