@@ -142,3 +142,51 @@ class DxfEcke(unittest.TestCase):
         from spengler_cad.commands import command_registry, quetschfalte_command
         self.assertIn("quetschfalte_command.registrieren()", inspect.getsource(command_registry))
         self.assertEqual(quetschfalte_command.BID, "spenglerQuetschfalte")
+
+
+class SkizzeUndProfil(unittest.TestCase):
+    def test_profil_fehler_nennt_gefundene_flaechen(self):
+        fa = _fa()
+
+        class Pr(object):
+            def __init__(self, a):
+                self._a = a
+
+            def areaProperties(self):
+                return type("A", (), {"area": self._a / 100.0})()
+
+        class Skizze(object):
+            sketchCurves = type("C", (), {"count": 3})()
+            profiles = type("L", (), {"count": 2, "item": lambda s, i: (Pr(120.0), Pr(80.0))[i]})()
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa._profil_waehlen(Skizze(), 200.0)
+        t = str(cm.exception)
+        self.assertIn("3 Kurven", t)
+        self.assertIn("120.00, 80.00", t, "Live 0.4.71: ohne diese Angabe war die Ursache nicht erkennbar")
+
+    def test_skizze_ueber_konstruktionsebene_mit_rueckfall(self):
+        fa = _fa()
+        rb = fa.Rueckbau("t")
+        aufrufe = []
+
+        class Ebenen(object):
+            def createInput(self):
+                return type("I", (), {"setByPlane": lambda s, g: aufrufe.append(("plane", g))})()
+
+            def add(self, i):
+                return object()
+
+        class Skizzen(object):
+            def add(self, ziel):
+                aufrufe.append(("skizze", ziel))
+                return object()
+        comp = type("C", (), {"constructionPlanes": Ebenen(), "sketches": Skizzen()})()
+        flaeche = type("F", (), {"geometry": "GEOM"})()
+        fa._skizze_in_ebene(comp, flaeche, rb)
+        self.assertEqual(aufrufe[0], ("plane", "GEOM"))
+        self.assertNotEqual(aufrufe[1][1], flaeche, "Skizze auf der Konstruktionsebene, nicht auf der Fläche (keine Auto-Projektion)")
+        # Rückfall, wenn die Ebene nicht anlegbar ist
+        aufrufe.clear()
+        Ebenen.createInput = lambda s: (_ for _ in ()).throw(RuntimeError("keine Ebene"))
+        fa._skizze_in_ebene(comp, flaeche, fa.Rueckbau("t"))
+        self.assertEqual(aufrufe[-1], ("skizze", flaeche))

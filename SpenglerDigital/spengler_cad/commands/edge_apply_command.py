@@ -219,6 +219,10 @@ def _plan(inp):
     if _koerper(inp) is None:
         return None, "Zuerst den Blechkörper wählen, dann seine Kanten."
     roh = _kanten(inp)
+    if any(k is None for k in roh):
+        # Mit Biegung «innen» (Aussenmass) ist die gewählte Kante nach der Vorschau umgebaut und als Verweis ungültig – kein Fehler: der zuletzt
+        # ausführbare Stand gilt (siehe _plan_gemerkt). Vorher führte das zu einer Ausnahme mit Protokolleintrag bei jeder Eingabe.
+        return None, "Die gewählte Kante ist durch die Vorschau umgebaut."
     fremd = _fremde(inp, roh)
     if fremd:
         return None, "Kante %s liegt nicht auf dem gewählten Körper – bitte nur Kanten dieses Körpers wählen." % ", ".join(map(str, fremd))
