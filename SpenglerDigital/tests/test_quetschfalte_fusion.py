@@ -311,3 +311,19 @@ class Eckblock(unittest.TestCase):
         a = {"e1": (1.0, 0.0, 0.0), "y": (0.0, 1.0, 0.0), "O": (0.0, 0.0, 0.0)}
         pts = fa._eckblock_punkte(a, 1.6)
         self.assertEqual([(round(p[0], 6), round(p[1], 6)) for p in pts], [(0.0, 0.0), (1.6, 0.0), (1.6, 1.6), (0.0, 1.6)])
+
+
+class KeineDoppeltenDefinitionen(unittest.TestCase):
+    """Live 0.4.78: zwei Definitionen von quetschfalte_bauen in fusion_adapter.py – die ältere (weiter unten) überschrieb die neue, 0.4.77/0.4.78 liefen deshalb
+    mit dem alten Bau. Python nimmt stillschweigend die LETZTE Definition."""
+    def test_keine_funktion_doppelt(self):
+        import ast
+        import collections
+        import os
+        wurzel = os.path.join(os.path.dirname(__file__), "..", "spengler_cad")
+        for rel in ("geometry/fusion_adapter.py", "commands/edge_apply_command.py", "commands/quetschfalte_command.py", "diagnostics/live_test.py",
+                    "diagnostics/live_test_kantenwerkzeug.py", "core/quetschfalte.py"):
+            t = ast.parse(open(os.path.join(wurzel, rel), encoding="utf-8").read())
+            c = collections.Counter(n.name for n in t.body if isinstance(n, (ast.FunctionDef, ast.ClassDef)))
+            doppelt = sorted(k for k, v in c.items() if v > 1)
+            self.assertEqual(doppelt, [], "%s: doppelt definiert: %s" % (rel, doppelt))

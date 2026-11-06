@@ -3143,53 +3143,70 @@ def _eckblock_punkte(a, rv_mm):
     return [tuple(O[i] + u * e1[i] + v * y[i] for i in range(3)) for u, v in ((0.0, 0.0), (rv_mm, 0.0), (rv_mm, rv_mm), (0.0, rv_mm))]
 
 
-def _saeule_bauen(comp, token, a, rb, pts=None, hoehe_mm=None):
-    """Ecksäule über die ganze Höhe (Aussenmass h1): schliesst den Spalt und das Loch der Stossecke an der Ecke. Skizze auf der Aussenfläche der Basis, Richtung
-    nach der Skizzennormalen (zum Körper hin) festgelegt – nicht über das Volumen geraten (das Volumen hängt davon ab, wie viel Basis an der Ecke fehlt).
-    Nicht live geprüft."""
-    body = koerper_neu(token) or comp.bRepBodies.item(0)
-    flaeche = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
-    if flaeche is None:
-        raise AdapterFehler("Aussenfläche der Basis für die Ecksäule nicht gefunden.")
-    pts = pts if pts is not None else _eckfuellung_punkte(a)
-    hoehe_mm = hoehe_mm if hoehe_mm is not None else a["h1"]
+def _skizzen_normale(sk):
+    xd, yd = sk.xDirection, sk.yDirection
+    return _kreuz3((xd.x, xd.y, xd.z), (yd.x, yd.y, yd.z))
+
+
+def _neuer_koerper(comp, vor, name):
+    """Der durch den letzten Vorgang entstandene EINE neue Körper (Token-Vergleich mit `vor`)."""
+    neu = [b for b in comp.bRepBodies if b.entityToken not in vor]
+    if len(neu) != 1:
+        raise AdapterFehler("«%s» ergab %d neue Körper statt einem." % (name, len(neu)))
+    try:
+        neu[0].name = name
+    except Exception:
+        pass
+    return neu[0]
+
+
+def _koerper_aus_vieleck(comp, skizzen_ziel, pts, hoehe_mm, richtung, rb, name):
+    """Neuer Körper (NICHT mit dem Blech vereinigt) aus einem Vieleck (mm, Modellkoordinaten): Skizze auf `skizzen_ziel` (Fläche oder Konstruktionsebene),
+    Extrusion um hoehe_mm in `richtung` (Einheitsvektor im Modellraum; die Richtung wird aus der Skizzennormalen bestimmt, nicht über das Volumen
+    geraten). Fusion legt Zusatzkurven in die Skizze und zerschneidet das Vieleck → Teilprofile werden zusammen extrudiert. → Körper."""
+    vor = {b.entityToken for b in comp.bRepBodies}
     n_p = len(pts)
-    sk = rb.merke(comp.sketches.add(flaeche))
+    sk = rb.merke(comp.sketches.add(skizzen_ziel))
     P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
     for i in range(n_p):
         sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % n_p])
     kr = [0.0, 0.0, 0.0]
-    for i in range(n_p):                                          # Fläche des Vielecks (Summe der Kreuzprodukte)
+    for i in range(n_p):
         c = _kreuz3(pts[i], pts[(i + 1) % n_p])
         kr = [kr[j] + c[j] for j in range(3)]
     flaeche_mm2 = 0.5 * math.sqrt(sum(c * c for c in kr))
     prof = _profile_summe_waehlen(sk, flaeche_mm2)
-    xd, yd = sk.xDirection, sk.yDirection
-    normale = _kreuz3((xd.x, xd.y, xd.z), (yd.x, yd.y, yd.z))
-    vz = 1.0 if _skal(normale, tuple(-c for c in a["nb"])) > 0 else -1.0          # +1 = entlang der Skizzennormalen = in den Körper hinein
-    vol0 = _comp_volumen(comp) or 0.0
+    vz = 1.0 if _skal(_skizzen_normale(sk), richtung) > 0 else -1.0
     ef = comp.features.extrudeFeatures
-    ei = ef.createInput(prof, adsk.fusion.FeatureOperations.JoinFeatureOperation)
+    ei = ef.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
     ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * hoehe_mm / 10.0))
-    try:
-        ei.participantBodies = [body]
-    except Exception:
-        pass
-    feat = rb.merke(ef.add(ei))
-    gewinn = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
-    if not (0.0 <= gewinn <= flaeche_mm2 * hoehe_mm * 1.001):
-        raise AdapterFehler("Eckfüllung: Volumenzuwachs %.2f mm³ unplausibel (höchstens %.2f)." % (gewinn, flaeche_mm2 * hoehe_mm))
-    return feat, gewinn
+    rb.merke(ef.add(ei))
+    k = _neuer_koerper(comp, vor, name)
+    rb.merke(k)
+    soll = flaeche_mm2 * hoehe_mm
+    if abs(k.volume * 1000.0 - soll) > max(0.05, 2e-3 * soll):
+        raise AdapterFehler("%s: Volumen %.2f mm³ statt %.2f mm³." % (name, k.volume * 1000.0, soll))
+    return k
 
 
-def _falte_runden(comp, koerper2, a, rb):
-    """Gerundete Faltkanten an der äusseren Lage (Lage 2, eigener Körper): Faltlinie O–C und Ecklinie O–P bekommen einen Radius (0.9 × Blechdicke) – so sieht die
-    Falte wie eine gefaltete Umbiegung aus. Kosmetik: scheitert die Rundung, bleibt alles andere unverändert. → Anzahl gerundeter Kanten."""
+def _versatz_ebene(comp, flaeche, abstand_mm, n_aussen, rb):
+    """Konstruktionsebene im Abstand von der Aussenfläche der Wand, nach AUSSEN (die Versatzrichtung folgt der Flächengeometrie, nicht der Aussennormale –
+    deshalb Vorzeichen aus dem Vergleich beider). setByOffset ist in diesem Dokument erlaubt (setByPlane nicht: «Environment is not supported»). Nicht live geprüft."""
+    gn = flaeche.geometry.normal
+    vorzeichen = 1.0 if _skal((gn.x, gn.y, gn.z), n_aussen) > 0 else -1.0
+    pi = comp.constructionPlanes.createInput()
+    pi.setByOffset(flaeche, adsk.core.ValueInput.createByReal(vorzeichen * abstand_mm / 10.0))
+    return rb.merke(comp.constructionPlanes.add(pi))
+
+
+def _falte_runden(comp, koerper2, a, kappe_abstand_mm, rb):
+    """Gerundete Faltkanten an der äusseren Lage (Lage 2): Faltlinie O–C und Ecklinie O–P bekommen einen Radius (0.9 × Blechdicke). Kosmetik: scheitert
+    die Rundung, bleibt alles andere unverändert. → (Feature, Anzahl gerundeter Kanten)."""
     t = a["dicke"]
     n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
     pts = a["dreieck_mm"]
-    kappe = [tuple(p[i] + n_aussen[i] * 2.0 * t for i in range(3)) for p in pts]      # Punkte auf der Deckfläche der Falte
-    ziele = ((kappe[0], kappe[2]), (kappe[0], kappe[1]))                             # Faltlinie O–C und Ecklinie O–P
+    kappe = [tuple(p[i] + n_aussen[i] * kappe_abstand_mm for i in range(3)) for p in pts]      # Punkte auf der Deckfläche der Lage 2
+    ziele = ((kappe[0], kappe[2]), (kappe[0], kappe[1]))                                    # Faltlinie O–C und Ecklinie O–P
     kanten = adsk.core.ObjectCollection.create()
     for e in koerper2.edges:
         try:
@@ -3214,126 +3231,114 @@ def _falte_runden(comp, koerper2, a, rb):
     return feat, kanten.count
 
 
-def _skizzen_normale(sk):
-    xd, yd = sk.xDirection, sk.yDirection
-    return _kreuz3((xd.x, xd.y, xd.z), (yd.x, yd.y, yd.z))
+QUETSCH_GETRENNT = "quetschfalte_getrennt"
 
 
-def _lage_bauen(comp, flaeche, a, n_aussen, rb, name):
-    """Eine Lage der Falte als EIGENEN Körper (Neuer Körper, nicht mit der Wand vereinigt): Dreiecksskizze auf der Fläche, Extrusion nach aussen um die
-    Blechdicke, Richtung aus der Skizzennormalen (nicht über das Volumen geraten). → (Körper, Feature)."""
-    t = a["dicke"]
-    pts = a["dreieck_mm"]
-    flaeche_mm2 = 0.5 * math.sqrt(sum(c * c for c in _kreuz3(_plus(pts[1], pts[0], 1.0, -1.0), _plus(pts[2], pts[0], 1.0, -1.0))))
-    vor = {b.entityToken for b in comp.bRepBodies}
-    sk = rb.merke(comp.sketches.add(flaeche))
-    P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
-    for i in range(3):
-        sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
-    prof = _profile_summe_waehlen(sk, flaeche_mm2)             # Fusion legt Zusatzkurven in die Skizze und zerschneidet das Dreieck
-    vz = 1.0 if _skal(_skizzen_normale(sk), n_aussen) > 0 else -1.0
-    ef = comp.features.extrudeFeatures
-    ei = ef.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
-    ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * t / 10.0))
-    feat = rb.merke(ef.add(ei))
-    neu = [b for b in comp.bRepBodies if b.entityToken not in vor]
-    if len(neu) != 1:
-        raise AdapterFehler("Die Falten-Lage ergab %d neue Körper statt einem." % len(neu))
-    k = neu[0]
-    rb.merke(k)
-    soll = flaeche_mm2 * t
-    if abs(k.volume * 1000.0 - soll) > max(0.05, 2e-3 * soll):
-        raise AdapterFehler("Falten-Lage: Volumen %.2f mm³ statt %.2f mm³." % (k.volume * 1000.0, soll))
+def quetschfalte_getrennt_attribut(body):
     try:
-        k.name = name
+        a = body.attributes.itemByName(ATTR_GRUPPE, QUETSCH_GETRENNT)
+        return json.loads(a.value) if a else None
     except Exception:
-        pass
-    return k, feat
+        return None
 
 
 def quetschfalte_bauen(a):
-    """Quetschfalte bauen: die Ecke wird geschlossen (Füllstück bis zur Ecke, über die ganze Höhe, im Blechkörper) und die Falte als ZWEI eigene Körper
-    «Quetschfalte Lage 1/2» (je Blechdicke, dreieckig) auf die AUSSENSEITE der gewählten Aufkantung gelegt – nicht mit der Wand verschmolzen, damit die Lagen
-    der Tasche sichtbar bleiben (Anwender 6. 11. 2026). Lage 2 mit gerundeten Faltkanten. Atomar mit Rückbau. Fusions Abwicklung wird NICHT benutzt.
-    → erzeugte Objekte. Nicht live geprüft."""
+    """Quetschfalte bauen – das Blech bleibt UNVERÄNDERT (Anwender 6. 11. 2026: Extrusionen am Blech verbinden sich damit, die Abwicklung scheitert):
+    Falte (zwei Lagen mit Abstand = «Tasche geöffnet», Variante B) und Eckfüllung (L-Grundriss + Block am Boden, abzüglich des Blechs) entstehen als eigene
+    Körper und werden in eine EIGENE KOMPONENTE «Quetschfalte» verschoben. Fusions Abwicklung des Blechs funktioniert damit wie vorher.
+    Lage 2 mit gerundeten Faltkanten. Atomar mit Rückbau. → erzeugte Objekte. Nicht live geprüft."""
     body = a["koerper"]
     comp = body.parentComponent
     t = a["dicke"]
-    if quetschfalte_attribut(body) or _teil_hat_quetschfalte(comp):
+    if quetschfalte_attribut(body) or quetschfalte_getrennt_attribut(body) or _teil_hat_quetschfalte(comp):
         raise AdapterFehler("Dieses Teil hat schon eine Quetschfalte – nichts verändert.")
     wand = a["wand_flaeche"]
     n_aussen = _einheit(flaechennormale(wand))
     p_aussen = _v(wand.pointOnFace)
+    g = t                                                   # Abstand der Lagen (Variante B: Tasche geöffnet): eine Blechdicke Luft
     rb = Rueckbau("Quetschfalte")
     token = body.entityToken
     n0 = comp.bRepBodies.count
+    vor0 = {b.entityToken for b in comp.bRepBodies}
+    neue = []
     try:
         hinweise = []
-        # 1. Ecke schliessen (nur senkrechte Aufkantungen)
+        # 1. Eckfüllung: L-Grundriss über die ganze Höhe + Block am Boden, vereinigt und um das Blech gekürzt (nur der fehlende Teil bleibt)
         if abs(a["phi1"] - 90.0) < 0.5 and abs(a["phi2"] - 90.0) < 0.5:
-            _testfehler("quetschfalte_saeule")
-            _s, gewinn = _saeule_bauen(comp, token, a, rb)
-            hinweise.append("Ecke bis zum Wandende gefüllt, über die ganze Höhe (+%.1f mm³)" % gewinn)
-            # Eckfreistellung am Boden (Loch zwischen den beiden Biegungen) mit einem Block der Grösse des äusseren Biegeradius füllen (90°-Ecke)
-            radien = zylinderradien_mm(koerper_neu(token) or body)
+            flaeche_b = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
+            if flaeche_b is None:
+                raise AdapterFehler("Aussenfläche der Basis für die Eckfüllung nicht gefunden.")
+            hoch = tuple(-c for c in a["nb"])
+            k_ecke = _koerper_aus_vieleck(comp, flaeche_b, _eckfuellung_punkte(a), a["h1"], hoch, rb, "Quetschfalte Ecke")
+            radien = zylinderradien_mm(body)
             if radien and abs(a["beta"] - 90.0) < 0.5:
                 rv = max(radien)
-                _b, gew2 = _saeule_bauen(comp, token, a, rb, pts=_eckblock_punkte(a, rv), hoehe_mm=rv)
-                hinweise.append("Eckloch am Boden gefüllt (Block %.2f mm, +%.2f mm³)" % (rv, gew2))
+                k_block = _koerper_aus_vieleck(comp, flaeche_b, _eckblock_punkte(a, rv), rv, hoch, rb, "Quetschfalte Eckblock")
+                tools = adsk.core.ObjectCollection.create()
+                tools.add(k_block)
+                ci = comp.features.combineFeatures.createInput(k_ecke, tools)
+                ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+                ci.isKeepToolBodies = False
+                rb.merke(comp.features.combineFeatures.add(ci))
+                hinweise.append("Eckloch am Boden mit Block %.2f mm gefüllt" % rv)
+            # um das Blech kürzen: übrig bleibt nur, was dem Blech an der Ecke fehlt
+            tools = adsk.core.ObjectCollection.create()
+            tools.add(body)
+            ci = comp.features.combineFeatures.createInput(k_ecke, tools)
+            ci.operation = adsk.fusion.FeatureOperations.CutFeatureOperation
+            ci.isKeepToolBodies = True
+            rb.merke(comp.features.combineFeatures.add(ci))
+            if k_ecke.isValid and k_ecke.volume * 1000.0 > 1e-3:
+                hinweise.append("Ecke bis zum Wandende gefüllt (%.1f mm³ fehlendes Material)" % (k_ecke.volume * 1000.0))
             else:
-                hinweise.append("Eckloch am Boden nicht gefüllt (keine Biegung gefunden oder keine 90°-Ecke)")
+                hinweise.append("Ecke schliesst bereits (nichts zu füllen)")
         else:
             hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
-        # 2. Lage 1 auf die Aussenfläche der Wand (Fläche nach dem Füllstück neu holen – die Wandfläche kann sich geändert haben)
-        body = koerper_neu(token) or comp.bRepBodies.item(0)
-        wand = _flaeche_in_ebene(body, n_aussen, p_aussen) or wand
-        k1, _f1 = _lage_bauen(comp, wand, a, n_aussen, rb, "Quetschfalte Lage 1")
+        _testfehler("quetschfalte_saeule")
+        # 2. Falte: zwei Lagen auf Versatzebenen nach aussen
+        e1_ = _versatz_ebene(comp, wand, g, n_aussen, rb)
+        k1 = _koerper_aus_vieleck(comp, e1_, a["dreieck_mm"], t, n_aussen, rb, "Quetschfalte Lage 1")
         _testfehler("quetschfalte_lage1")
-        # 3. Lage 2 auf die Aussenfläche von Lage 1
-        p2 = tuple(p_aussen[i] + n_aussen[i] * t / 10.0 for i in range(3))
-        f2 = _flaeche_in_ebene(k1, n_aussen, p2)
-        if f2 is None:
-            raise AdapterFehler("Die Aussenfläche von Lage 1 wurde nicht gefunden – Lage 2 nicht gebaut.")
-        k2, _f2 = _lage_bauen(comp, f2, a, n_aussen, rb, "Quetschfalte Lage 2")
+        e2_ = _versatz_ebene(comp, wand, 2 * g + t, n_aussen, rb)
+        k2 = _koerper_aus_vieleck(comp, e2_, a["dreieck_mm"], t, n_aussen, rb, "Quetschfalte Lage 2")
         _testfehler("quetschfalte_lage2")
-        # 4. gerundete Faltkanten (Kosmetik)
         try:
             _testfehler("quetschfalte_rundung")
-            _f, n_kanten = _falte_runden(comp, k2, a, rb)
+            _f, n_kanten = _falte_runden(comp, k2, a, 2 * g + 2 * t, rb)
             hinweise.append("%d Faltkanten gerundet" % n_kanten)
         except Exception as e_rund:
             if "Testfehler" in str(e_rund):
                 raise
             logger.warnung("Faltkanten nicht gerundet", grund=(str(e_rund).strip().splitlines() or ["?"])[-1][:160])
             hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
-        # Ergebnisprüfung: Blechkörper unverändert gültig und Blech, zwei neue Körper
-        neu = koerper_neu(token) or comp.bRepBodies.item(0)
-        probleme = koerper_pruefen(neu)
-        if getattr(neu, "isSheetMetal", None) is False:
-            probleme.append("das Teil ist kein Fusion-Blechkörper mehr")
-        if comp.bRepBodies.count != n0 + 2:
-            probleme.append("%d Körper statt %d" % (comp.bRepBodies.count, n0 + 2))
-        for k in (k1, k2):
-            try:
-                probleme += ["%s: %s" % (k.name, p) for p in koerper_pruefen(k)]
-            except Exception:
-                pass
+        # 3. alles in eine eigene Komponente verschieben – das Blech bleibt allein in seiner Komponente
+        occ = rb.merke(design().rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create()))
+        try:
+            occ.component.name = "Quetschfalte"
+        except Exception:
+            pass
+        neue = [b for b in comp.bRepBodies if b.entityToken not in vor0]          # alles, was neu entstand (die Kürzung kann die Ecke in Teile trennen)
+        for k in list(neue):
+            k.moveToComponent(occ)
+        blech = koerper_neu(token) or comp.bRepBodies.item(0)
+        probleme = koerper_pruefen(blech)
+        if getattr(blech, "isSheetMetal", None) is False:
+            probleme.append("das Blech ist kein Fusion-Blechkörper mehr")
+        if comp.bRepBodies.count != n0:
+            probleme.append("%d Körper im Blech statt %d – etwas blieb im Blech zurück" % (comp.bRepBodies.count, n0))
+        if occ.component.bRepBodies.count != len(neue):
+            probleme.append("%d Körper in der Komponente Quetschfalte statt %d" % (occ.component.bRepBodies.count, len(neue)))
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
-        a["hinweise_bau"] = hinweise
+        a["hinweise_bau"] = hinweise + ["Falte und Ecke liegen in der eigenen Komponente «Quetschfalte»; das Blech ist unverändert (Fusions Abwicklung funktioniert)"]
         daten = json.dumps({"beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
-                            "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]],
+                            "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]], "abstand_lagen_mm": g,
                             "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}})
-        for ziel in (neu, k1, k2):
-            try:
-                ziel.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, daten)
-            except Exception:
-                logger.warnung("Quetschfalte-Attribut nicht gesetzt")
         try:
-            comp.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, "1")
+            blech.attributes.add(ATTR_GRUPPE, QUETSCH_GETRENNT, daten)          # nur Merkzeichen – hindert Fusions Abwicklung NICHT
         except Exception:
-            logger.warnung("Quetschfalte-Markierung an der Komponente nicht gesetzt")
-        logger.info("Quetschfalte gebaut", richtung=a["richtung"], beta=a["beta"], h1=a["h1"])
+            logger.warnung("Quetschfalte-Merkzeichen am Blech nicht gesetzt")
+        logger.info("Quetschfalte gebaut (eigene Komponente)", richtung=a["richtung"], beta=a["beta"], h1=a["h1"])
         return list(rb.objekte)
     except Exception as e:
         rb.abbrechen(e)
@@ -3347,87 +3352,6 @@ def quetschfalte_text(a):
             "Rechnerisch gefaltet: schliesst auf %.1e mm (A0 = C0)." % (
                 a["beta"], a["phi1"], a["phi2"], a["h1"], a["h2"], a["dicke"], z["psi"], z["ell"], z["t_spitze"], a["richtung"],
                 "1" if a["wand"] == "wand1" else "2", a["laenge1"], a["laenge2"], z["m"], a["geprueft"]["abweichung_mm"]))
-
-
-def quetschfalte_bauen(a):
-    """Quetschfalte ins Blechteil bauen: zwei dreieckige Platten (Blechdicke) auf die AUSSENSEITE der gewählten Aufkantung, nacheinander angefügt
-    (Skizze auf der Aussenfläche → Extrusion Vereinigen; zweite Lage auf die neue Aussenfläche). Atomar mit Rückbau; Ergebnis: ein Körper, gültig, Blechkörper
-    erhalten, Volumen +2 × Fläche × Dicke. Fusions Abwicklung wird NICHT benutzt (Zuschnitt vom Add-in). → erzeugte Objekte. Nicht live geprüft
-    (Machbarkeit der Platten im Live-Test 0.4.70 bestätigt, die Dreiecke an der echten Ecke nicht)."""
-    from ..core import quetschfalte as qf
-    body = a["koerper"]
-    comp = body.parentComponent
-    t = a["dicke"]
-    if quetschfalte_attribut(body):
-        raise AdapterFehler("Dieses Teil hat schon eine Quetschfalte – nichts verändert.")
-    pts = a["dreieck_mm"]
-    flaeche_mm2 = 0.5 * math.sqrt(sum(c * c for c in _kreuz3(_plus(pts[1], pts[0], 1.0, -1.0), _plus(pts[2], pts[0], 1.0, -1.0))))
-    wand = a["wand_flaeche"]
-    n_aussen = _einheit(flaechennormale(wand))
-    p_aussen = _v(wand.pointOnFace)
-    rb = Rueckbau("Quetschfalte")
-    n0 = comp.bRepBodies.count
-    vol0 = _comp_volumen(comp) or 0.0
-    token = body.entityToken
-    try:
-        # EINE Extrusion mit der doppelten Blechdicke: die zwei Lagen der Falte werden ohnehin zu einem Körper vereinigt. Live 0.4.73: eine zweite Skizzenebene
-        # (Konstruktionsebene aus Geometrie, setByPlane) ist in diesem Dokument nicht möglich («Environment is not supported»).
-        sk = rb.merke(comp.sketches.add(wand))
-        P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
-        for i in range(3):
-            sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
-        prof = _profile_summe_waehlen(sk, flaeche_mm2)             # Fusion legt Zusatzkurven in die Skizze und zerschneidet das Dreieck
-        feat = _extrudieren_geprueft(comp, prof, 2 * t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, flaeche_mm2 * 2 * t, rb)
-        _testfehler("quetschfalte_lage1")
-        if comp.bRepBodies.count != n0:
-            raise AdapterFehler("Die Falte hat sich nicht mit dem Teil vereinigt (%d statt %d Körper)." % (comp.bRepBodies.count, n0))
-        neu = koerper_neu(token) or comp.bRepBodies.item(0)
-        probleme = koerper_pruefen(neu)
-        if getattr(neu, "isSheetMetal", None) is False:
-            probleme.append("das Teil ist kein Fusion-Blechkörper mehr")
-        zuwachs = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
-        if abs(zuwachs - 2 * flaeche_mm2 * t) > max(0.05, 1e-3 * 2 * flaeche_mm2 * t):
-            probleme.append("Volumenzuwachs %.2f mm³ statt %.2f mm³" % (zuwachs, 2 * flaeche_mm2 * t))
-        if probleme:
-            raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
-        hinweise = []
-        # Ecke schliessen (Live 0.4.74: Spalt und Loch der Stossecke blieben offen): Ecksäule über die ganze Höhe, nur bei senkrechten Aufkantungen
-        if abs(a["phi1"] - 90.0) < 0.5 and abs(a["phi2"] - 90.0) < 0.5:
-            _testfehler("quetschfalte_saeule")
-            _s, gewinn = _saeule_bauen(comp, token, a, rb)
-            hinweise.append("Ecke mit einer Säule über die ganze Höhe geschlossen (+%.1f mm³)" % gewinn)
-        else:
-            hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
-        try:
-            _testfehler("quetschfalte_rundung")
-            _f, n_kanten = _falte_runden(comp, token, a, rb)
-            hinweise.append("%d Faltkanten gerundet" % n_kanten)
-        except Exception as e_rund:
-            if isinstance(e_rund, AdapterFehler) and "Testfehler" in str(e_rund):
-                raise
-            logger.warnung("Faltkanten nicht gerundet", grund=(str(e_rund).strip().splitlines() or ["?"])[-1][:160])
-            hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
-        neu = koerper_neu(token) or comp.bRepBodies.item(0)
-        nach = koerper_pruefen(neu)
-        if getattr(neu, "isSheetMetal", None) is False:
-            nach.append("das Teil ist kein Fusion-Blechkörper mehr")
-        if nach:
-            raise AdapterFehler("Ergebnis der Quetschfalte nach Ecksäule/Rundung fehlerhaft: " + "; ".join(nach))
-        a["hinweise_bau"] = hinweise
-        try:
-            neu.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, json.dumps({"beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t,
-                                                                  "richtung": a["richtung"], "wand": a["wand"], "dreieck_mm": [[round(c, 4) for c in p] for p in pts],
-                                                                  "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}}))
-        except Exception:
-            logger.warnung("Quetschfalte-Attribut am Körper nicht gesetzt")
-        try:
-            comp.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, "1")
-        except Exception:
-            logger.warnung("Quetschfalte-Markierung an der Komponente nicht gesetzt")
-        logger.info("Quetschfalte gebaut", richtung=a["richtung"], beta=a["beta"], h1=a["h1"], flaeche_mm2=flaeche_mm2)
-        return list(rb.objekte)
-    except Exception as e:
-        rb.abbrechen(e)
 
 
 def _kreuz3(a, b):

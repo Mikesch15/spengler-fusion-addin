@@ -102,7 +102,7 @@ def _ausfuehren_innen(self, args):
                     "\n\nACHTUNG: Der Rückbau war unvollständig – bitte mit Strg+Z zurücknehmen."), True)
         return
     fa.zeitleiste_gruppieren(von, "Spengler: Quetschfalte")
-    zeilen = ["Quetschfalte gebaut (%d Objekte, zwei Lagen auf der Aussenseite), Teil «%s»." % (len(objekte), name), fa.quetschfalte_text(a)]
+    zeilen = ["Quetschfalte gebaut (%d Objekte, zwei Lagen als «Tasche» mit Abstand), Teil «%s»." % (len(objekte), name), fa.quetschfalte_text(a)]
     if a.get("hinweise_bau"):
         zeilen.append("Ecke: " + "; ".join(a["hinweise_bau"]) + ".")
     if inp.itemById("dxf").value:
@@ -120,8 +120,9 @@ def _ausfuehren_innen(self, args):
         except Exception:
             logger.ausnahme("Quetschfalte: DXF")
             zeilen.append("Zuschnitt-DXF konnte nicht gespeichert werden (Details im Protokoll).")
-    zeilen.append("Hinweis: Fusions «Abwicklung & DXF» ist für dieses Teil gesperrt. Zuschnitt = der Ausschnitt der Ecke; die Abwicklung des ganzen Teils mit "
-                  "Quetschfalte folgt. Biegezugaben und Lagendicke sind noch nicht eingerechnet. Nicht live geprüft.")
+    zeilen.append("Hinweis: Das Blech ist unverändert – «Abwicklung & DXF» funktioniert wie gewohnt für das Blech (die Falte liegt in der Komponente «Quetschfalte» "
+                  "und fehlt dort; an der Ecke zeigt Fusion die Stossecke). Der Zuschnitt der Ecke mit Quetschfalte steht im DXF oben; das Zusammenführen beider "
+                  "Zuschnitte folgt. Biegezugaben und Lagendicke sind noch nicht eingerechnet. Nicht live geprüft.")
     base.melden("Quetschfalte", "\n\n".join(zeilen))
 
 

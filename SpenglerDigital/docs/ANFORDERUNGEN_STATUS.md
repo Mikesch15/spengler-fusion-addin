@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.77)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.79)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,13 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.77)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.79)
+
+- **0.4.79 – Quetschfalte in EIGENER KOMPONENTE, Blech unverändert (Anwender nach Live 0.4.78):** Jede Extrusion am Blech verband sich mit ihm, die Abwicklung scheiterte
+  (DXF-Export). **Fehler im Code gefunden:** `quetschfalte_bauen` war in `fusion_adapter.py` zweimal definiert, die ältere (unten) überschrieb die neue – 0.4.77/0.4.78 liefen mit
+  dem alten Bau (Test gegen doppelte Definitionen ergänzt). Neu: Falte = zwei Lagen mit Abstand (Variante B «Tasche geöffnet», Versatzebenen, Lage 2 gerundet) und
+  Eckfüllung (L-Grundriss + Block am Boden, abzüglich des Blechs) als eigene Körper in der Komponente «Quetschfalte»; das Blech bleibt allein, Fusions Abwicklung des Blechs
+  muss wieder funktionieren (Live-Test-Schritt prüft das). Offen: Zuschnitt von Blech UND Ecke mit Quetschfalte zu einem Zuschnitt zusammenführen (Stufe 2). NICHT live geprüft.
 
 - **0.4.77 – Quetschfalte: «Tasche» getrennt, Ecke bis zum Wandende gefüllt (Anwender nach Live 0.4.76):** Die Falte war mit der Wand verschmolzen («nur verdickt»), die Lücke
   in der Ecke blieb (Spalt grösser als die Blechdicke). Neu: die zwei Lagen sind EIGENE Körper «Quetschfalte Lage 1/2» (Neuer Körper, anliegend, nicht verschmolzen,

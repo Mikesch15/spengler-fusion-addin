@@ -190,8 +190,8 @@ def t_quetschfalte_4(ctx):
 
 def t_quetschfalte_bauen(ctx):
     """QUETSCHFALTE an einer echten Fusion-Ecke: Blech mit Aufkantung an zwei benachbarten Kanten (gemeinsamer Flansch = Stossecke), dann zwei Aufkantungsflächen
-    wählen, die Ecke analysieren, die Quetschfalte als zwei Platten bauen und prüfen (ein Körper, gültig, Blechkörper erhalten, Volumen), Fusions Abwicklung
-    muss auf dem Teil gesperrt sein. Die Prüfung der Abwicklung ruft Fusions Abwicklung NICHT auf."""
+    wählen, die Ecke analysieren, die Quetschfalte bauen (Falte und Eckfüllung als eigene Körper in der eigenen Komponente «Quetschfalte»), das Blech muss
+    UNVERÄNDERT bleiben und Fusions Abwicklung samt DXF-Export muss funktionieren."""
     lt = _lt()
     import adsk.core
     fa.flansch(lt._eckkanten(ctx), winkel=90, laenge_mm=lt.FLANSCH)
@@ -222,13 +222,20 @@ def t_quetschfalte_bauen(ctx):
     body = ctx.root.bRepBodies.item(0)
     t.append("gebaut: %d Objekte, Volumen %+.2f mm³, Körper %d, isSheetMetal=%s" % (len(objekte), nach["vol"] - vol0, ctx.root.bRepBodies.count,
                                                                                 getattr(body, "isSheetMetal", None)))
+    # Das Blech ist UNVERÄNDERT in seiner Komponente (Falte und Ecke liegen in der Komponente «Quetschfalte») – Fusions Abwicklung muss funktionieren
+    if ctx.root.bRepBodies.count != 1:
+        raise lt._Falsch("\n".join(t) + "\nIm Blech blieben %d Körper statt einem zurück." % ctx.root.bRepBodies.count)
     try:
-        fa.abwicklung(ctx.root)
-        raise lt._Falsch("\n".join(t) + "\nFusions Abwicklung wurde auf dem Teil mit Quetschfalte NICHT gesperrt.")
+        fp, _neu = fa.abwicklung(ctx.root)
+        m = fa.abwicklung_masse(fp)
+        pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "quetschfalte_blech.dxf")
+        fa.dxf_abwicklung(fp, pfad)
+        pr = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"], erwartete_konturen=1)
     except fa.AdapterFehler as e:
-        if "Quetschfalte" not in str(e):
-            raise lt._Falsch("\n".join(t) + "\nAbwicklung abgelehnt, aber aus einem anderen Grund: %s" % e)
-        t.append("Fusions Abwicklung auf dem Teil gesperrt (wie vorgesehen).")
+        raise lt._Falsch("\n".join(t) + "\nFusions Abwicklung des Blechs scheitert trotz getrennter Komponente: %s" % e)
+    t.append("Fusions Abwicklung des Blechs: %.2f × %.2f mm; DXF: %s" % (m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr)))
+    if not pr["ok"]:
+        raise lt._Falsch("\n".join(t))
     return "\n".join(t)
 
 
