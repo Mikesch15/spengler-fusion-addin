@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.59)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.60)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,12 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.59)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.60)
+
+- **Live 0.4.59 / 0.4.60:** Rückbau (beide Schritte) und Abstandsmessung Zylinder/Kegel live bestanden. Gehrung: Fusion baut eine Stossecke, keine
+  45°-Gehrung (0.4.60 misst den Spalt). Gerolltes Blech: Ursache API-Verwendung (Profile statt Kurven), 0.4.60 mit offenem Profil – nicht live geprüft.
+  Abwicklungs-Erwartung nach Fusion-Konvention (Biegung ausserhalb der Kante, Höhe aussen; live exakt). Fachlich offen: Massbezug, Eckform
+  (siehe `docs/BERICHT_STABILISIERUNG_0459.md`, Nachtrag).
 
 - **0.4.59 – Fehleranalyse/Stabilisierung (Bericht: `docs/BERICHT_STABILISIERUNG_0459.md`):** Live 0.4.57: alle Kantenwerkzeug-Schritte bestanden,
   Tests 2 und 3 von Hand bestanden. Offen und in 0.4.59 diagnostisch vorbereitet, NICHT live geprüft: Rückbau «unvollständig» (Restobjekt

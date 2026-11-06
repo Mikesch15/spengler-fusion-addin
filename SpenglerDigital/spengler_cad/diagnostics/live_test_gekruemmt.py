@@ -174,7 +174,9 @@ def t_gerollt(ctx):
         raise lt._Falsch("Gerolltes Blech als «%s» eingeordnet." % art)
     fp, _neu = fa.abwicklung(comp)
     m = fa.abwicklung_masse(fp)
-    s, txt = messung.pruefe_abwicklung(m["breite"], m["laenge"], lt.LAENGE, lt.BREITE, 40.0, 1.0, ri=20.0)
+    _ri, k = fa.regel_werte(comp)
+    s, txt = messung.pruefe_abwicklung(m["breite"], m["laenge"], lt.LAENGE, lt.BREITE, 40.0, 1.0, ri=20.0, k=k if k is not None else 0.44)
+    txt += " (K aus Fusion: %s)" % k
     t.append(txt)
     if s == "fehler":
         raise lt._Falsch("\n".join(t))

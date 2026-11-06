@@ -110,10 +110,15 @@ class RadiusGehrungAbwicklung(unittest.TestCase):
         self.assertEqual(m.pruefe_gehrung(einzeln, blech(8000, flaechen=18))[0], "warnung")
 
     def test_abwicklung(self):
-        s, t = m.pruefe_abwicklung(100.0, 78.6, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)
+        # Fusion-Konvention, live belegt 0.4.59: 60 + Flansch 40 / R 20 / t 1 / K 0.44 → 111.1 mm
+        s, t = m.pruefe_abwicklung(111.1, 100.0, 100.0, 60.0, 40.0, 1.0, 20.0, 0.44)
         self.assertEqual(s, "ok", t)
+        self.assertAlmostEqual(m.soll_breite_fusion(60.0, 40.0, 1.0, 20.0, 0.44), 111.107, places=2)
+        s, t = m.pruefe_abwicklung(100.0, 80.26, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)
+        self.assertEqual(s, "ok", t)
+        self.assertEqual(m.pruefe_abwicklung(100.0, 78.6, 100.0, 60.0, 20.0, 1.0, 1.0, 0.44)[0], "warnung",
+                         "Biegung innerhalb der Kante (alte Annahme) weicht 1.7 mm ab – wird nicht mehr toleriert")
         self.assertEqual(m.pruefe_abwicklung(100.0, 60.0, 100.0, 60.0, 20.0, 1.0)[0], "fehler", "Flansch fehlt in der Abwicklung")
-        self.assertEqual(m.pruefe_abwicklung(100.0, 74.0, 100.0, 60.0, 20.0, 1.0)[0], "warnung")
 
     def test_text(self):
         self.assertIn("Volumen 6000 mm³, Ausdehnung 100.0 × 60.0 × 1.0 mm", m.text(blech()))

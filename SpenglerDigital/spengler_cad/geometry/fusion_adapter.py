@@ -1661,8 +1661,8 @@ def ecke_daten(kanten):
 
 def gehrung_eckspalt(feat, daten, dicke_mm):
     """Gemeinsamen Flansch an einer Ecke GEOMETRISCH prüfen (nicht nur Volumen): Gehrungsflächen suchen (core/gehrung) und ihren kleinsten
-    Abstand mit Fusions MeasureManager messen. daten = ecke_daten(kanten) VOR dem Bau. → ('ok'|'fehler'|'unbekannt', Text).
-    Gesucht wird zuerst unter den Flächen des Features, sonst unter den ebenen Flächen des ganzen Körpers in Eckennähe (Live 0.4.57: 0 Treffer
+    Abstand mit Fusions MeasureManager messen. daten = ecke_daten(kanten) VOR dem Bau. → ('ok'|'fehler'|'stoss'|'unbekannt', Text).
+    'stoss' = Stossecke ohne 45°-Gehrung mit gemessenem Spalt (so baut Fusion live 0.4.59). Gesucht wird zuerst unter den Flächen des Features, sonst unter den ebenen Flächen des ganzen Körpers in Eckennähe (Live 0.4.57: 0 Treffer
     unter den Feature-Flächen). Findet sich nichts, nennt der Text die eckennahen ebenen Flächen mit ihren Winkeln – für die Ursachenanalyse.
     Nicht live geprüft (Annahme: Gehrungsflächen sind ebene Stirnflächen, Normale in der Blechebene, gleicher Winkel zu beiden Kanten)."""
     from ..core import gehrung
@@ -1695,6 +1695,13 @@ def gehrung_eckspalt(feat, daten, dicke_mm):
             gw = gehrung.gehrungsflaechen([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm,
                                           reichweite_mm=60.0)
         if len(gw) < 2:
+            k3 = [(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)]
+            s1, s2 = gehrung.stossflaechen(k3, daten["e1"], daten["e2"], daten["nb"], ecke_mm, 2.0 * (dicke_mm or 1.0), 25.0)
+            if s1 and s2:
+                mm = app().measureManager
+                spalt = min(mm.measureMinimumDistance(kandidaten[i][0], kandidaten[j][0]).value * 10.0 for i in s1 for j in s2)
+                return "stoss", ("Stossecke – KEINE 45°-Gehrung: die Flansch-Stirnflächen stehen senkrecht zu ihrer Kante (%d/%d Flächen), "
+                                 "Eckspalt %.2f mm. Fachlich zu bewerten." % (len(s1), len(s2), spalt))
             return "unbekannt", "Gehrungsflächen nicht eindeutig gefunden (%d) – Ecke bitte ansehen. Eckennahe ebene Flächen: %s" % (
                 len(gw), gehrung.diagnose([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm))
         mm = app().measureManager
@@ -1990,6 +1997,29 @@ class _Aktiviert(object):
         except Exception:
             logger.warnung("Vorherige Aktivierung nicht wiederhergestellt")
         return False
+
+
+def regel_werte(comp):
+    """Biegeradius (mm) und K-Faktor der aktiven Blechregel der Komponente → (ri_mm|None, k|None). Für Soll-Ist-Vergleiche, damit nicht mit
+    angenommenen Werten verglichen wird. API: SheetMetalRule.bendRadius / kFactor (Parameter mit .value oder Zahl). Nicht live geprüft."""
+    def wert(o):
+        v = getattr(o, "value", o)
+        return float(v) if isinstance(v, (int, float)) else None
+    try:
+        r = comp.activeSheetMetalRule
+    except Exception:
+        return None, None
+    ri = k = None
+    try:
+        v = wert(getattr(r, "bendRadius", None))
+        ri = None if v is None else v * 10.0
+    except Exception:
+        pass
+    try:
+        k = wert(getattr(r, "kFactor", None))
+    except Exception:
+        pass
+    return ri, k
 
 
 def _regel_dicke_mm(regel):
@@ -2333,6 +2363,13 @@ def blech_gerollt(comp, radius_mm, winkel_grad, breite_mm, dicke_mm):
                 oc.add(k)
                 formen += [(kn, k), ("ObjectCollection(%s)" % kn, oc), ("Liste(%s)" % kn, [k])]
             formen += [("Liste(%s)" % n, [f]) for n, f in pfade]
+            # Live 0.4.59 – tatsächliche Signatur: createContourFlangeInput(profiles: list[Profile], distance: ValueInput). Ein offener Bogen ergibt
+            # in sketch.profiles KEIN Profil; das offene Profil liefert Component.createOpenProfile(curves, chainCurves). Diese Form zuerst.
+            try:
+                offen = comp.createOpenProfile(bogen, False)
+                formen.insert(0, ("Liste(offenes Profil)", [offen]))
+            except Exception as e:
+                antworten.append("createOpenProfile: %s" % ((str(e).strip().splitlines() or ["?"])[-1][:100]))
             for methode in ("createContourFlangeInput", "createBaseFlangeInput"):
                 fn = getattr(ff, methode, None)
                 if fn is None:

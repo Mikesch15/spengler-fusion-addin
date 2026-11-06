@@ -49,3 +49,22 @@ def diagnose(kandidaten, e1, e2, nb, ecke, n_max=8):
     z = sorted(kandidaten, key=lambda k: _abstand(k[2], ecke))[:n_max]
     return "; ".join("d %.1f mm, nb %.2f, e1 %.2f, e2 %.2f" % (_abstand(c, ecke), abs(_skal(n, nb)), abs(_skal(n, e1)), abs(_skal(n, e2)))
                      for _i, n, c in z) or "keine"
+
+
+def stossflaechen(kandidaten, e1, e2, nb, ecke, min_hoehe, reichweite):
+    """Stossecke (Live 0.4.59: Fusions «isMiteredCorners» an zwei Kanten erzeugt KEINE 45°-Gehrung, die Flansch-Stirnflächen stehen senkrecht zu
+    ihrer Kante): ebene Flächen mit Normale in der Blechebene und parallel zu e1 bzw. e2, Mittelpunkt mindestens `min_hoehe` über dem Blech
+    (schliesst Freischnittflächen direkt an der Ecke aus) und höchstens `reichweite` von der Ecke (schliesst die langen Seitenflächen aus).
+    → (ids ⟂ e1, ids ⟂ e2)."""
+    s1, s2 = [], []
+    for i, n, c in kandidaten:
+        if abs(_skal(n, nb)) > 0.2:
+            continue
+        rel = tuple(x - y for x, y in zip(c, ecke))
+        if abs(_skal(rel, nb)) < min_hoehe or _abstand(c, ecke) > reichweite:
+            continue
+        if abs(_skal(n, e1)) > 0.98:
+            s1.append(i)
+        elif abs(_skal(n, e2)) > 0.98:
+            s2.append(i)
+    return s1, s2

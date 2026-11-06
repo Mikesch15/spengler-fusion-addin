@@ -122,15 +122,17 @@ def t_eigen_negativ(ctx):
     bogen = [e for e in body.edges if fa._kurventyp(e) in ("bogen", "kreis")]
     t = []
     for was, aktion, erwartet in (
-            ("Bogenkante", lambda: fa.eigene_folge(bogen[0], [_flansch()], T, RI, K, {}, [], True), "Torus"),
+            ("Bogenkante", lambda: fa.eigene_folge(bogen[0], [_flansch()], T, RI, K, {}, [], True), ("Torus", "[d –")),
             ("Selbstschnitt", lambda: fa.eigene_folge(lt._rand_kanten(ctx)[0] if ctx.body else bogen[0],
                                                        [_flansch(20), _flansch(30, 170, 0.5), _flansch(30, 170, 0.5)], T, RI, K, {}, []), "schneidet sich selbst"),
             ("Radius 0", lambda: fa.eigene_folge(bogen[0], [_flansch(20, 90, 0.0)], T, RI, K, {}, [], True), None)):
         txt = gk._ohne_reste(ctx, was, aktion)
         if "gebaut" in txt.split(":")[1][:8]:
             raise lt._Falsch(txt + " – hätte abgelehnt werden müssen")
-        if erwartet and erwartet not in txt:
-            raise lt._Falsch(txt + " – erwarteter Grund «%s» fehlt" % erwartet)
+        # Bogenkante: je nach gewählter Bogenkante (obere Fläche eben / Mantel) lehnt die Matrix (Klasse d) oder die Torus-Prüfung ab – beides
+        # ist die richtige, vorher erfolgte Ablehnung (Live 0.4.59: Matrix-Grund, Test erwartete nur «Torus»)
+        if erwartet and not any(x in txt for x in ((erwartet,) if isinstance(erwartet, str) else erwartet)):
+            raise lt._Falsch(txt + " – erwarteter Grund «%s» fehlt" % (erwartet if isinstance(erwartet, str) else " oder ".join(erwartet)))
         t.append(txt)
     return "\n".join(t)
 

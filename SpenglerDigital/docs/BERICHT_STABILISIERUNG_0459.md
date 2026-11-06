@@ -55,3 +55,20 @@ gekennzeichnet.
 - «3D-Detail einsetzen»: der Abstandshinweis kann jetzt erscheinen (vorher nie messbar).
 - Live-Test: andere Bewertung – fehlende Abstandsmessung = Fehler, fehlender Testkörper = NICHT GETESTET, Gehrung ohne Flächennachweis = Warnung.
   Die Zahlen sind deshalb nicht direkt mit 0.4.57 vergleichbar.
+
+## Nachtrag: Live-Test 0.4.59 (6. 11. 2026, zweiter von zwei Läufen gespeichert) und Korrekturen in 0.4.60
+
+Ergebnis 0.4.59: 37 ok, 4 Warnungen, 2 Fehler, 4 übersprungen (NICHT GETESTET).
+
+| Prio | Live-Befund | Folgerung / Änderung 0.4.60 |
+|---|---|---|
+| 1 Rückbau | «Rückbau bei provoziertem Fehler» (alle Proben) und «KANTENWERKZEUG eigen: Rückbau» **bestanden** | Abnahme für diesen Lauf erfüllt; vom ersten Lauf ist kein Bericht gespeichert (Cloud überschreibt je Test-ID) – zweiter Beleg folgt mit dem nächsten Lauf |
+| 2 Gehrung | Diagnose: Stirnflächen der Flansche ⟂ ihrer Kante (\|n·e\| = 1.00), keine 45°-Flächen; isMiteredCorners an der Eingabe = True | **Ursache:** Fusion baut mit «isMiteredCorners» an zwei Kanten eine **Stossecke**, keine 45°-Gehrung. 0.4.60 erkennt sie, misst den Eckspalt und analysiert auch die einzeln gebaute Ecke (Ursache der 11 mm³). Bewertung bleibt Warnung «fachlich zu bewerten» |
+| 3 Gerollt | Signatur aus Fusion: `createContourFlangeInput(profiles: list[Profile], distance: ValueInput)`, `createBaseFlangeInput(profiles: list[Profile])` | **Ursache: API-Verwendung** – übergeben wurden Kurven statt Profile. 0.4.60 erzeugt zuerst das offene Profil (`Component.createOpenProfile`) – nicht live geprüft |
+| 4 Abstand | Zylinder- und Kegelschale **bestanden** | Korrektur aus 0.4.59 wirkt |
+| – | Gerolltes Blech R 20: 111.1 × 100 statt erwartet 91.1 | **Ursache: falsche Erwartung im Test.** Fusion legt die Biegung AUSSERHALB der Grundblechkante und misst die Flanschhöhe aussen: 60 + (40 − 21) + (20 + 0.44)·π/2 = 111.1 (exakt). Die alte Erwartung kürzte das Grundblech und tolerierte ± (2t + 2) mm – bei Ri = t verdeckte das ~2 mm. 0.4.60: Erwartung nach Fusion-Konvention, Ri/K aus der Regel gelesen, Toleranz 0.3 mm je Flansch, Seitenzuordnung korrigiert |
+| – | Negativfall Bogenkante: «Torus» erwartet, Matrix-Grund (Klasse d) erhalten | Beides ist die richtige Ablehnung vor dem Modellieren (abhängig davon, welche Bogenkante gewählt wird). Test akzeptiert beide |
+
+**Fachlich offen (Anwender):**
+1. **Massbezug:** Die Programmteile rechnen unterschiedlich – Fusion-Flansch: Biegung ausserhalb, Höhe aussen; eigene Geometrie: Biegung ab Kante, Mass auf Blechmitte; `zugabe_abwicklung` (Palette/Stückliste): Biegung innerhalb des Grundblechs. Unterschied bei Ri = t ≈ 0.5–2 mm. Nicht geändert – zuerst Festlegung, welches Mass ein «Flansch 20» im Betrieb bedeutet.
+2. **Eckform:** Ist die Stossecke mit Spalt (Fusion) fachlich zulässig, oder muss die Ecke als Gehrung bzw. mit Eckfalte/Quetschfalte ausgeführt werden?

@@ -96,18 +96,31 @@ def pruefe_gehrung(einzeln, gemeinsam):
     return "ok", kopf
 
 
+def soll_breite_fusion(basis_breite, hoehe, dicke, ri, k, winkel=90.0):
+    """Abwicklungsbreite nach der Fusion-Konvention des Kantenflanschs, live belegt (0.4.59: Blech 60 + Flansch 40 / R 20 / t 1 → 111.1 mm):
+    Biegung AUSSERHALB der Grundblechkante (Grundblech behält seine Breite), Flanschhöhe AUSSEN bis zur virtuellen Kante gemessen.
+    Breite = Basis + Bogen (ri + k·t)·α + gerader Schenkel (Höhe − Rückversatz aussen); Rückversatz aussen bei 90° = ri + t."""
+    import math
+    a = math.radians(winkel)
+    rv = (ri + dicke) * math.tan(a / 2.0)
+    return basis_breite + (ri + k * dicke) * a + (hoehe - rv)
+
+
 def pruefe_abwicklung(breite, laenge, soll_laenge, basis_breite, hoehe, dicke, ri=None, k=0.44, flansche=1):
-    """Abwicklung eines Blechs (soll_laenge × basis_breite) mit einem 90°-Flansch der Höhe `hoehe` an der Längskante: Breite = Basis + Zugabe (theoretisch, mit Innenradius und K-Faktor).
-    Die Toleranz deckt Höhenbezug (aussen/innen) und unbekannten K-Faktor ab."""
+    """Abwicklung eines Blechs (soll_laenge × basis_breite) mit 90°-Flansch(en) der Höhe `hoehe` an der Längskante gegen die Fusion-Konvention
+    (soll_breite_fusion). Früher: Biegung innerhalb des Grundblechs angenommen und ± (2t + 2) mm je Flansch toleriert – das verdeckte bei Ri = t
+    rund 2 mm Abweichung (und zeigte sie bei Ri 20 als 20 mm). Toleranz jetzt 0.3 mm je Flansch (K-Faktor der Regel ± 0.1 ≈ ± 0.16 mm)."""
     ri = dicke if ri is None else ri
-    gross, klein = max(breite, laenge), min(breite, laenge)
-    zugabe, _ = bend_geometry.zugabe_abwicklung([{"typ": "flansch", "winkel": 90.0, "laenge": float(hoehe), "radius": None}], dicke, ri, k, basis_mm=basis_breite)
-    soll_breite = basis_breite + flansche * zugabe          # flansche: Anzahl gleicher 90°-Flansche an den Längskanten
-    tol = flansche * (2 * dicke + 2.0)
-    kopf = "Abwicklung %.1f × %.1f mm (erwartet %.1f × %.1f ± %.1f; theoretisch mit Ri %.1f, K %.2f)" % (gross, klein, soll_laenge, soll_breite, tol, ri, k)
+    soll_breite = basis_breite + flansche * (soll_breite_fusion(0.0, hoehe, dicke, ri, k))
+    # Seiten nach der kleineren Abweichung zuordnen (die Abwicklung kann breiter als lang sein: 111.1 × 100 bei Flansch 40 / R 20)
+    a_, b_ = (breite, laenge) if abs(breite - soll_laenge) + abs(laenge - soll_breite) < abs(laenge - soll_laenge) + abs(breite - soll_breite) else (laenge, breite)
+    gross, klein = a_, b_
+    tol = 0.3 * flansche
+    kopf = "Abwicklung %.2f × %.2f mm (erwartet %.2f × %.2f ± %.2f; Fusion-Konvention: Biegung ausserhalb der Kante, Höhe aussen; Ri %.1f, K %.2f)" % (
+        gross, klein, soll_laenge, soll_breite, tol, ri, k)
     if abs(gross - soll_laenge) > 0.2 * soll_laenge or abs(klein - soll_breite) > 0.2 * soll_breite:
         return "fehler", "Die Abwicklung passt nicht zum 3D-Modell: " + kopf
-    if abs(gross - soll_laenge) > 1.0 or abs(klein - soll_breite) > tol:
+    if abs(gross - soll_laenge) > 0.3 or abs(klein - soll_breite) > tol:
         return "warnung", "Ausserhalb der Toleranz: " + kopf
     return "ok", kopf
 

@@ -197,3 +197,16 @@ class AbstandMessung(unittest.TestCase):
         gruende = []
         self.assertIsNone(fa.abstand_mm(Occ(), Occ(), gruende))
         self.assertIn("invalid argument", gruende[0])
+
+
+class Stossecke(unittest.TestCase):
+    def test_live_diagnose_0459_als_stoss_erkannt(self):
+        """Flächen wie im Live-Bericht 0.4.59 (Flansch 20 mm an zwei Eckkanten, t = 1): Freischnitt (d 1.0, flach), Stirnflächen (d 10.1, Höhe 10),
+        lange Seitenflächen (d 31.5)."""
+        from spengler_cad.core import gehrung
+        e1, e2, nb, ecke = (1, 0, 0), (0, 1, 0), (0, 0, 1), (0, 0, 0)
+        k = [(0, (1, 0, 0), (1.0, 0.0, 0.2)), (1, (0, 1, 0), (0.0, 1.0, 0.2)),       # Freischnitt an der Ecke (flach)
+             (2, (0, 1, 0), (0.5, 1.0, 10.0)), (3, (1, 0, 0), (1.0, 0.5, 10.0)),       # Stirnflächen
+             (4, (1, 0, 0), (0.5, 30.0, 10.0)), (5, (1, 0, 0), (1.5, 30.0, 10.0))]    # Seitenflächen des Flanschs entlang e2
+        self.assertEqual(gehrung.gehrungsflaechen(k, e1, e2, nb, ecke), [])
+        self.assertEqual(gehrung.stossflaechen(k, e1, e2, nb, ecke, 2.0, 25.0), ([3], [2]))

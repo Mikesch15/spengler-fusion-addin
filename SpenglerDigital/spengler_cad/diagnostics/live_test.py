@@ -409,10 +409,14 @@ def t_gehrung_flansch(ctx):
         pass
     fa.entfernen([feat])
     einzel = []
+    eck_e = fa.ecke_daten(_eckkanten(ctx))
     for k in _eckkanten(ctx):
         einzel.append(fa.flansch(k, winkel=90, laenge_mm=FLANSCH))
     einzeln = _messen(ctx)
     s, t = messung.pruefe_gehrung(einzeln, gemeinsam)
+    # Ursache der Volumen-/Flächendifferenz: dieselbe Eckanalyse auch an den EINZELN gebauten Flanschen
+    _be, te = fa.gehrung_eckspalt(einzel[-1], eck_e, ctx.dicke or 1.0)
+    t += "; Ecke einzeln gebaut: " + te + "; Ecke gemeinsam gebaut ↓"
     # Geometrische Eckprüfung am GEMEINSAMEN Flansch (neu gebaut, Eckdaten vor dem Bau gelesen): Volumen allein beweist keine Gehrung.
     fa.entfernen(einzel)
     eck = fa.ecke_daten(_eckkanten(ctx))
@@ -490,7 +494,10 @@ def _abwickeln(ctx, flansche):
     pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "abwicklung.dxf")
     fa.dxf_abwicklung(fp, pfad)
     gross, klein = max(m["laenge"], m["breite"]), min(m["laenge"], m["breite"])
-    s, t = messung.pruefe_abwicklung(m["breite"], m["laenge"], LAENGE, BREITE, FLANSCH, ctx.dicke or 1.0, flansche=flansche)
+    ri, k = fa.regel_werte(ctx.body.parentComponent if ctx.body is not None else ctx.root)
+    s, t = messung.pruefe_abwicklung(m["breite"], m["laenge"], LAENGE, BREITE, FLANSCH, ctx.dicke or 1.0, ri=ri, k=k if k is not None else 0.44,
+                                     flansche=flansche)
+    t += "; Regel: Ri %s, K %s (aus Fusion gelesen)" % (ri, k)
     # Gegenprobe der DXF-Datei selbst (Masse, Einheit, Kontur, keine Zusatzprofile) – unabhängig von der Fusion-Abmessung
     dxf = dxf_pruefung.pruefe_datei(pfad, gross, klein, erwartete_konturen=1)
     t += "; DXF: " + dxf_pruefung.zusammenfassung(dxf)
