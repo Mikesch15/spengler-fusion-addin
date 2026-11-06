@@ -64,8 +64,9 @@ class Eingaben(unittest.TestCase):
             q.ecke_geometrie(90.0, 10.0, 90.0)
 
     def test_richtung_von_der_sichtseite(self):
-        self.assertEqual(q.richtung_zu_wand("hinten rechts"), "wand1")
-        self.assertEqual(q.richtung_zu_wand("Hinten links"), "wand2")
+        # Blick von der Sichtseite auf die Ecke: Wand 2 (an e2, gegen den Uhrzeigersinn nach e1) liegt rechts – per Vektorrechnung belegt
+        self.assertEqual(q.richtung_zu_wand("hinten rechts"), "wand2")
+        self.assertEqual(q.richtung_zu_wand("Hinten links"), "wand1")
         with self.assertRaises(q.QuetschfalteFehler):
             q.richtung_zu_wand("oben")
 

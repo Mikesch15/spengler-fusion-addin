@@ -1,6 +1,6 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.69)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.71)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
 Stand 29.10.2026 · Programmstand 0.4.2 (geprüft wurde 0.4.0 inkl. der Korrekturen in 0.4.2) · Grundlage: Projektauftrag
 «SPENGLER DIGITAL CAD – MASTER-AUFTRAG», Quellcode im Repo `Spengler-Digital-CAD`, Branch `claude/new-session-ux68bs`, Testanleitung.
@@ -701,7 +701,18 @@ die eigene Abwicklung über den Rückvergleich die Ausgabe.
   über den Soll-Volumenzuwachs der Extrusion erkannt (Überlappung → zu kleiner Zuwachs → Ablehnung).
 - Produktiv freigegeben: keine neue Funktion. Eigene Geometrie an ebener gerader Kante ist bedienbar, aber IMPLEMENTIERT – NICHT LIVE GETESTET.
 
-## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.69)
+## AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.71)
+
+- **0.4.71 – QUETSCHFALTE an der Ecke zweier Aufkantungen (Anwender 6. 11. 2026, Variante a):** Befehl «Quetschfalte an Ecke» (Konstruieren). Auswahl: je eine
+  ebene Fläche der beiden Aufkantungen (Innen- oder Aussenseite) + Richtung «hinten rechts/links» (Blick von der Sichtseite: Wand 2 liegt rechts). Höhen,
+  Aufkantungswinkel, Kantenwinkel und Blechdicke liest das Add-in aus dem Modell. Rechnung `core/quetschfalte.py`: Überschuss-Sektor ψ = 360° − β − γ1 − γ2,
+  Faltlinie an der Winkelhalbierenden (180°), Seiten gleich lang (A0 = C0), rechnerisches Falten mit Schliessprüfung; asymmetrische Ecken/ungleiche Höhen
+  werden abgelehnt. Das Teil wird verändert: zwei dreieckige Platten (Blechdicke) auf der AUSSENseite der gewählten Aufkantung (Machbarkeit live
+  bestätigt 0.4.70: Platte anfügen, Körper gültig, Fusion-Blech erhalten). Ausgabe: DXF des Zuschnitt-Ausschnitts der Ecke + zwei SVG-Zeichnungen in
+  `%APPDATA%\SpenglerDigitalCAD\Quetschfalte`. **Fusions Abwicklung ist auf Teilen mit Quetschfalte gesperrt** (Absturzgefahr 0.4.67). Fehler der ersten
+  Zeichnung behoben: Ansicht war spiegelverkehrt, «hinten rechts» = Wand 2 (per Vektorrechnung belegt). NICHT live geprüft (Live-Test-Schritt «QUETSCHFALTE:
+  Ecke zweier Aufkantungen bauen»). Offen: Falz-Ausschnitte des Doppelfalzes, Dachneigung/asymmetrische Ecken, Biegezugaben und Lagendicke im Zuschnitt,
+  Abwicklung des GANZEN Teils mit Quetschfalte.
 
 - **AUSSENMASS live BESTÄTIGT (Live 0.4.68, Fusion 2706.1.17):** Flansche mit Biegung innen und Kantenabbild bauen; die Abwicklungen aus Fusion
   stimmen exakt mit der Aussenmass-Rechnung (L-Blech 78.26, zwei Biegungen 96.52, gerolltes Blech R20 90.11 mm). Offen/behoben in 0.4.69: Volumenkontrolle

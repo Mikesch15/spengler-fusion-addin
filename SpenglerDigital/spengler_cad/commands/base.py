@@ -111,14 +111,14 @@ def handler(klasse, ereignis, funktion):
 ICON_FUER = {"spenglerStart": "start", "spenglerNeuerAuftrag": "auftrag_neu", "spenglerAuftragWaehlen": "auftrag_wahl", "spenglerAuftraegeAbgleichen": "abgleich",
              "spenglerKantenBearbeiten": "kanten", "spenglerDetailErfassen": "details", "spenglerDetailAnwenden": "details", "spenglerRundblech": "rundblech",
              "spenglerVorlageLernen": "lernen", "spenglerVorlageAusApp": "app_vorlage", "spenglerAbwicklungDxf": "abwicklung",
-             "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe", "spenglerLiveTest": "hilfe", "spenglerBlechAusApp": "app_vorlage", "spenglerBauteil": "kanten", "spenglerAblage": "auftrag_wahl"}
+             "spenglerMaterialZuschnitt": "stueckliste", "spenglerVorlagenEinstellungen": "einstellungen", "spenglerHilfe": "hilfe", "spenglerLiveTest": "hilfe", "spenglerBlechAusApp": "app_vorlage", "spenglerBauteil": "kanten", "spenglerAblage": "auftrag_wahl", "spenglerQuetschfalte": "kanten"}
 
 
 # Einheitliche Beschriftung des OK-Knopfs: immer ein Verb, das sagt, was jetzt passiert
 OK_TEXT = {"spenglerNeuerAuftrag": "Auftrag anlegen", "spenglerAuftragWaehlen": "Auftrag aktivieren", "spenglerAuftraegeAbgleichen": "Abgleichen",
            "spenglerKantenBearbeiten": "Kanten bauen", "spenglerAbwicklungDxf": "Abwicklung erstellen", "spenglerMaterialZuschnitt": "Listen erstellen",
            "spenglerRundblech": "Rundblech bauen", "spenglerDetailErfassen": "Detail erfassen", "spenglerDetailAnwenden": "Detail einfügen",
-           "spenglerVorlageLernen": "Vorlage anlegen", "spenglerVorlageAusApp": "Vorlage anlegen", "spenglerLiveTest": "Test starten", "spenglerBlechAusApp": "Blech erzeugen", "spenglerBauteil": "Bauteil erstellen", "spenglerAblage": "Ablage speichern"}
+           "spenglerVorlageLernen": "Vorlage anlegen", "spenglerVorlageAusApp": "Vorlage anlegen", "spenglerLiveTest": "Test starten", "spenglerBlechAusApp": "Blech erzeugen", "spenglerBauteil": "Bauteil erstellen", "spenglerAblage": "Ablage speichern", "spenglerQuetschfalte": "Quetschfalte bauen"}
 
 
 def _mit_ok_text(bid, erstellt):

@@ -188,6 +188,50 @@ def t_quetschfalte_4(ctx):
     return _quetschfalte_stufe(ctx, 4)
 
 
+def t_quetschfalte_bauen(ctx):
+    """QUETSCHFALTE an einer echten Fusion-Ecke: Blech mit Aufkantung an zwei benachbarten Kanten (gemeinsamer Flansch = Stossecke), dann zwei Aufkantungsflächen
+    wählen, die Ecke analysieren, die Quetschfalte als zwei Platten bauen und prüfen (ein Körper, gültig, Blechkörper erhalten, Volumen), Fusions Abwicklung
+    muss auf dem Teil gesperrt sein. Die Prüfung der Abwicklung ruft Fusions Abwicklung NICHT auf."""
+    lt = _lt()
+    import adsk.core
+    fa.flansch(lt._eckkanten(ctx), winkel=90, laenge_mm=lt.FLANSCH)
+    body = ctx.root.bRepBodies.item(0)
+    nb = fa.flaechennormale(fa.stationaere_flaeche_waehlen(body))
+    waende = []
+    for f in body.faces:
+        try:
+            if isinstance(f.geometry, adsk.core.Plane) and abs(sum(a * b for a, b in zip(fa.flaechennormale(f), nb))) < 0.05:
+                waende.append((f.area, f, fa.flaechennormale(f)))
+        except Exception:
+            continue
+    waende.sort(key=lambda x: -x[0])
+    if len(waende) < 2:
+        raise lt._Falsch("Keine zwei Aufkantungsflächen gefunden (%d senkrechte ebene Flächen)." % len(waende))
+    erste = waende[0]
+    zweite = next((w for w in waende[1:] if abs(sum(a * b for a, b in zip(w[2], erste[2]))) < 0.5), None)
+    if zweite is None:
+        raise lt._Falsch("Keine zweite, quer stehende Aufkantungsfläche gefunden.")
+    vol0 = lt._messen(ctx)["vol"]
+    try:
+        a = fa.quetschfalte_analysieren(erste[1], zweite[1], "hinten rechts")
+    except fa.AdapterFehler as e:
+        raise lt._Warnung("Analyse der Ecke abgelehnt (kein Fehler des Test-Aufbaus ausgeschlossen): %s" % e)
+    t = [fa.quetschfalte_text(a)]
+    objekte = fa.quetschfalte_bauen(a)
+    nach = lt._messen(ctx)
+    body = ctx.root.bRepBodies.item(0)
+    t.append("gebaut: %d Objekte, Volumen %+.2f mm³, Körper %d, isSheetMetal=%s" % (len(objekte), nach["vol"] - vol0, ctx.root.bRepBodies.count,
+                                                                                getattr(body, "isSheetMetal", None)))
+    try:
+        fa.abwicklung(ctx.root)
+        raise lt._Falsch("\n".join(t) + "\nFusions Abwicklung wurde auf dem Teil mit Quetschfalte NICHT gesperrt.")
+    except fa.AdapterFehler as e:
+        if "Quetschfalte" not in str(e):
+            raise lt._Falsch("\n".join(t) + "\nAbwicklung abgelehnt, aber aus einem anderen Grund: %s" % e)
+        t.append("Fusions Abwicklung auf dem Teil gesperrt (wie vorgesehen).")
+    return "\n".join(t)
+
+
 SCHRITTE = [
     ("KANTENWERKZEUG eigen: Aufkantung (Regression eben)", t_eigen_aufkantung, True),
     ("KANTENWERKZEUG eigen: Aufkantung + Einfachfalz", t_eigen_einfachfalz, True),
@@ -195,6 +239,7 @@ SCHRITTE = [
     ("KANTENWERKZEUG eigen: Prototyp 2 Zylindersegment + Aufkantung, eigene Abwicklung, DXF", t_prototyp2, False),
     ("KANTENWERKZEUG eigen: Negativ- und Grenzfälle", t_eigen_negativ, True),
     ("KANTENWERKZEUG eigen: Rückbau", t_eigen_rueckbau, True),
+    ("QUETSCHFALTE: Ecke zweier Aufkantungen bauen", t_quetschfalte_bauen, True),
     ("MACHBARKEIT Quetschfalte 1/4: Skizze auf der Aufkantung", t_quetschfalte_1, True),
     ("MACHBARKEIT Quetschfalte 2/4: Platte anfügen (Extrusion, Vereinigung)", t_quetschfalte_2, True),
     ("MACHBARKEIT Quetschfalte 3/4: Blechkörper erhalten und gültig", t_quetschfalte_3, True),

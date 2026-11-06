@@ -2845,6 +2845,259 @@ def platte_anfuegen_probe(body, schenkel_mm=5.0, stufe=3):
         rb.abbrechen(e)
 
 
+# ------------------------------------------------------------------ Quetschfalte an der Ecke zweier Aufkantungen (Rechnung: core/quetschfalte) – NICHT live geprüft
+QUETSCH_ATTR = "quetschfalte"
+
+
+def quetschfalte_attribut(body):
+    try:
+        a = body.attributes.itemByName(ATTR_GRUPPE, QUETSCH_ATTR)
+        return json.loads(a.value) if a else None
+    except Exception:
+        return None
+
+
+def _teil_hat_quetschfalte(comp):
+    try:
+        return any(quetschfalte_attribut(b) for b in comp.bRepBodies)
+    except Exception:
+        return False
+
+
+def _gegenflaeche(body, face, t_mm):
+    """Gegenseite einer Blechfläche: parallele Ebene mit entgegengesetzter Normale im Abstand t (grösste). → Fläche oder None."""
+    n = _einheit(flaechennormale(face))
+    p = _v(face.pointOnFace)
+    beste = None
+    for f in body.faces:
+        try:
+            if f.entityToken == face.entityToken or not isinstance(f.geometry, adsk.core.Plane):
+                continue
+            n2 = _einheit(flaechennormale(f))
+            if _skal(n, n2) > -0.999:
+                continue
+            d = abs(_skal(_plus(_v(f.pointOnFace), p, 1.0, -1.0), n)) * 10.0
+            if abs(d - t_mm) <= 0.02 and (beste is None or f.area > beste.area):
+                beste = f
+        except Exception:
+            continue
+    return beste
+
+
+def _aussenflaeche(body, face, t_mm, innen_cm):
+    """Von einer Blechfläche und ihrer Gegenfläche die AUSSENFLÄCHE: ihre (nach aussen zeigende) Normale zeigt vom Innenraum weg.
+    innen_cm = ein Punkt in der Basisfläche (liegt auf der Innenseite aller Wände). → (Aussenfläche, Normale, Punkt cm)."""
+    partner = _gegenflaeche(body, face, t_mm)
+    if partner is None:
+        raise AdapterFehler("Zur gewählten Fläche wurde keine Gegenseite im Abstand der Blechdicke (%.2f mm) gefunden – kein Blechkörper?" % t_mm)
+    for f in (face, partner):
+        n = _einheit(flaechennormale(f))
+        p = _v(f.pointOnFace)
+        if _skal(_plus(innen_cm, p, 1.0, -1.0), n) < 0:
+            return f, n, p
+    raise AdapterFehler("Aussenseite der Aufkantung nicht bestimmbar.")
+
+
+def _schnitt3(n1, d1, n2, d2, n3, d3):
+    """Schnittpunkt dreier Ebenen n·x = d (Cramer)."""
+    def det(a, b, c):
+        return _skal(a, _kreuz3(b, c))
+    D = det(n1, n2, n3)
+    if abs(D) < 1e-9:
+        raise AdapterFehler("Die drei Ebenen (Basisfläche und beide Aufkantungen) schneiden sich nicht in einem Punkt.")
+    x = tuple((d1 * _kreuz3(n2, n3)[i] + d2 * _kreuz3(n3, n1)[i] + d3 * _kreuz3(n1, n2)[i]) / D for i in range(3))
+    return x
+
+
+def quetschfalte_analysieren(face1, face2, richtung):
+    """Ecke aus ZWEI Aufkantungsflächen (eine Fläche je Aufkantung, Innen- oder Aussenseite) analysieren: Basisfläche, Aussenebenen, virtuelle Ecke O,
+    Kantenwinkel β, Aufkantungswinkel φ und -höhen (Aussenmass), dann die Quetschfalte rechnen (core/quetschfalte). Verändert nichts.
+    → dict (mm, lokales Koordinatensystem x = Kante der linken Wand …). Fehler: AdapterFehler mit Grund. Nicht live geprüft."""
+    import math
+    from ..core import quetschfalte as qf
+    body = face1.body
+    if face2.body.entityToken != body.entityToken:
+        raise AdapterFehler("Die beiden Aufkantungsflächen gehören zu verschiedenen Körpern.")
+    t = blechdicke_mm(body)
+    if not t:
+        raise AdapterFehler("Blechdicke unbekannt – kein Fusion-Blechkörper?")
+    for f in (face1, face2):
+        if not isinstance(f.geometry, adsk.core.Plane):
+            raise AdapterFehler("Bitte je Aufkantung eine EBENE Fläche wählen (die gewählte ist gekrümmt, z. B. die Biegung).")
+    if face1.entityToken == face2.entityToken:
+        raise AdapterFehler("Bitte zwei verschiedene Aufkantungen wählen.")
+    n1v, n2v = _einheit(flaechennormale(face1)), _einheit(flaechennormale(face2))
+    if abs(_skal(n1v, n2v)) > 0.995:
+        raise AdapterFehler("Die beiden Flächen sind parallel – eine Ecke braucht zwei Aufkantungen, die aufeinander zulaufen.")
+    # Basisfläche: grösste ebene Fläche, die weder Aufkantung noch deren Gegenseite ist
+    ausser = {face1.entityToken, face2.entityToken}
+    for f in (face1, face2):
+        g = _gegenflaeche(body, f, t)
+        if g is not None:
+            ausser.add(g.entityToken)
+    basis = None
+    for f in body.faces:
+        try:
+            if f.entityToken in ausser or not isinstance(f.geometry, adsk.core.Plane):
+                continue
+            if basis is None or f.area > basis.area:
+                basis = f
+        except Exception:
+            continue
+    if basis is None:
+        raise AdapterFehler("Basisfläche des Blechs nicht gefunden.")
+    q_cm = _v(basis.pointOnFace)
+    w1, n1, p1 = _aussenflaeche(body, face1, t, q_cm)
+    w2, n2, p2 = _aussenflaeche(body, face2, t, q_cm)
+    # Basis-Aussenfläche: Normale zeigt von den Aufkantungen weg (sie liegen auf der Innenseite)
+    b_partner = _gegenflaeche(body, basis, t)
+    if b_partner is None:
+        raise AdapterFehler("Zur Basisfläche wurde keine Gegenseite gefunden.")
+    wpt = _v(w1.pointOnFace)
+    nb = pb = None
+    for f in (basis, b_partner):
+        n = _einheit(flaechennormale(f))
+        p = _v(f.pointOnFace)
+        if _skal(_plus(wpt, p, 1.0, -1.0), n) < 0:
+            nb, pb = n, p
+            break
+    if nb is None:
+        raise AdapterFehler("Aussenseite der Basisfläche nicht bestimmbar.")
+    M = lambda v: tuple(10.0 * c for c in v)                 # cm → mm
+    O = _schnitt3(nb, _skal(nb, M(pb)), n1, _skal(n1, M(p1)), n2, _skal(n2, M(p2)))
+    z = tuple(-c for c in nb)                                # nach oben, zur Flanschseite
+
+    def kante(n, flaeche):
+        e = _einheit(_kreuz3(nb, n))
+        c = M(_v(flaeche.centroid))
+        if _skal(_plus(c, O, 1.0, -1.0), e) < 0:
+            e = tuple(-x for x in e)
+        return e
+    e1, e2 = kante(n1, w1), kante(n2, w2)
+    if _skal(_kreuz3(e1, e2), z) < 0:                        # Wand 1 muss bei e1 liegen, e2 gegen den Uhrzeigersinn darauf folgen
+        w1, w2, n1, n2, e1, e2 = w2, w1, n2, n1, e2, e1
+        getauscht = True
+    else:
+        getauscht = False
+    x = e1
+    y = _kreuz3(z, x)
+    if abs(_skal(e2, z)) > 0.02:
+        raise AdapterFehler("Die beiden Aufkantungen liegen nicht auf derselben Basisfläche (Kanten nicht in einer Ebene).")
+    beta = math.degrees(math.atan2(_skal(e2, y), _skal(e2, x)))
+    f1 = tuple(-c for c in y)
+    f2 = _kreuz3(z, e2)
+
+    def aufkantung(n, e, f, flaeche):
+        d = _einheit(_kreuz3(n, e))
+        if _skal(d, z) < 0:
+            d = tuple(-c for c in d)
+        phi = math.degrees(math.atan2(_skal(d, z), _skal(d, f)))
+        h = max(_skal(_plus(M(_v(v.geometry)), O, 1.0, -1.0), d) for v in flaeche.vertices)
+        return phi, h, d
+    phi1, h1, d1 = aufkantung(n1, e1, f1, w1)
+    phi2, h2, d2 = aufkantung(n2, e2, f2, w2)
+    try:
+        zus = qf.zuschnitt(beta, h1, phi1, phi2)
+    except qf.QuetschfalteFehler as e:
+        raise AdapterFehler("Quetschfalte nicht möglich: %s" % e)
+    if abs(zus["hoehe2"] - h2) > 0.3:
+        raise AdapterFehler("Die beiden Aufkantungen sind unterschiedlich hoch (%.2f / %.2f mm, gerechnet %.2f mm): die Oberkanten treffen sich nicht in einer "
+                            "Ecklinie – keine saubere Quetschfalte." % (h1, h2, zus["hoehe2"]))
+    f_ = qf.falten_pruefen(zus)
+    if not f_["ok"]:
+        raise AdapterFehler("Das rechnerische Falten schliesst nicht (Abweichung %.4f mm) – abgebrochen." % f_["abweichung_mm"])
+    wand = qf.richtung_zu_wand(richtung)
+    dreieck = qf.quetschfalte_3d(zus, wand)
+
+    def modell(l):
+        return tuple(O[i] + l[0] * x[i] + l[1] * y[i] + l[2] * z[i] for i in range(3))
+    pts = [modell(dreieck[k]) for k in ("O", "P", "C")]
+    wand_flaeche, wand_n = (w1, n1) if wand == "wand1" else (w2, n2)
+    abst = [abs(_skal(_plus(p, M(_v(wand_flaeche.pointOnFace)), 1.0, -1.0), wand_n)) for p in pts]
+    if max(abst) > 0.05:
+        raise AdapterFehler("Interner Fehler: die Faltenspitzen liegen nicht in der Wandebene (Abstand %.3f mm) – abgebrochen." % max(abst))
+    return {"zuschnitt": zus, "geprueft": f_, "beta": beta, "phi1": phi1, "phi2": phi2, "h1": h1, "h2": h2, "dicke": t, "wand": wand,
+            "wand_flaeche": wand_flaeche, "dreieck_mm": pts, "O": O, "getauscht": getauscht, "richtung": richtung,
+            "e1": e1, "e2": e2, "z": z, "koerper": body}
+
+
+def quetschfalte_text(a):
+    z = a["zuschnitt"]
+    return ("Ecke: Kantenwinkel %.1f°, Aufkantungswinkel %.1f° / %.1f°, Höhe %.2f / %.2f mm (Aussenmass), Blechdicke %.2f mm\n"
+            "Überschuss in der Ecke %.1f° → Quetschfalte: Ecklinie %.2f mm, Spitze %.2f mm von der Ecke, Faltlinie 180°\n"
+            "Falte liegt %s (hinter Aufkantung %s), zwei Lagen auf der Aussenseite\n"
+            "Rechnerisch gefaltet: schliesst auf %.1e mm (A0 = C0)." % (
+                a["beta"], a["phi1"], a["phi2"], a["h1"], a["h2"], a["dicke"], z["psi"], z["ell"], z["t_spitze"], a["richtung"],
+                "1" if a["wand"] == "wand1" else "2", a["geprueft"]["abweichung_mm"]))
+
+
+def quetschfalte_bauen(a):
+    """Quetschfalte ins Blechteil bauen: zwei dreieckige Platten (Blechdicke) auf die AUSSENSEITE der gewählten Aufkantung, nacheinander angefügt
+    (Skizze auf der Aussenfläche → Extrusion Vereinigen; zweite Lage auf die neue Aussenfläche). Atomar mit Rückbau; Ergebnis: ein Körper, gültig, Blechkörper
+    erhalten, Volumen +2 × Fläche × Dicke. Fusions Abwicklung wird NICHT benutzt (Zuschnitt vom Add-in). → erzeugte Objekte. Nicht live geprüft
+    (Machbarkeit der Platten im Live-Test 0.4.70 bestätigt, die Dreiecke an der echten Ecke nicht)."""
+    from ..core import quetschfalte as qf
+    body = a["koerper"]
+    comp = body.parentComponent
+    t = a["dicke"]
+    if quetschfalte_attribut(body):
+        raise AdapterFehler("Dieses Teil hat schon eine Quetschfalte – nichts verändert.")
+    pts = a["dreieck_mm"]
+    flaeche_mm2 = 0.5 * math.sqrt(sum(c * c for c in _kreuz3(_plus(pts[1], pts[0], 1.0, -1.0), _plus(pts[2], pts[0], 1.0, -1.0))))
+    wand = a["wand_flaeche"]
+    n_aussen = _einheit(flaechennormale(wand))
+    p_aussen = _v(wand.pointOnFace)
+    rb = Rueckbau("Quetschfalte")
+    n0 = comp.bRepBodies.count
+    vol0 = _comp_volumen(comp) or 0.0
+    token = body.entityToken
+    try:
+        for lage in (1, 2):
+            if lage == 2:
+                body = koerper_neu(token) or comp.bRepBodies.item(0)
+                wand = None
+                for f in body.faces:                         # neue Aussenfläche der ersten Platte: gleiche Normale, um t nach aussen versetzt, Dreiecksfläche
+                    try:
+                        if not isinstance(f.geometry, adsk.core.Plane) or _skal(_einheit(flaechennormale(f)), n_aussen) < 0.999:
+                            continue
+                        d = _skal(_plus(_v(f.pointOnFace), p_aussen, 1.0, -1.0), n_aussen) * 10.0
+                        if abs(d - t) <= 0.02 and abs(f.area * 100.0 - flaeche_mm2) <= 0.03 * flaeche_mm2:
+                            wand = f
+                            break
+                    except Exception:
+                        continue
+                if wand is None:
+                    raise AdapterFehler("Die Aussenfläche der ersten Falten-Lage wurde nicht gefunden – zweite Lage nicht gebaut.")
+            sk = rb.merke(comp.sketches.add(wand))
+            P = [sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q))) for q in pts]
+            for i in range(3):
+                sk.sketchCurves.sketchLines.addByTwoPoints(P[i], P[(i + 1) % 3])
+            prof = _profil_waehlen(sk, flaeche_mm2)
+            feat = _extrudieren_geprueft(comp, prof, t, adsk.fusion.FeatureOperations.JoinFeatureOperation, body, flaeche_mm2 * t, rb)
+            _testfehler("quetschfalte_lage%d" % lage)
+            if comp.bRepBodies.count != n0:
+                raise AdapterFehler("Lage %d hat sich nicht mit dem Teil vereinigt (%d statt %d Körper)." % (lage, comp.bRepBodies.count, n0))
+        neu = koerper_neu(token) or comp.bRepBodies.item(0)
+        probleme = koerper_pruefen(neu)
+        if getattr(neu, "isSheetMetal", None) is False:
+            probleme.append("das Teil ist kein Fusion-Blechkörper mehr")
+        zuwachs = ((_comp_volumen(comp) or 0.0) - vol0) * 1000.0
+        if abs(zuwachs - 2 * flaeche_mm2 * t) > max(0.05, 1e-3 * 2 * flaeche_mm2 * t):
+            probleme.append("Volumenzuwachs %.2f mm³ statt %.2f mm³" % (zuwachs, 2 * flaeche_mm2 * t))
+        if probleme:
+            raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
+        try:
+            neu.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, json.dumps({"beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t,
+                                                                  "richtung": a["richtung"], "wand": a["wand"], "dreieck_mm": [[round(c, 4) for c in p] for p in pts],
+                                                                  "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}}))
+        except Exception:
+            logger.warnung("Quetschfalte-Attribut nicht gesetzt")
+        logger.info("Quetschfalte gebaut", richtung=a["richtung"], beta=a["beta"], h1=a["h1"], flaeche_mm2=flaeche_mm2)
+        return list(rb.objekte)
+    except Exception as e:
+        rb.abbrechen(e)
+
+
 def _kreuz3(a, b):
     return (a[1] * b[2] - a[2] * b[1], a[2] * b[0] - a[0] * b[2], a[0] * b[1] - a[1] * b[0])
 
@@ -3090,6 +3343,10 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     """Abwicklung der Komponente: eine vorhandene wird verwendet (Fusion führt sie selbst nach), sonst neu erzeugt. Vorher geprüft: gültiger
     Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
     (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
+    if _teil_hat_quetschfalte(comp):
+        raise AdapterFehler("Dieses Teil hat eine Quetschfalte. Fusions Abwicklung kann gefaltete Lagen nicht verarbeiten (Absturzgefahr, im Live-Test 0.4.67 "
+                            "ist Fusion an einer angefügten Platte abgestürzt) – deshalb wird sie hier nicht benutzt. Zuschnitt und DXF der Ecke erzeugt der "
+                            "Befehl «Quetschfalte» im Konstruktionsbereich.")
     fp, lesbar = _flatpattern_lesen(comp)
     if not lesbar:
         raise AdapterFehler(ABWICKLUNG_BESCHAEDIGT % getattr(comp, "name", "?"))

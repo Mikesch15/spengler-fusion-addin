@@ -169,13 +169,13 @@ def quetschfalte_3d(z, seite="wand1"):
 
 def richtung_zu_wand(richtung):
     """«hinten links»/«hinten rechts» (von der Sichtseite aus gesehen, Anwender 6. 11. 2026) → Wand, auf die die Falte gelegt wird.
-    Von der Sichtseite (vom Ende der Ecklinie ε aus auf die Ecke blickend, Basisfläche unten) liegt Wand 1 (an e1) rechts, Wand 2 (an e2) links,
-    wenn e1 nach rechts zeigt und e2 gegen den Uhrzeigersinn folgt (so ist die Ecke aufgebaut)."""
+    Blick von der Sichtseite (über der Basisfläche, auf die Ecke O gerichtet, Ecke hinten): mit z nach oben und e2 gegen den Uhrzeigersinn nach e1
+    liegt Wand 2 (an e2) RECHTS und Wand 1 (an e1) LINKS (rechts = Blickrichtung × oben). Korrigiert 6. 11. 2026: die erste Zeichnung war spiegelverkehrt."""
     r = (richtung or "").strip().lower()
     if r in ("hinten rechts", "rechts"):
-        return "wand1"
-    if r in ("hinten links", "links"):
         return "wand2"
+    if r in ("hinten links", "links"):
+        return "wand1"
     raise QuetschfalteFehler("Richtung muss «hinten links» oder «hinten rechts» sein.")
 
 
@@ -248,7 +248,7 @@ def svg_gefaltet(z, seite="wand1", titel="Quetschfalte – gefaltete Ecke (Ansic
     ca, sa = math.cos(math.radians(30)), math.sin(math.radians(30))
 
     def proj(p):
-        return ((p[0] - p[1]) * ca, -(p[2] - (p[0] + p[1]) * sa))
+        return ((p[1] - p[0]) * ca, -(p[2] - (p[0] + p[1]) * sa))       # Blick von (+x,+y,+z) auf den Ursprung: +y erscheint rechts
     alle = [proj(p) for fl in (basis, f1, f2, tri) for p in fl]
     xs, ys = [a[0] for a in alle], [a[1] for a in alle]
     pad, sc = 14.0, 4.0
@@ -266,7 +266,7 @@ def svg_gefaltet(z, seite="wand1", titel="Quetschfalte – gefaltete Ecke (Ansic
            '<polygon points="%s" fill="#e9eef2" stroke="#555" stroke-width="1.2" fill-opacity="0.82"/>' % pts(f2),
            '<text x="8" y="%d" fill="#333">Quetschfalte (rot, durch die Wand sichtbar) liegt flach auf der Aussenseite von %s – %s.</text>' % (
                H - 20, "Aufkantung 1 (an Kante 1)" if seite == "wand1" else "Aufkantung 2 (an Kante 2)",
-               "hinten rechts" if seite == "wand1" else "hinten links"),
+               "hinten links" if seite == "wand1" else "hinten rechts"),
            '<text x="8" y="%d" fill="#333">Ecklinie ε %.2f mm · «rechts/links» von der Sichtseite aus gesehen · Lagen und Biegezonen nicht dargestellt.</text>' % (H - 6, ell),
            "</svg>"]
     return "\n".join(out)
