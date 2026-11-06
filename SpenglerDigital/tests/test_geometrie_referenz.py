@@ -98,10 +98,11 @@ class Matrix(unittest.TestCase):
         self.assertIn("nicht ungefragt verformt", u.pruefen("detail_anpassen", "kegel", "gerade"))
 
     def test_gerade_kante_auf_zylinder_ist_kein_ebener_fall(self):
-        self.assertIn("gesperrter Prototyp", u.pruefen("flansch", "zylinder", "gerade"))
-        self.assertIsNone(u.pruefen("flansch", "zylinder", "gerade", prototyp_erlaubt=True), "nur im Live-Test")
-        self.assertIn("erst nach bestandenem Einzelkanten-Prototyp", u.pruefen("mehrkant_gehrung", "zylinder", "gerade", True))
-        self.assertIn("Prototyp", u.hinweis("flansch", "zylinder", "gerade"))
+        self.assertIn("Live 0.4.60", u.pruefen("flansch", "zylinder", "gerade"), "nativ von Fusion abgelehnt")
+        self.assertIn("gesperrter Prototyp", u.pruefen("versatz", "zylinder", "gerade"))
+        self.assertIsNone(u.pruefen("versatz", "zylinder", "gerade", prototyp_erlaubt=True), "nur im Live-Test")
+        self.assertIn("schon die Einzelkante", u.pruefen("mehrkant_gehrung", "zylinder", "gerade", True))
+        self.assertIn("Versatz als Bogenlänge", u.hinweis("versatz", "zylinder", "gerade"))
 
     def test_unbekannt_wird_nie_bearbeitet(self):
         for op in u.OPS:

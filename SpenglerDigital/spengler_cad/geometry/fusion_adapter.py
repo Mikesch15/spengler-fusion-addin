@@ -1042,7 +1042,11 @@ def versatz_zylinder(edge, versatz_mm, dicke_mm):
     rb = Rueckbau("Zylinder-Versatz")
     try:
         ai = comp.constructionAxes.createInput()
-        ai.setByCylinderOrConeOrTorus(f)
+        # Live 0.4.60: «setByCylinderOrConeOrTorus» gibt es nicht – die API-Methode heisst setByRevolvedFace (Zylinder/Kegel/Torus). Nicht live geprüft.
+        if hasattr(ai, "setByRevolvedFace"):
+            ai.setByRevolvedFace(f)
+        else:
+            ai.setByCylinderOrConeOrTorus(f)
         achse = rb.merke(comp.constructionAxes.add(ai))
         pi = comp.constructionPlanes.createInput()
         pi.setByTwoEdges(achse, edge)
@@ -1698,18 +1702,22 @@ def gehrung_eckspalt(feat, daten, dicke_mm):
             k3 = [(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)]
             s1, s2 = gehrung.stossflaechen(k3, daten["e1"], daten["e2"], daten["nb"], ecke_mm, 2.0 * (dicke_mm or 1.0), 25.0)
             if s1 and s2:
-                mm = app().measureManager
-                spalt = min(mm.measureMinimumDistance(kandidaten[i][0], kandidaten[j][0]).value * 10.0 for i in s1 for j in s2)
+                gr_ = []
+                werte = [abstand_mm(kandidaten[i][0], kandidaten[j][0], gr_) for i in s1 for j in s2]
+                werte = [w for w in werte if w is not None]
+                if not werte:
+                    return "unbekannt", "Stossecke erkannt, Eckspalt aber nicht messbar (%s)." % ("; ".join(gr_)[:200] or "?")
+                spalt = min(werte)
                 return "stoss", ("Stossecke – KEINE 45°-Gehrung: die Flansch-Stirnflächen stehen senkrecht zu ihrer Kante (%d/%d Flächen), "
                                  "Eckspalt %.2f mm. Fachlich zu bewerten." % (len(s1), len(s2), spalt))
             return "unbekannt", "Gehrungsflächen nicht eindeutig gefunden (%d) – Ecke bitte ansehen. Eckennahe ebene Flächen: %s" % (
                 len(gw), gehrung.diagnose([(i, n, c) for i, (_f, n, c) in enumerate(kandidaten)], daten["e1"], daten["e2"], daten["nb"], ecke_mm))
-        mm = app().measureManager
-        bester = None
+        bester, gr_ = None, []
         for i in range(len(gw)):
             for j in range(i + 1, len(gw)):
-                d = mm.measureMinimumDistance(kandidaten[gw[i]][0], kandidaten[gw[j]][0]).value * 10.0
-                bester = d if bester is None else min(bester, d)
+                d = abstand_mm(kandidaten[gw[i]][0], kandidaten[gw[j]][0], gr_)     # mit Proxy-Rückfall (Live 0.4.60: «invalid argument geometryOne»)
+                if d is not None:
+                    bester = d if bester is None else min(bester, d)
         s_, t_ = gehrung.bewerte_eckspalt(bester, dicke_mm)
         return s_, "%s (%d Gehrungsflächen aus %s)" % (t_, len(gw), quelle)
     except Exception as e:
@@ -2917,14 +2925,26 @@ def abwickelbarkeit_koerper(body):
     return gr.abwickelbarkeit(typen, gmax, stichprobe_unsicher=unsicher)
 
 
+def _ist_seitenflaeche(f, t_cm):
+    """Stirn-/Seitenfläche eines Blechs: ihre Breite (Fläche / längste Kante) ist nicht grösser als die Blechdicke. Nicht live geprüft."""
+    try:
+        laengste = max(e.length for e in f.edges)
+        return laengste > 0 and f.area / laengste <= t_cm * 1.05
+    except Exception:
+        return False
+
+
 def stationaere_flaeche_waehlen(body):
     """Feste Regel statt Zufall: die grösste EBENE Fläche des Blechkörpers; bei gleicher Grösse (Ober-/Unterseite) die mit der Normale am
     weitesten nach +Z, dann die mit dem kleinsten Punkt (x, y, z). → Fläche oder None."""
     kandidaten = []
+    t_cm = (blechdicke_mm(body) or 0.0) / 10.0
     for f in body.faces:
         try:
             if not isinstance(f.geometry, adsk.core.Plane):
                 continue
+            if t_cm and _ist_seitenflaeche(f, t_cm):
+                continue                     # Live 0.4.60: «stationaryFace is not valid, a side face may have been selected»
             n = flaechennormale(f)
             p = f.pointOnFace
             kandidaten.append(((-round(f.area, 6), -round(n[2], 6), round(p.x, 6), round(p.y, 6), round(p.z, 6)), f))
@@ -2977,7 +2997,8 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     if stationaere_flaeche is None:
         stationaere_flaeche = stationaere_flaeche_waehlen(body)
         if stationaere_flaeche is None:
-            raise AdapterFehler("Stationäre Fläche fehlt: Der Blechkörper hat keine ebene Fläche.")
+            raise AdapterFehler("Stationäre Fläche fehlt: Der Blechkörper hat keine ebene Hauptfläche (nur Seitenflächen) – Fusion verlangt eine "
+                                "ebene feststehende Fläche. Ein rein gerolltes Segment hat keine; dafür gibt es die eigene Abwicklung.")
         logger.info("Stationäre Fläche nach fester Regel gewählt (grösste ebene Fläche, Normale +Z zuerst)")
     else:
         if not _gleiche(stationaere_flaeche.body, body):

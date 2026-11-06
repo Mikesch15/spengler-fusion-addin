@@ -90,9 +90,11 @@ def stand(op, flaeche, kante="gerade"):
         return "ja", ""
     if flaeche == "zylinder" and kante == "gerade":
         if op in ("flansch", "umschlag"):
-            return "prototyp", "gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native %s; gesperrt bis Live-Test" % (
-                "EdgeFlange" if op == "flansch" else "Hem")
-        return "nein", "erst nach bestandenem Einzelkanten-Prototyp"
+            # Live 0.4.60 (Fusion 2706.1.17): EdgeFlange «edge is not suitable for a sheet metal flange», Hem «SM_MODELING_ERROR» an der geraden
+            # Mantelkante eines gerollten Segments – nativ nicht möglich; die eigene Geometrie kann es (Prototyp 2 live bestanden)
+            return "nein", "Fusion lehnt %s an der Mantelkante eines gerollten Blechs ab (Live 0.4.60) – Bauweise «eigene Geometrie» verwenden" % (
+                "den Flansch" if op == "flansch" else "den Umschlag")
+        return "nein", "Fusion lehnt schon die Einzelkante an der Mantellinie ab (Live 0.4.60)"
     if flaeche == "zylinder":
         return "nein", "%s entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test" % OP_TEXT[op]
     if flaeche == "kegel":

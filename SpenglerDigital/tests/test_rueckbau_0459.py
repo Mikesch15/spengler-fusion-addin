@@ -210,3 +210,22 @@ class Stossecke(unittest.TestCase):
              (4, (1, 0, 0), (0.5, 30.0, 10.0)), (5, (1, 0, 0), (1.5, 30.0, 10.0))]    # Seitenflächen des Flanschs entlang e2
         self.assertEqual(gehrung.gehrungsflaechen(k, e1, e2, nb, ecke), [])
         self.assertEqual(gehrung.stossflaechen(k, e1, e2, nb, ecke, 2.0, 25.0), ([3], [2]))
+
+
+class PaletteImmerHell(unittest.TestCase):
+    def test_keine_dunkel_variante(self):
+        import os
+        p = os.path.join(os.path.dirname(__file__), "..", "palette", "vorlagen.html")
+        s = open(p, encoding="utf-8").read()
+        self.assertNotIn("prefers-color-scheme", s, "Anwender 6. 11. 2026: Fenster nie schwarz")
+        self.assertIn('content="light only"', s)
+
+
+class SeitenflaecheNichtStationaer(unittest.TestCase):
+    def test_seitenflaeche_erkannt(self):
+        fa = _fa()
+        E = lambda l: type("E", (), {"length": l})()
+        seite = type("F", (), {"area": 8.0 * 0.1, "edges": [E(8.0), E(0.1)]})()
+        haupt = type("F", (), {"area": 8.0 * 15.7, "edges": [E(8.0), E(15.7)]})()
+        self.assertTrue(fa._ist_seitenflaeche(seite, 0.1))
+        self.assertFalse(fa._ist_seitenflaeche(haupt, 0.1))

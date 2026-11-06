@@ -2,9 +2,10 @@
 <html lang="de">
 <head>
 <meta charset="utf-8">
+<meta name="color-scheme" content="light only">
 <title>Spengler Digital CAD – Vorlagen</title>
 <style>
-:root{--rand:#d3d9e0;--akzent:#1f78c1;--dunkel:#17496f;--grau:#5b6672;--fehler:#b3261e;--ok:#2d6a2d;--hg:#f4f7fa;--orange:#f28c28}
+:root{color-scheme:light only;--rand:#d3d9e0;--akzent:#1f78c1;--dunkel:#17496f;--grau:#5b6672;--fehler:#b3261e;--ok:#2d6a2d;--hg:#f4f7fa;--orange:#f28c28}
 *{box-sizing:border-box}
 body{font:13px "Segoe UI",system-ui,Arial,sans-serif;margin:0;color:#1b1f24;background:#fff}
 header{display:flex;align-items:center;gap:10px;padding:9px 14px;background:linear-gradient(135deg,var(--dunkel),var(--akzent));color:#fff}
@@ -45,19 +46,7 @@ main .experte{display:none}body.experte main .experte{display:block}
 .tstatus button{min-width:34px}.tstatus button.an-ok{background:var(--ok);color:#fff;border-color:var(--ok)}.tstatus button.an-fehler{background:var(--fehler);color:#fff;border-color:var(--fehler)}.tstatus button.an-uebersprungen{background:var(--grau);color:#fff;border-color:var(--grau)}
 .tpunkt input.tnotiz{flex:1;min-width:140px}
 fieldset{border:1px solid var(--rand);border-radius:8px;margin:10px 0;padding:8px 12px;background:#fff}legend{color:var(--dunkel);font-weight:600;padding:0 6px}
-@media (prefers-color-scheme:dark){
-:root{--rand:#3a4450;--akzent:#4aa3e8;--dunkel:#0f3a5a;--grau:#a3afbc;--fehler:#ff8a80;--ok:#7fd17f;--hg:#222a33}
-body,nav,nav button.aktiv,.tblock,fieldset{background:#171c22;color:#e6ebf0}
-input,select,textarea,button{background:#222a33;color:#e6ebf0}
-button:hover,nav button:hover,tbody tr:hover{background:#2c3641}
-button.haupt{background:var(--akzent);color:#0b1b2a}
-td,th,.tpunkt{border-color:#2b343e}
-.liste tr.gewaehlt{background:#1d3b57}
-.meldung.fehler{background:#3a1f1d}.meldung.ok{background:#1d3320}
-.tpunkt.s-ok{background:#1b2c1d}.tpunkt.s-fehler{background:#331d1d}.tpunkt.s-uebersprungen{background:#252a30}
-.tblock>summary{background:#222a33}
-.vorschau{color:#1b1f24}
-}
+/* Immer hell (Anwender 6. 11. 2026: das Fenster soll nie schwarz sein) – keine Dunkel-Variante nach Windows-/Fusion-Einstellung */
 </style>
 </head>
 <body>

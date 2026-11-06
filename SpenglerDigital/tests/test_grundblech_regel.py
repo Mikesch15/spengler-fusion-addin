@@ -442,9 +442,12 @@ class PrototypenZylinder(_Patch):
         k = type("K", (), {"faces": [f]})()
         self.patche(flaechentyp=lambda f_: "zylinder", _kurventyp=lambda e: "linie")
         with self.assertRaises(fa.AdapterFehler) as cm:
-            fa.matrix_sperre("flansch", [k])
+            fa.matrix_sperre("versatz", [k])
         self.assertIn("gesperrter Prototyp", str(cm.exception))
-        self.assertTrue(fa.matrix_sperre("flansch", [k], prototyp_erlaubt=True), "im Live-Test erlaubt, mit Hinweis")
+        self.assertTrue(fa.matrix_sperre("versatz", [k], prototyp_erlaubt=True), "im Live-Test erlaubt, mit Hinweis")
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.matrix_sperre("flansch", [k], prototyp_erlaubt=True)
+        self.assertIn("eigene Geometrie", str(cm.exception), "Flansch an der Mantelkante: von Fusion abgelehnt (Live 0.4.60), auch im Live-Test gesperrt")
 
 
 class EigeneGeometrieVorpruefung(_Patch):

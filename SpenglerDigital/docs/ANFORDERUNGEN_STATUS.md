@@ -279,7 +279,7 @@ Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Rele
 | Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Grundblech | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Flansch | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Flansch | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Flansch | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
@@ -291,7 +291,7 @@ Branch `ccr-26e82854-8ygnzg`, Ausgangsbasis 0.4.49 (HEAD `bb4254c`). **Kein Rele
 | Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Umschlag | eben | implementiert | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
-| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
+| Umschlag | Zylinder | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Umschlag | Kegel | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
 | Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt | nicht unterstützt |
@@ -333,25 +333,25 @@ Grenzen und Gründe (gekrümmte Fälle):
 - **Grundblech / einfach gekrümmt** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
 - **Grundblech / doppelt gekrümmt** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
 - **Grundblech / Freiform** (nicht unterstützt): Grundblech entsteht eben; gekrümmte Bleche als gerolltes Segment (Prototyp im Live-Test) oder Rundblech (Drehkörper, kein Blech)
-- **Flansch / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native EdgeFlange; gesperrt bis Live-Test
+- **Flansch / Zylinder** (nicht unterstützt): Fusion lehnt den Flansch an der Mantelkante eines gerollten Blechs ab (Live 0.4.60) – Bauweise «eigene Geometrie» verwenden
 - **Flansch / Zylinder** (nicht unterstützt): Flansch entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Flansch / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
 - **Flansch / einfach gekrümmt** (nicht unterstützt): Flansch auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Flansch / doppelt gekrümmt** (nicht unterstützt): Flansch auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Flansch / Freiform** (nicht unterstützt): Flansch auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
-- **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
+- **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): Fusion lehnt schon die Einzelkante an der Mantellinie ab (Live 0.4.60)
 - **Mehrkantflansch mit Gehrung / Zylinder** (nicht unterstützt): Mehrkantflansch mit Gehrung entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Mehrkantflansch mit Gehrung / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
 - **Mehrkantflansch mit Gehrung / einfach gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Mehrkantflansch mit Gehrung / doppelt gekrümmt** (nicht unterstützt): Mehrkantflansch mit Gehrung auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Mehrkantflansch mit Gehrung / Freiform** (nicht unterstützt): Mehrkantflansch mit Gehrung auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
-- **Umschlag / Zylinder** (Prototyp (gesperrt)): gerade Kante parallel zur Achse eines gerollten Blechsegments, Fusion-native Hem; gesperrt bis Live-Test
+- **Umschlag / Zylinder** (nicht unterstützt): Fusion lehnt den Umschlag an der Mantelkante eines gerollten Blechs ab (Live 0.4.60) – Bauweise «eigene Geometrie» verwenden
 - **Umschlag / Zylinder** (nicht unterstützt): Umschlag entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Umschlag / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
 - **Umschlag / einfach gekrümmt** (nicht unterstützt): Umschlag auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Umschlag / doppelt gekrümmt** (nicht unterstützt): Umschlag auf doppelt gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
 - **Umschlag / Freiform** (nicht unterstützt): Umschlag auf Freiform: keine eindeutige, mathematisch abwickelbare Geometrie
-- **Doppelfalz / Zylinder** (nicht unterstützt): erst nach bestandenem Einzelkanten-Prototyp
+- **Doppelfalz / Zylinder** (nicht unterstützt): Fusion lehnt schon die Einzelkante an der Mantellinie ab (Live 0.4.60)
 - **Doppelfalz / Zylinder** (nicht unterstützt): Doppelfalz entlang einer Kreiskante eines Zylinders: Fusion-API nur gerade Kanten; Live-Anfrage im Test
 - **Doppelfalz / Kegel** (nicht unterstützt): kein gerolltes Kegelsegment per API erzeugbar (kein Lofted-Flange in der API bekannt) – nicht prüfbar, nicht freigegeben
 - **Doppelfalz / einfach gekrümmt** (nicht unterstützt): Doppelfalz auf einfach gekrümmt: keine eindeutige, mathematisch abwickelbare Geometrie
@@ -391,7 +391,7 @@ Grenzen und Gründe (gekrümmte Fälle):
 | Grundblech | einfach gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Grundblech | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Grundblech | Freiform | nicht unterstützt | nicht unterstützt | BaseFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
-| Flansch | Zylinder | Prototyp (gesperrt) | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | nötig |
+| Flansch | Zylinder | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Flansch | Kegel | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Flansch | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Flansch | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
@@ -401,7 +401,7 @@ Grenzen und Gründe (gekrümmte Fälle):
 | Mehrkantflansch mit Gehrung | einfach gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Mehrkantflansch mit Gehrung | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Mehrkantflansch mit Gehrung | Freiform | nicht unterstützt | nicht unterstützt | EdgeFlange mehrere Kanten | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
-| Umschlag | Zylinder | Prototyp (gesperrt) | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | nötig |
+| Umschlag | Zylinder | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Umschlag | Kegel | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Umschlag | einfach gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | mathematisch abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
 | Umschlag | doppelt gekrümmt | nicht unterstützt | nicht unterstützt | Hem (Preview) | ja | nicht abwickelbar | Live-Anfrage (Ablehnung bestätigen) |
@@ -504,7 +504,7 @@ Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = 2.00e
 | Flansch | eben | Ellipse | nicht unterstützt | nicht unterstützt | d |
 | Flansch | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
 | Flansch | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
-| Flansch | Zylinder | gerade Kante | Prototyp (gesperrt) | Prototyp (gesperrt) | b |
+| Flansch | Zylinder | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
 | Flansch | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
 | Flansch | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | d |
 | Flansch | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | d |
@@ -540,7 +540,7 @@ Beispiel Torus-Biegezone (Kreiskante R 500 mm, ri 1 mm, t 1 mm): max |K| = 2.00e
 | Umschlag | eben | Ellipse | nicht unterstützt | nicht unterstützt | d |
 | Umschlag | eben | Spline/freie Kurve | nicht unterstützt | nicht unterstützt | d |
 | Umschlag | eben | Kette aus Linien und Bögen | nicht unterstützt | nicht unterstützt | c |
-| Umschlag | Zylinder | gerade Kante | Prototyp (gesperrt) | Prototyp (gesperrt) | b |
+| Umschlag | Zylinder | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |
 | Umschlag | Zylinder | Kreisbogen | nicht unterstützt | nicht unterstützt | d |
 | Umschlag | Zylinder | Kreis | nicht unterstützt | nicht unterstützt | d |
 | Umschlag | Zylinder | Ellipse | nicht unterstützt | nicht unterstützt | d |

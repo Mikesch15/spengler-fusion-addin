@@ -9,7 +9,9 @@ from spengler_cad.core import unterstuetzung as u
 
 class Matrix(unittest.TestCase):
     def test_api_grenze_ist_keine_unmoeglichkeit(self):
-        self.assertEqual(u.stand("flansch", "zylinder", "gerade")[0], "prototyp")
+        # Live 0.4.60: Fusion lehnt den nativen Flansch an der Mantelkante ab → «nein»; die eigene Geometrie bleibt möglich (Klasse b)
+        self.assertEqual(u.stand("flansch", "zylinder", "gerade")[0], "nein")
+        self.assertIn("Live 0.4.60", u.stand("flansch", "zylinder", "gerade")[1])
         s, grund, kl = u.eigen("flansch", "zylinder", "gerade")
         self.assertEqual((s, kl), ("prototyp", "b"), "eigene exakte Geometrie möglich")
         self.assertEqual(u.eigen("flansch", "eben", "bogen")[2], "d", "Bogenkante: Torus – mathematisch nicht exakt")
@@ -22,11 +24,12 @@ class Matrix(unittest.TestCase):
         self.assertIn("gesperrter Prototyp", u.pruefen_bauweise("umschlag", "zylinder", "gerade", "eigen"))
         self.assertIsNone(u.pruefen_bauweise("umschlag", "zylinder", "gerade", "eigen", prototyp_erlaubt=True))
         self.assertIn("Torus", u.pruefen_bauweise("flansch", "eben", "kreis", "eigen", True))
-        self.assertIn("gesperrter Prototyp", u.pruefen_bauweise("flansch", "zylinder", "gerade", "nativ"))
+        self.assertIn("eigene Geometrie", u.pruefen_bauweise("flansch", "zylinder", "gerade", "nativ"))
+        self.assertIn("eigene Geometrie", u.pruefen_bauweise("flansch", "zylinder", "gerade", "nativ", prototyp_erlaubt=True), "auch im Live-Test gesperrt")
 
     def test_kantentypen(self):
         self.assertEqual([u.kantentyp(k) for k in ("linie", "ellipse", "spline", "kette")], ["gerade", "ellipse", "kurve", "kette"])
-        self.assertIn("| Flansch | Zylinder | gerade Kante | Prototyp (gesperrt) | Prototyp (gesperrt) | b |", u.kantenwerkzeug_markdown())
+        self.assertIn("| Flansch | Zylinder | gerade Kante | nicht unterstützt | Prototyp (gesperrt) | b |", u.kantenwerkzeug_markdown())
 
 
 class Machbarkeit(unittest.TestCase):
