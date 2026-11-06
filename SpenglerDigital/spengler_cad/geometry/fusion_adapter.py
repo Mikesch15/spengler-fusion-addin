@@ -2892,6 +2892,13 @@ def quetschfalte_attribut(body):
 
 
 def _teil_hat_quetschfalte(comp):
+    """True, wenn die Komponente eine Quetschfalte trägt – Markierung an der KOMPONENTE (Live 0.4.74: die Markierung am Körper wurde im Abwicklungsbefehl nicht
+    gefunden, Fusions Abwicklung lief an) oder an einem ihrer Körper."""
+    try:
+        if comp.attributes.itemByName(ATTR_GRUPPE, QUETSCH_ATTR) is not None:
+            return True
+    except Exception:
+        pass
     try:
         return any(quetschfalte_attribut(b) for b in comp.bRepBodies)
     except Exception:
@@ -3047,22 +3054,34 @@ def quetschfalte_analysieren(face1, face2, richtung):
         return tuple(O[i] + l[0] * x[i] + l[1] * y[i] + l[2] * z[i] for i in range(3))
     pts = [modell(dreieck[k]) for k in ("O", "P", "C")]
     wand_flaeche, wand_n = (w1, n1) if wand == "wand1" else (w2, n2)
+    # Länge der Aufkantungen entlang ihrer Biegelinie, vom Eck O aus (Live 0.4.74: Wand 2 war kürzer als die Falte lang ist – die Falte ragte am Wandende
+    # frei in die Luft)
+    def wandlaenge(flaeche, e):
+        return max(_skal(_plus(M(_v(v.geometry)), O, 1.0, -1.0), e) for v in flaeche.vertices)
+    laenge1, laenge2 = wandlaenge(w1, e1), wandlaenge(w2, e2)
+    gewaehlt, andere = (laenge1, laenge2) if wand == "wand1" else (laenge2, laenge1)
+    if gewaehlt < zus["m"] - 0.5:
+        hinweis = ("Die andere Richtung («%s») würde passen: Aufkantung %s ist %.1f mm lang." % (
+            "hinten rechts" if wand == "wand1" else "hinten links", "2" if wand == "wand1" else "1", andere)) if andere >= zus["m"] - 0.5 else \
+            "Auch die andere Aufkantung ist mit %.1f mm zu kurz – die Aufkantungen müssten länger sein oder niedriger (die Falte wächst mit der Höhe)." % andere
+        raise AdapterFehler("Aufkantung %s ist nur %.1f mm lang, die Falte braucht %.1f mm entlang der Wand – sie würde am Wandende in die Luft ragen. %s" % (
+            "1" if wand == "wand1" else "2", gewaehlt, zus["m"], hinweis))
     abst = [abs(_skal(_plus(p, M(_v(wand_flaeche.pointOnFace)), 1.0, -1.0), wand_n)) for p in pts]
     if max(abst) > 0.05:
         raise AdapterFehler("Interner Fehler: die Faltenspitzen liegen nicht in der Wandebene (Abstand %.3f mm) – abgebrochen." % max(abst))
     return {"zuschnitt": zus, "geprueft": f_, "beta": beta, "phi1": phi1, "phi2": phi2, "h1": h1, "h2": h2, "dicke": t, "wand": wand,
             "wand_flaeche": wand_flaeche, "dreieck_mm": pts, "O": O, "getauscht": getauscht, "richtung": richtung,
-            "e1": e1, "e2": e2, "z": z, "koerper": body}
+            "e1": e1, "e2": e2, "z": z, "koerper": body, "laenge1": laenge1, "laenge2": laenge2}
 
 
 def quetschfalte_text(a):
     z = a["zuschnitt"]
     return ("Ecke: Kantenwinkel %.1f°, Aufkantungswinkel %.1f° / %.1f°, Höhe %.2f / %.2f mm (Aussenmass), Blechdicke %.2f mm\n"
             "Überschuss in der Ecke %.1f° → Quetschfalte: Ecklinie %.2f mm, Spitze %.2f mm von der Ecke, Faltlinie 180°\n"
-            "Falte liegt %s (hinter Aufkantung %s), zwei Lagen auf der Aussenseite\n"
+            "Falte liegt %s (hinter Aufkantung %s), zwei Lagen auf der Aussenseite; Länge der Aufkantungen %.0f / %.0f mm (Falte braucht %.1f mm)\n"
             "Rechnerisch gefaltet: schliesst auf %.1e mm (A0 = C0)." % (
                 a["beta"], a["phi1"], a["phi2"], a["h1"], a["h2"], a["dicke"], z["psi"], z["ell"], z["t_spitze"], a["richtung"],
-                "1" if a["wand"] == "wand1" else "2", a["geprueft"]["abweichung_mm"]))
+                "1" if a["wand"] == "wand1" else "2", a["laenge1"], a["laenge2"], z["m"], a["geprueft"]["abweichung_mm"]))
 
 
 def quetschfalte_bauen(a):
@@ -3111,7 +3130,11 @@ def quetschfalte_bauen(a):
                                                                   "richtung": a["richtung"], "wand": a["wand"], "dreieck_mm": [[round(c, 4) for c in p] for p in pts],
                                                                   "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}}))
         except Exception:
-            logger.warnung("Quetschfalte-Attribut nicht gesetzt")
+            logger.warnung("Quetschfalte-Attribut am Körper nicht gesetzt")
+        try:
+            comp.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, "1")
+        except Exception:
+            logger.warnung("Quetschfalte-Markierung an der Komponente nicht gesetzt")
         logger.info("Quetschfalte gebaut", richtung=a["richtung"], beta=a["beta"], h1=a["h1"], flaeche_mm2=flaeche_mm2)
         return list(rb.objekte)
     except Exception as e:

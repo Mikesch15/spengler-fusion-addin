@@ -42,7 +42,7 @@ class Flaeche(object):
 class Koerper(object):
     entityToken = "K1"
 
-    def __init__(self, hoehe2=3.0):
+    def __init__(self, hoehe2=3.0, laenge2=10.0):
         self.faces = []
         f = self.faces.append
         # Aussenmass-Schale (cm): Basis z 0…0.1, Wand 1 (y 0…0.1, an e1 = +x), Wand 2 (x 0…0.1, an e2 = +y); Höhe 30 mm, Biegungs-Tangente bei z = 0.2
@@ -51,8 +51,8 @@ class Koerper(object):
         f(Flaeche(self, (0, 1, 0), (5, 0.1, 1.5), 30.0, [(0, 0.1, 0.2), (10, 0.1, 3.0)]))   # Wand 1 innen
         self.w1 = Flaeche(self, (0, -1, 0), (5, 0.0, 1.5), 30.0, [(0, 0, 0.2), (10, 0, 3.0)])   # Wand 1 aussen
         f(self.w1)
-        f(Flaeche(self, (1, 0, 0), (0.1, 5, 1.5), 30.0, [(0.1, 0, 0.2), (0.1, 10, hoehe2)]))   # Wand 2 innen
-        self.w2 = Flaeche(self, (-1, 0, 0), (0.0, 5, 1.5), 30.0, [(0, 0, 0.2), (0, 10, hoehe2)])   # Wand 2 aussen
+        f(Flaeche(self, (1, 0, 0), (0.1, 5, 1.5), 30.0, [(0.1, 0, 0.2), (0.1, laenge2, hoehe2)]))   # Wand 2 innen
+        self.w2 = Flaeche(self, (-1, 0, 0), (0.0, 5, 1.5), 30.0, [(0, 0, 0.2), (0, laenge2, hoehe2)])   # Wand 2 aussen
         f(self.w2)
         self.faces[2].body = self.faces[4].body = self
 
@@ -213,3 +213,36 @@ class ZerschnittenesDreieck(unittest.TestCase):
         with self.assertRaises(fa.AdapterFehler) as cm:
             fa._profile_summe_waehlen(sk, 200.0)
         self.assertIn("8 Kurven", str(cm.exception))
+
+
+class WandLaenge(unittest.TestCase):
+    """Live 0.4.74: Aufkantung 2 war kürzer als die Falte lang ist (70 mm) – die Falte ragte am Wandende frei in die Luft."""
+    def setUp(self):
+        fa = _fa()
+        orig = fa.blechdicke_mm
+        fa.blechdicke_mm = lambda b: 1.0
+        self.addCleanup(setattr, fa, "blechdicke_mm", orig)
+
+    def test_zu_kurze_wand_abgelehnt_mit_hinweis_auf_die_andere_richtung(self):
+        fa = _fa()
+        k = Koerper(laenge2=2.0)                                      # Wand 2 nur 20 mm lang, Wand 1 100 mm; Falte braucht 30 mm
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.quetschfalte_analysieren(k.w1, k.w2, "hinten rechts")   # hinten rechts = Wand 2
+        t = str(cm.exception)
+        self.assertIn("nur 20.0 mm lang", t)
+        self.assertIn("«hinten links»", t, "die andere Richtung passt")
+        a = fa.quetschfalte_analysieren(k.w1, k.w2, "hinten links")    # auf Wand 1 (100 mm) geht es
+        self.assertEqual(a["wand"], "wand1")
+
+    def test_beide_zu_kurz(self):
+        fa = _fa()
+        k = Koerper(laenge2=2.0)
+        k.w1.vertices = [Ecke((0, 0, 0.2)), Ecke((2.0, 0, 3.0))]       # auch Wand 1 nur 20 mm
+        with self.assertRaises(fa.AdapterFehler) as cm:
+            fa.quetschfalte_analysieren(k.w1, k.w2, "hinten links")
+        self.assertIn("Auch die andere Aufkantung", str(cm.exception))
+
+    def test_ausreichend_lange_waende_bauen_wie_vorher(self):
+        fa = _fa()
+        a = fa.quetschfalte_analysieren(Koerper().w1, Koerper().w2, "hinten rechts")
+        self.assertAlmostEqual(a["laenge2"], 100.0, places=6)
