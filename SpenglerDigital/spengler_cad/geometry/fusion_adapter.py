@@ -3906,8 +3906,8 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
             linien["zone%d" % nr_z] = seg
         flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]), "polygon": poly, "linien": linien})
         ecken.append("Ecke bei (%.0f, %.0f, %.0f)" % tuple(O))
-        hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); Faltzone %.2f mm (%s), Kontur ideal (Spitzenlage bei Lagendicke nicht korrigiert)." % (
-            E, d["h1"], bz, "Vorgabe %.2f × Dicke" % d["zugabe_t"] if d.get("zugabe_t") else "π·K·t"))
+        hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); %s; ohne Zugabe/Abzug für die Lagendicke (Betriebsregel)." % (
+            E, d["h1"], "Faltzone %.2f mm" % bz if bz > 0 else "keine Faltzone"))
     try:
         r = aa.abwickeln(flaechen, biegungen, flicken)
     except aa.AbwicklungFehler as e:

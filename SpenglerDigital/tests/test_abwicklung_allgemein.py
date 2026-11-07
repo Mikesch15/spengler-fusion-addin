@@ -181,7 +181,8 @@ class Boegen(unittest.TestCase):
 
 class Faltzone(unittest.TestCase):
     def test_breite(self):
-        self.assertAlmostEqual(aa.faltzone_breite(1.0, 0.33), math.pi * 0.33, 9)
+        self.assertEqual(aa.faltzone_breite(1.0, 0.33), 0.0)
+        self.assertAlmostEqual(aa.faltzone_breite(1.0, 0.33, -1), math.pi * 0.33, 9)
         self.assertAlmostEqual(aa.faltzone_breite(1.0, 0.33, 1.5), 1.5, 9)
         with self.assertRaises(aa.AbwicklungFehler):
             aa.faltzone_breite(0, 0.33)

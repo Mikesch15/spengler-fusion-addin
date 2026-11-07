@@ -418,11 +418,13 @@ def kontur_elemente(schleife, tol=0.004):
 
 # ------------------------------------------------------------------ Faltzone der Quetschfalte (Lagendicke)
 def faltzone_breite(dicke, k, faktor=0.0):
-    """Breite der 180°-Faltzone (neutrale Faser einer flachgedrückten Falte, Innenradius 0): Bz = π·K·t. faktor > 0 → Bz = faktor·t (Erfahrungswert des
-    Betriebs überschreibt die Rechnung)."""
+    """Breite der 180°-Faltzone: Standard 0 = keine (Betriebsregel: ohne Zugabe/Abzug, Lagendicke liegt im 10tel-mm-Bereich). faktor > 0 → Bz = faktor·t.
+    Wert -1 → rechnerisch π·K·t (flachgedrückt, Innenradius 0)."""
     if dicke <= 0:
         raise AbwicklungFehler("Blechdicke fehlt.")
-    return faktor * dicke if faktor and faktor > 0 else math.pi * max(k, 0.0) * dicke
+    if faktor and faktor < 0:
+        return math.pi * max(k, 0.0) * dicke
+    return faktor * dicke if faktor and faktor > 0 else 0.0
 
 
 def linie_im_vieleck(a, b, poly, tol=1e-9):

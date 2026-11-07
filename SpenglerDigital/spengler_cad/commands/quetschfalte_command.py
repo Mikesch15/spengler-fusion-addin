@@ -44,7 +44,7 @@ def erstellt(args):
     rd = inp.addDropDownCommandInput("richtung", "Falte liegt", adsk.core.DropDownStyles.TextListDropDownStyle)
     for i, r in enumerate(RICHTUNGEN):
         rd.listItems.add(r, i == 0)
-    inp.addFloatSpinnerCommandInput("zugabe", "Faltzone (× Blechdicke, 0 = π·K·t)", "", 0.0, 6.0, 0.1, 0.0)
+    inp.addFloatSpinnerCommandInput("zugabe", "Faltzone (× Blechdicke, 0 = keine)", "", 0.0, 6.0, 0.1, 0.0)
     inp.addBoolValueInput("dxf", "Zuschnitt der Ecke als DXF und Zeichnung speichern", True, "", True)
     inp.addTextBoxCommandInput("info", "Ecke", "Bitte die beiden Aufkantungen wählen, die an der Ecke zusammenlaufen (je eine ebene Fläche).<br>"
                                "Die Falte wird auf der nicht sichtbaren Seite (Aussenseite) hinter einer der beiden Aufkantungen angefügt. "
