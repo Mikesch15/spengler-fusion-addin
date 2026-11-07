@@ -30,9 +30,15 @@ def _linien(schleife):
 def allgemein_dxf(r, titel="Abwicklung"):
     """DXF zu core/abwicklung_allgemein: KONTUR (Aussenkontur und Ausschnitte), BIEGUNG, Faltlinien (BIEGUNG_<NAME>), TEXT."""
     d = Dxf()
+    from ..core import abwicklung_allgemein as aa
     for s in r["kontur"]:
-        for a, b in _linien(s):
-            d.linie(a, b, "KONTUR", 7)
+        for e in aa.kontur_elemente(s):
+            if e[0] == "linie":
+                d.linie((e[1], e[2]), (e[3], e[4]), "KONTUR", 7)
+            elif e[0] == "bogen":
+                d.bogen((e[1], e[2]), e[3], e[4], e[5], "KONTUR", 7)
+            else:
+                d.kreis((e[1], e[2]), e[3], "KONTUR", 7)
     for a, b in _paare(r["biegelinien"]):
         d.linie(a, b, "BIEGUNG", 5)
     for name, segs in r["faltlinien"].items():
@@ -49,7 +55,8 @@ def _paare(biegelinien):
 
 def allgemein_zuschnitt(r):
     """Format für fusion_adapter.abwicklung_koerper."""
-    kontur = [("linie", a[0], a[1], b[0], b[1]) for s in r["kontur"] for a, b in _linien(s)]
+    from ..core import abwicklung_allgemein as aa
+    kontur = [e for s in r["kontur"] for e in aa.kontur_elemente(s)]
     inner = [("linie", a[0], a[1], b[0], b[1]) for a, b in _paare(r["biegelinien"])]
     for segs in r["faltlinien"].values():
         inner += [("linie", a[0], a[1], b[0], b[1]) for a, b in segs]

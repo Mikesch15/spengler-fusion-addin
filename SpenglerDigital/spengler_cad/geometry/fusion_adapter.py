@@ -3311,35 +3311,34 @@ def quetschfalte_bauen(a):
                 raise
             logger.warnung("Faltkanten nicht gerundet", grund=(str(e_rund).strip().splitlines() or ["?"])[-1][:160])
             hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
-        # 3. alles in eine eigene Komponente verschieben – das Blech bleibt allein in seiner Komponente
-        occ = rb.merke(design().rootComponent.occurrences.addNewComponent(adsk.core.Matrix3D.create()))
-        try:
-            occ.component.name = "Quetschfalte"
-        except Exception:
-            pass
+        # 3. Die Körper der Falte bleiben im Bauteil (gehören zum Blech), getrennte Körper ohne Verbindung (das Blech bleibt unverändert);
+        #    Fusions Abwicklung wird für das Teil gesperrt – die Abwicklung macht «Abwicklung (eigen)».
         neue = [b for b in comp.bRepBodies if b.entityToken not in vor0]          # alles, was neu entstand (die Kürzung kann die Ecke in Teile trennen)
-        for k in list(neue):
-            k.moveToComponent(occ)
+        for nr_, k in enumerate(neue, 1):
+            try:
+                if not k.name.startswith("Quetschfalte"):
+                    k.name = "Quetschfalte Ecke %d" % nr_
+            except Exception:
+                pass
         blech = koerper_neu(token) or comp.bRepBodies.item(0)
         probleme = koerper_pruefen(blech)
         if getattr(blech, "isSheetMetal", None) is False:
             probleme.append("das Blech ist kein Fusion-Blechkörper mehr")
-        if comp.bRepBodies.count != n0:
-            probleme.append("%d Körper im Blech statt %d – etwas blieb im Blech zurück" % (comp.bRepBodies.count, n0))
-        if occ.component.bRepBodies.count != len(neue):
-            probleme.append("%d Körper in der Komponente Quetschfalte statt %d" % (occ.component.bRepBodies.count, len(neue)))
+        if comp.bRepBodies.count != n0 + len(neue):
+            probleme.append("%d Körper im Bauteil statt %d" % (comp.bRepBodies.count, n0 + len(neue)))
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
-        a["hinweise_bau"] = hinweise + ["Falte und Ecke liegen in der eigenen Komponente «Quetschfalte»; das Blech ist unverändert (Fusions Abwicklung funktioniert)"]
+        a["hinweise_bau"] = hinweise + ["Falte und Eckfüllung (%d Körper) gehören zum Bauteil, getrennt vom Blech; Abwicklung: «Abwicklung (eigen)»" % len(neue)]
         daten = json.dumps({"O": [round(c, 4) for c in a["O"]], "e1": [round(c, 6) for c in a["e1"]], "e2": [round(c, 6) for c in a["e2"]],
                             "nb": [round(c, 6) for c in a["nb"]], "phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
                             "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]], "abstand_lagen_mm": g,
                             "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}})
         try:
-            blech.attributes.add(ATTR_GRUPPE, QUETSCH_GETRENNT, daten)          # nur Merkzeichen – hindert Fusions Abwicklung NICHT
+            blech.attributes.add(ATTR_GRUPPE, QUETSCH_GETRENNT, daten)
+            comp.attributes.add(ATTR_GRUPPE, QUETSCH_ATTR, "1")      # sperrt Fusions Abwicklung für dieses Bauteil
         except Exception:
             logger.warnung("Quetschfalte-Merkzeichen am Blech nicht gesetzt")
-        logger.info("Quetschfalte gebaut (eigene Komponente)", richtung=a["richtung"], beta=a["beta"], h1=a["h1"])
+        logger.info("Quetschfalte gebaut (im Bauteil, getrennte Körper)", richtung=a["richtung"], beta=a["beta"], h1=a["h1"])
         return list(rb.objekte)
     except Exception as e:
         rb.abbrechen(e)
@@ -3601,9 +3600,8 @@ def abwicklung(comp, stationaere_flaeche=None, body=None, fusion_entscheidet=Fal
     Blechkörper in GENAU dieser Komponente, stationäre Fläche gehört zu diesem Körper und ist eben. Ohne Fläche: feste Auswahlregel
     (stationaere_flaeche_waehlen). → (FlatPattern, neu erzeugt). API: Component.flatPattern/createFlatPattern(BRepFace). Nicht live geprüft."""
     if _teil_hat_quetschfalte(comp):
-        raise AdapterFehler("Dieses Teil hat eine Quetschfalte. Fusions Abwicklung kann gefaltete Lagen nicht verarbeiten (Absturzgefahr, im Live-Test 0.4.67 "
-                            "ist Fusion an einer angefügten Platte abgestürzt) – deshalb wird sie hier nicht benutzt. Zuschnitt und DXF der Ecke erzeugt der "
-                            "Befehl «Quetschfalte» im Konstruktionsbereich.")
+        raise AdapterFehler("Dieses Teil hat eine Quetschfalte. Fusions Abwicklung kennt die Falte nicht (und kann gefaltete Lagen nicht verarbeiten) – dafür gibt es "
+                            "den Befehl «Abwicklung (eigen)» (Fertigung): vollständige Abwicklung mit Quetschfalte, DXF und flacher Körper für die Zeichnung.")
     fp, lesbar = _flatpattern_lesen(comp)
     if not lesbar:
         raise AdapterFehler(ABWICKLUNG_BESCHAEDIGT % getattr(comp, "name", "?"))

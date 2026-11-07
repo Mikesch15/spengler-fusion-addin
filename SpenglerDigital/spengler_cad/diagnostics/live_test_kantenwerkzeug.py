@@ -190,8 +190,8 @@ def t_quetschfalte_4(ctx):
 
 def t_quetschfalte_bauen(ctx):
     """QUETSCHFALTE an einer echten Fusion-Ecke: Blech mit Aufkantung an zwei benachbarten Kanten (gemeinsamer Flansch = Stossecke), dann zwei Aufkantungsflächen
-    wählen, die Ecke analysieren, die Quetschfalte bauen (Falte und Eckfüllung als eigene Körper in der eigenen Komponente «Quetschfalte»), das Blech muss
-    UNVERÄNDERT bleiben und Fusions Abwicklung samt DXF-Export muss funktionieren."""
+    wählen, die Ecke analysieren, die Quetschfalte bauen (Falte und Eckfüllung als getrennte Körper im Bauteil), Fusions Abwicklung muss gesperrt sein
+    und die eigene Abwicklung muss die Quetschfalte enthalten."""
     lt = _lt()
     import adsk.core
     fa.flansch(lt._eckkanten(ctx), winkel=90, laenge_mm=lt.FLANSCH)
@@ -222,20 +222,27 @@ def t_quetschfalte_bauen(ctx):
     body = ctx.root.bRepBodies.item(0)
     t.append("gebaut: %d Objekte, Volumen %+.2f mm³, Körper %d, isSheetMetal=%s" % (len(objekte), nach["vol"] - vol0, ctx.root.bRepBodies.count,
                                                                                 getattr(body, "isSheetMetal", None)))
-    # Das Blech ist UNVERÄNDERT in seiner Komponente (Falte und Ecke liegen in der Komponente «Quetschfalte») – Fusions Abwicklung muss funktionieren
-    if ctx.root.bRepBodies.count != 1:
-        raise lt._Falsch("\n".join(t) + "\nIm Blech blieben %d Körper statt einem zurück." % ctx.root.bRepBodies.count)
+    # Falte und Ecke gehören zum Bauteil (getrennte Körper); das Blech selbst ist unverändert; Fusions Abwicklung ist gesperrt, die eigene muss alles enthalten
+    if ctx.root.bRepBodies.count < 2:
+        raise lt._Falsch("\n".join(t) + "\nEs entstanden keine Körper für Falte/Ecke im Bauteil (%d Körper)." % ctx.root.bRepBodies.count)
     try:
-        fp, _neu = fa.abwicklung(ctx.root)
-        m = fa.abwicklung_masse(fp)
-        pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "quetschfalte_blech.dxf")
-        fa.dxf_abwicklung(fp, pfad)
-        pr = dxf_pruefung.pruefe_datei(pfad, m["breite"], m["laenge"], erwartete_konturen=1)
+        fa.abwicklung(ctx.root)
+        raise lt._Falsch("\n".join(t) + "\nFusions Abwicklung wurde NICHT gesperrt, obwohl das Bauteil eine Quetschfalte trägt.")
+    except fa.AdapterFehler:
+        pass
+    pfad = os.path.join(tempfile.mkdtemp(prefix="spengler_livetest_"), "quetschfalte_eigen.dxf")
+    try:
+        res = fa.eigene_blech_abwicklung(body, pfad, koerper_bauen=False)
     except fa.AdapterFehler as e:
-        raise lt._Falsch("\n".join(t) + "\nFusions Abwicklung des Blechs scheitert trotz getrennter Komponente: %s" % e)
-    t.append("Fusions Abwicklung des Blechs: %.2f × %.2f mm; DXF: %s" % (m["breite"], m["laenge"], dxf_pruefung.zusammenfassung(pr)))
-    if not pr["ok"]:
-        raise lt._Falsch("\n".join(t))
+        raise lt._Falsch("\n".join(t) + "\nEigene Abwicklung scheitert: %s" % e)
+    r = res["ergebnis"]
+    t.append("Eigene Abwicklung: %.2f × %.2f mm, Fläche %.0f mm², %d Flächen, %d Biegungen, Quetschfalten %d, DXF %d Byte" % (
+        r["breite"], r["hoehe"], r["flaeche"], res["daten"]["flaechen"], res["daten"]["biegungen"], len(res["daten"]["ecken"]),
+        os.path.getsize(pfad) if os.path.exists(pfad) else 0))
+    if not res["daten"]["ecken"] or "quetsch" not in r["faltlinien"]:
+        raise lt._Falsch("\n".join(t) + "\nDie Quetschfalte fehlt in der eigenen Abwicklung.")
+    if not os.path.exists(pfad) or os.path.getsize(pfad) == 0:
+        raise lt._Falsch("\n".join(t) + "\nDXF der eigenen Abwicklung fehlt.")
     return "\n".join(t)
 
 

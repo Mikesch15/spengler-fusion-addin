@@ -1,6 +1,12 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.82)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.83)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.83 – Echte Bögen in der Abwicklung und Falte im Bauteil (Anwender 7. 11. 2026):** (1) `kontur_elemente`: Polygonzüge der Vereinigung werden wieder zu
+  Linien/Bögen/Kreisen (Pfeilhöhe ≤ 0,004 mm, gleichmässige Sehnen, Knick ≤ 46°); DXF mit ARC/CIRCLE, flacher Körper mit Bögen/Kreisen. (2) Quetschfalte: Falte und
+  Eckfüllung bleiben als GETRENNTE Körper IM Bauteil (gehören zum Blech, Name «Quetschfalte …»), das Blech bleibt unverändert; das Bauteil ist als Teil mit Falte
+  markiert, Fusions Abwicklung dafür gesperrt (Hinweis auf «Abwicklung (eigen)»). Live-Test-Schritt prüft: Körper im Bauteil, Sperre, eigene Abwicklung enthält die
+  Falte. 598 Tests, nicht live in Fusion geprüft.
 
 - **0.4.82 – Allgemeine eigene Abwicklung (Anwender 7. 11. 2026: muss alles können, was Fusion kann, und mehr; besser als Fusions Abwicklung):**
   `core/abwicklung_allgemein.py`: beliebig viele ebene Flächen + Biegungen (jeder Winkel, auch gegensinnig/Z-Profil, Gehrungs-Trapeze, Verzweigungen), Löcher/Ausschnitte,

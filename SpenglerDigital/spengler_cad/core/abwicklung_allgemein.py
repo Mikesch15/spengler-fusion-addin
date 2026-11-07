@@ -320,3 +320,97 @@ def _gerade_punkte_entfernen(pts, tol=1e-6):
         if abs(cr) > tol * max(1.0, math.hypot(b[0] - a[0], b[1] - a[1])):
             out.append(b)
     return out if len(out) >= 3 else pts
+
+
+# ------------------------------------------------------------------ echte Bögen aus dem Polygonzug zurückgewinnen
+def _kreis3(a, b, c):
+    d = 2.0 * (a[0] * (b[1] - c[1]) + b[0] * (c[1] - a[1]) + c[0] * (a[1] - b[1]))
+    if abs(d) < 1e-12:
+        return None
+    ux = ((a[0] ** 2 + a[1] ** 2) * (b[1] - c[1]) + (b[0] ** 2 + b[1] ** 2) * (c[1] - a[1]) + (c[0] ** 2 + c[1] ** 2) * (a[1] - b[1])) / d
+    uy = ((a[0] ** 2 + a[1] ** 2) * (c[0] - b[0]) + (b[0] ** 2 + b[1] ** 2) * (a[0] - c[0]) + (c[0] ** 2 + c[1] ** 2) * (b[0] - a[0])) / d
+    return (ux, uy), math.hypot(a[0] - ux, a[1] - uy)
+
+
+def _dreh(a, b, c):
+    return (b[0] - a[0]) * (c[1] - b[1]) - (b[1] - a[1]) * (c[0] - b[0])
+
+
+def _bogen_ok(pts, tol, max_schritt=math.radians(46.0)):
+    """Passt der Punktzug (≥ 4 Punkte) auf einen Kreis? Gleichmässige Sehnen/Knicke, gleicher Drehsinn. → (mitte, r) oder None."""
+    if len(pts) < 4:
+        return None
+    k = _kreis3(pts[0], pts[len(pts) // 2], pts[-1])
+    if not k or k[1] > 20000.0:
+        return None
+    (cx, cy), r = k
+    if any(abs(math.hypot(p[0] - cx, p[1] - cy) - r) > tol for p in pts):
+        return None
+    seh = [math.hypot(pts[i + 1][0] - pts[i][0], pts[i + 1][1] - pts[i][1]) for i in range(len(pts) - 1)]
+    if max(seh) > 1.6 * min(seh):
+        return None
+    vz = [_dreh(pts[i], pts[i + 1], pts[i + 2]) for i in range(len(pts) - 2)]
+    if not (all(v > 0 for v in vz) or all(v < 0 for v in vz)):
+        return None
+    if any(2.0 * math.asin(min(1.0, s / (2.0 * r))) > max_schritt for s in seh):
+        return None
+    return (cx, cy), r
+
+
+def _kreis_ganz(p, tol):
+    n = len(p)
+    if n < 8:
+        return None
+    k = _kreis3(p[0], p[n // 3], p[2 * n // 3])
+    if not k:
+        return None
+    (cx, cy), r = k
+    if any(abs(math.hypot(q[0] - cx, q[1] - cy) - r) > tol for q in p):
+        return None
+    seh = [math.hypot(p[(i + 1) % n][0] - p[i][0], p[(i + 1) % n][1] - p[i][1]) for i in range(n)]
+    if max(seh) > 1.6 * min(seh):
+        return None
+    vz = [_dreh(p[i - 1], p[i], p[(i + 1) % n]) for i in range(n)]
+    if not (all(v > 0 for v in vz) or all(v < 0 for v in vz)):
+        return None
+    return (cx, cy), r
+
+
+def kontur_elemente(schleife, tol=0.004):
+    """Schleife (Polygonzug) → Elemente ('linie', x1, y1, x2, y2) / ('bogen', cx, cy, r, a0, a1) (gegen den Uhrzeigersinn, Grad) / ('kreis', cx, cy, r)."""
+    n = len(schleife)
+    if n < 3:
+        return []
+    voll = _kreis_ganz(schleife, tol)
+    if voll:
+        return [("kreis", voll[0][0], voll[0][1], voll[1])]
+    # Start an einer Ecke, die sicher nicht mitten im Bogen liegt (grösster Knick)
+    def knick(i):
+        a, b, c = schleife[i - 1], schleife[i], schleife[(i + 1) % n]
+        return abs(math.atan2(_dreh(a, b, c), (b[0] - a[0]) * (c[0] - b[0]) + (b[1] - a[1]) * (c[1] - b[1])))
+    s0 = max(range(n), key=knick)
+    p = schleife[s0:] + schleife[:s0]
+    p = p + [p[0]]
+    out = []
+    i = 0
+    while i < len(p) - 1:
+        best = None
+        j = i + 3
+        while j < len(p):
+            k = _bogen_ok(p[i:j + 1], tol)
+            if not k:
+                break
+            best = (j, k)
+            j += 1
+        if best:
+            j, ((cx, cy), r) = best
+            a0 = math.degrees(math.atan2(p[i][1] - cy, p[i][0] - cx))
+            a1 = math.degrees(math.atan2(p[j][1] - cy, p[j][0] - cx))
+            if _dreh(p[i], p[i + 1], p[i + 2]) < 0:                 # im Uhrzeigersinn durchlaufen → Start/Ende tauschen
+                a0, a1 = a1, a0
+            out.append(("bogen", cx, cy, r, a0 % 360.0, a1 % 360.0))
+            i = j
+        else:
+            out.append(("linie", p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]))
+            i += 1
+    return out

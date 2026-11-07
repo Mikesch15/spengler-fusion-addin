@@ -133,3 +133,47 @@ class AllgemeinDxf(unittest.TestCase):
         a2 = aa.abwickeln([boden], [], [f2])["flaeche"]
         self.assertAlmostEqual(a1, 200 * 100 + 25, 6)
         self.assertAlmostEqual(a2, 200 * 100 + 25, 6)
+
+
+class Boegen(unittest.TestCase):
+    def kreis_pts(self, cx, cy, r, n=48, a0=0.0, a1=360.0):
+        return [(cx + r * math.cos(math.radians(a0 + (a1 - a0) * i / n)), cy + r * math.sin(math.radians(a0 + (a1 - a0) * i / n))) for i in range(n)]
+
+    def test_loch_wird_kreis(self):
+        el = aa.kontur_elemente(self.kreis_pts(50, 50, 10))
+        self.assertEqual(len(el), 1)
+        self.assertEqual(el[0][0], "kreis")
+        self.assertAlmostEqual(el[0][3], 10.0, 6)
+
+    def test_rechteck_bleibt_linien(self):
+        el = aa.kontur_elemente([(0, 0), (100, 0), (100, 50), (0, 50)])
+        self.assertEqual([e[0] for e in el], ["linie"] * 4)
+
+    def test_abgerundete_ecke(self):
+        # Rechteck 100x50 mit Eckenradius 8 unten rechts
+        pts = [(0, 0)]
+        pts += [(92 + 8 * math.cos(math.radians(a)), 8 + 8 * math.sin(math.radians(a))) for a in range(-90, 1, 10)]
+        pts += [(100, 50), (0, 50)]
+        el = aa.kontur_elemente(pts)
+        arten = sorted(e[0] for e in el)
+        self.assertEqual(arten.count("bogen"), 1)
+        b = next(e for e in el if e[0] == "bogen")
+        self.assertAlmostEqual(b[3], 8.0, 6)
+        self.assertAlmostEqual(b[4], 270.0, 4)
+        self.assertAlmostEqual(math.sin(math.radians(b[5])), 0.0, 6)
+        self.assertAlmostEqual(math.cos(math.radians(b[5])), 1.0, 6)
+        self.assertEqual(arten.count("linie"), 4)
+
+    def test_dxf_hat_arc_und_circle(self):
+        import tempfile
+        from spengler_cad.manufacturing import abwicklung_dxf as ad
+        boden = {"id": "b", "n": (0, 0, -1), "loops": [[(0, 0, 0), (0, 100, 0), (200, 100, 0), (200, 0, 0)],
+                                                        [(x, y, 0) for x, y in self.kreis_pts(100, 50, 12, 64)]]}
+        r = aa.abwickeln([boden], [])
+        p = os.path.join(tempfile.mkdtemp(), "k.dxf")
+        ad.allgemein_dxf(r).speichern(p)
+        with open(p, encoding="ascii") as f:
+            t = f.read()
+        self.assertIn("CIRCLE", t)
+        z = ad.allgemein_zuschnitt(r)
+        self.assertIn("kreis", [e[0] for e in z["kontur"]])

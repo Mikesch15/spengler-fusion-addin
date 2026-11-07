@@ -120,9 +120,9 @@ def _ausfuehren_innen(self, args):
         except Exception:
             logger.ausnahme("Quetschfalte: DXF")
             zeilen.append("Zuschnitt-DXF konnte nicht gespeichert werden (Details im Protokoll).")
-    zeilen.append("Hinweis: Das Blech ist unverändert – «Abwicklung & DXF» funktioniert wie gewohnt für das Blech (die Falte liegt in der Komponente «Quetschfalte» "
-                  "und fehlt dort; an der Ecke zeigt Fusion die Stossecke). Der Zuschnitt der Ecke mit Quetschfalte steht im DXF oben; das Zusammenführen beider "
-                  "Zuschnitte folgt. Biegezugaben und Lagendicke sind noch nicht eingerechnet. Nicht live geprüft.")
+    zeilen.append("Hinweis: Falte und Eckfüllung gehören zum Bauteil (eigene Körper, nicht mit dem Blech verbunden; das Blech ist unverändert). Fusions Abwicklung ist "
+                  "für dieses Teil gesperrt – die vollständige Abwicklung mit Quetschfalte, DXF und flachem Körper für die Zeichnung erstellt «Abwicklung (eigen)» "
+                  "im Reiter Fertigung. Lagendicke ist dort noch nicht eingerechnet. Nicht live geprüft.")
     base.melden("Quetschfalte", "\n\n".join(zeilen))
 
 
