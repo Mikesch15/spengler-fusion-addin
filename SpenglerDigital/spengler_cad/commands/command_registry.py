@@ -1,7 +1,7 @@
 """Werkzeugleiste: eigenes Register «SPENGLER» im Konstruktionsarbeitsbereich mit allen Befehlen.
 Falls die Register-API fehlt: Befehle im Blech- bzw. Volumenkörper-Panel «Erstellen» (wie Prototyp 0.1)."""
 from ..diagnostics import logger
-from . import ablage_command, app_massaufnahme_command, auftrag_command, bauteil_command, start_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, grundblech_command, lernen_command, livetest_command, quetschfalte_command, settings_command
+from . import ablage_command, app_massaufnahme_command, auftrag_command, bauteil_command, start_command, base, detail_generator_command, edge_apply_command, export_command, forming_command, grundblech_command, lernen_command, livetest_command, quetschfalte_command, eigene_abwicklung_command, settings_command
 
 TAB_ID = "SpenglerDigitalTab"
 GRUPPEN = [  # (Panel-ID, Titel, Befehle) – in der Reihenfolge der Arbeit: erst der Auftrag, dann Konstruieren, dann Fertigung
@@ -20,7 +20,7 @@ def _definitionen():
     konstruieren = ([edge_apply_command.registrieren()] + bauteil_command.registrieren() + detail_generator_command.registrieren() + [forming_command.registrieren()]
                     + lernen_command.registrieren() + app_massaufnahme_command.registrieren() + grundblech_command.registrieren()
                     + [quetschfalte_command.registrieren()])
-    fertigung = export_command.registrieren()
+    fertigung = export_command.registrieren() + [eigene_abwicklung_command.registrieren()]
     verwaltung = settings_command.registrieren() + livetest_command.registrieren()
     return [auftrag, konstruieren, fertigung, verwaltung]
 

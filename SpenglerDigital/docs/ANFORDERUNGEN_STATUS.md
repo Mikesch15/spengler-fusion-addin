@@ -1,6 +1,13 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.80)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.81)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.81 – Eigene, vollständige Abwicklung inkl. Quetschfalte (Anwender 7. 11. 2026: Falte muss Teil der Abwicklung sein, Fusion-Abwicklung nicht nötig; Zeichnung aus der Abwicklung ist Pflicht):**
+  Neuer Befehl «Abwicklung (eigen)» (Fertigung). `core/abwicklung_blech.py` rechnet Rechteck-Grundblech + gerade 90°-Aufkantungen (Aussenmass, Rückversatz rv, Bogen,
+  Ausdehnung E = h − 2rv + Bogen) und Quetschfalten als Eckquadrat E×E mit Diagonal-Faltlinie und Ecklinien; `manufacturing/abwicklung_dxf.py` schreibt DXF (Layer KONTUR,
+  BIEGUNG, BIEGUNG_ECKLINIE, BIEGUNG_QUETSCHFALTE) und liefert das Zuschnitt-Format für `abwicklung_koerper`: flacher Körper in eigener Komponente, Biegelinien als Kanten
+  der Oberseite → Fusion-Zeichnung möglich. Masse werden aus dem Blech gelesen (`blech_abwicklungsdaten`), Quetschfalten-Ecken aus dem Merkzeichen.
+  Offen: Falte konstruktiv ins Bauteil (gleiche Komponente), Biegezugabe/Lagendicke der Falte, Winkel ≠ 90°, L-/Mehrfach-Bleche, Gegenprobe gegen Fusions Zahlen. Nicht live geprüft.
 
 - **0.4.80 – Quetschfalte in der DXF-Abwicklung (Anwender nach Live 0.4.79: «Abwicklung funktioniert, zeigt die Quetschfalte nicht an», Falte besteht aus vielen Einzelteilen):**
   Fusions Abwicklung kennt die Falte (eigene Komponente) nicht. `dxf_abwicklung` setzt jetzt den Ecken-Zuschnitt (Layer AUSSCHNITT/BIEGUNG_*) RECHTS NEBEN die

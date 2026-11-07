@@ -3773,6 +3773,89 @@ def drehkoerper(comp, kontur_mm, name, winkel_grad=360.0):
     return feat
 
 
+def blech_abwicklungsdaten(body, mit_falte=True):
+    """Masse für core/abwicklung_blech aus einem Rechteck-Blechkörper lesen (Grundfläche mit geraden 90°-Aufkantungen nach +Z, Z-Achse = Blechhöhe).
+    Aussenkanten = Aussenflächen der Aufkantungen. Dicke: kleinste Körperabmessung der Hauptfläche; ri/k aus der Blechregel. Quetschfalten-Ecken aus dem
+    Merkzeichen am Blech. → dict lx, ly, aufkantungen, dicke, ri, k, ecken, hinweise. Alles ausserhalb dieses Modells wird abgelehnt (keine Raterei).
+    Nicht live geprüft."""
+    comp = body.parentComponent
+    bb = body.boundingBox
+    x0, y0, z0 = bb.minPoint.x * 10.0, bb.minPoint.y * 10.0, bb.minPoint.z * 10.0
+    x1, y1, z1 = bb.maxPoint.x * 10.0, bb.maxPoint.y * 10.0, bb.maxPoint.z * 10.0
+    tol = 0.05
+    waende = {"unten": 0.0, "oben": 0.0, "links": 0.0, "rechts": 0.0}
+    boden = 0.0
+    for f in body.faces:
+        if not isinstance(f.geometry, adsk.core.Plane):
+            continue
+        n = flaechennormale(f)
+        fb = f.boundingBox
+        a = f.area * 100.0
+        if abs(n[2]) > 0.99:
+            if abs(fb.minPoint.z * 10.0 - z0) < tol and n[2] < 0:
+                boden = max(boden, a)
+            continue
+        if abs(n[0]) > 0.99:
+            seite = "rechts" if n[0] > 0 and abs(fb.minPoint.x * 10.0 - x1) < tol else "links" if n[0] < 0 and abs(fb.minPoint.x * 10.0 - x0) < tol else None
+        elif abs(n[1]) > 0.99:
+            seite = "oben" if n[1] > 0 and abs(fb.minPoint.y * 10.0 - y1) < tol else "unten" if n[1] < 0 and abs(fb.minPoint.y * 10.0 - y0) < tol else None
+        else:
+            raise AdapterFehler("Schräge Fläche am Blech – die eigene Abwicklung kennt nur gerade 90°-Aufkantungen.")
+        if seite:
+            waende[seite] = max(waende[seite], a)
+    if boden <= 0:
+        raise AdapterFehler("Keine ebene Unterseite (Normale -Z) gefunden – die eigene Abwicklung braucht ein Grundblech mit Aufkantungen nach +Z.")
+    ri, k = regel_werte(comp)
+    t = _regel_dicke_mm(getattr(comp, "activeSheetMetalRule", None)) if hasattr(comp, "activeSheetMetalRule") else None
+    if not t:
+        raise AdapterFehler("Blechdicke nicht lesbar (Blechregel).")
+    if ri is None or k is None:
+        raise AdapterFehler("Innenradius/K-Faktor der Blechregel nicht lesbar.")
+    h = z1 - z0
+    auf = {s: h for s, a in waende.items() if a > 0}
+    if not auf:
+        raise AdapterFehler("Keine Aufkantung erkannt.")
+    hinweise = []
+    ecken = []
+    if mit_falte:
+        for i in range(comp.bRepBodies.count):
+            d = quetschfalte_getrennt_attribut(comp.bRepBodies.item(i))
+            if not d:
+                continue
+            O = d["dreieck_mm"][0]
+            ecke = ("oben" if O[1] > (y0 + y1) / 2 else "unten") + "-" + ("rechts" if O[0] > (x0 + x1) / 2 else "links")
+            ecken.append(ecke)
+        if not ecken:
+            hinweise.append("Keine Quetschfalte am Teil gemerkt.")
+    return {"lx": x1 - x0, "ly": y1 - y0, "aufkantungen": auf, "dicke": t, "ri": ri, "k": k, "ecken": ecken, "hinweise": hinweise}
+
+
+def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
+    """Eigene, vollständige Abwicklung (Kontur, Biegelinien, Quetschfalte) → dict mit Ergebnis (core), DXF-Pfad und flachem Körper (für eine Fusion-Zeichnung
+    in eigener Komponente «Abwicklung …»; Biegelinien teilen die Oberseite). Fusions Flat Pattern wird NICHT benutzt. Nicht live geprüft."""
+    from ..core import abwicklung_blech as ab
+    from ..manufacturing import abwicklung_dxf as ad
+    m = blech_abwicklungsdaten(body)
+    try:
+        r = ab.abwicklung(m["lx"], m["ly"], m["aufkantungen"], m["dicke"], m["ri"], m["k"], m["ecken"])
+    except ab.AbwicklungFehler as e:
+        raise AdapterFehler(str(e))
+    r["hinweise"] += m["hinweise"]
+    out = {"ergebnis": r, "daten": m, "dxf": None, "koerper": None}
+    if dateipfad:
+        ad.abwicklung_dxf(r, getattr(body, "name", "Abwicklung")).speichern(dateipfad)
+        out["dxf"] = dateipfad
+    if koerper_bauen:
+        root = design().rootComponent
+        occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
+        occ.component.name = "Abwicklung " + getattr(body, "name", "Blech")
+        kb, hin = abwicklung_koerper(occ.component, ad.zuschnitt_fuer_koerper(r), m["dicke"], "Abwicklung")
+        r["hinweise"] += hin
+        out["koerper"] = kb
+        out["komponente"] = occ
+    return out
+
+
 def abwicklung_koerper(comp, zuschnitt, dicke_mm, name):
     """Flachen Körper aus einem Zuschnitt (forming.zuschnitt) erzeugen – NICHT live geprüft.
 
