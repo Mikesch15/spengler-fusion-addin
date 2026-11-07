@@ -1,6 +1,13 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.81)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.82)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.82 – Allgemeine eigene Abwicklung (Anwender 7. 11. 2026: muss alles können, was Fusion kann, und mehr; besser als Fusions Abwicklung):**
+  `core/abwicklung_allgemein.py`: beliebig viele ebene Flächen + Biegungen (jeder Winkel, auch gegensinnig/Z-Profil, Gehrungs-Trapeze, Verzweigungen), Löcher/Ausschnitte,
+  Zusatzstücke («Flicken») wie die Quetschfalte an ihrer Ecke; Ergebnis = exakte Vereinigung (Aussenkontur, Löcher, Biegelinien, Faltlinien, Fläche). Der Befehl
+  «Abwicklung (eigen)» liest das Blech jetzt allgemein aus der BRep (`blech_modell_lesen`: Start an der grössten ebenen Fläche, über Zylinder-Biegungen zu den
+  Nachbarflächen, Normale per Punkttest nach aussen). Offen: Kurven nur als Polygonzug (keine echten Bögen in der DXF), Kegel/Freiform, geschlossene Ringe, Biegezugabe
+  in der Falte, Gegenprobe gegen Fusions Zahlen, Falte konstruktiv ins Bauteil. 594 Tests, nichts davon live in Fusion geprüft.
 
 - **0.4.81 – Eigene, vollständige Abwicklung inkl. Quetschfalte (Anwender 7. 11. 2026: Falte muss Teil der Abwicklung sein, Fusion-Abwicklung nicht nötig; Zeichnung aus der Abwicklung ist Pflicht):**
   Neuer Befehl «Abwicklung (eigen)» (Fertigung). `core/abwicklung_blech.py` rechnet Rechteck-Grundblech + gerade 90°-Aufkantungen (Aussenmass, Rückversatz rv, Bogen,

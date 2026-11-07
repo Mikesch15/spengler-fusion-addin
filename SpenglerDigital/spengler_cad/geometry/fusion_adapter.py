@@ -3331,7 +3331,8 @@ def quetschfalte_bauen(a):
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
         a["hinweise_bau"] = hinweise + ["Falte und Ecke liegen in der eigenen Komponente «Quetschfalte»; das Blech ist unverändert (Fusions Abwicklung funktioniert)"]
-        daten = json.dumps({"phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
+        daten = json.dumps({"O": [round(c, 4) for c in a["O"]], "e1": [round(c, 6) for c in a["e1"]], "e2": [round(c, 6) for c in a["e2"]],
+                            "nb": [round(c, 6) for c in a["nb"]], "phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
                             "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]], "abstand_lagen_mm": g,
                             "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}})
         try:
@@ -3773,83 +3774,154 @@ def drehkoerper(comp, kontur_mm, name, winkel_grad=360.0):
     return feat
 
 
-def blech_abwicklungsdaten(body, mit_falte=True):
-    """Masse für core/abwicklung_blech aus einem Rechteck-Blechkörper lesen (Grundfläche mit geraden 90°-Aufkantungen nach +Z, Z-Achse = Blechhöhe).
-    Aussenkanten = Aussenflächen der Aufkantungen. Dicke: kleinste Körperabmessung der Hauptfläche; ri/k aus der Blechregel. Quetschfalten-Ecken aus dem
-    Merkzeichen am Blech. → dict lx, ly, aufkantungen, dicke, ri, k, ecken, hinweise. Alles ausserhalb dieses Modells wird abgelehnt (keine Raterei).
-    Nicht live geprüft."""
-    comp = body.parentComponent
-    bb = body.boundingBox
-    x0, y0, z0 = bb.minPoint.x * 10.0, bb.minPoint.y * 10.0, bb.minPoint.z * 10.0
-    x1, y1, z1 = bb.maxPoint.x * 10.0, bb.maxPoint.y * 10.0, bb.maxPoint.z * 10.0
-    tol = 0.05
-    waende = {"unten": 0.0, "oben": 0.0, "links": 0.0, "rechts": 0.0}
-    boden = 0.0
-    for f in body.faces:
-        if not isinstance(f.geometry, adsk.core.Plane):
-            continue
-        n = flaechennormale(f)
-        fb = f.boundingBox
-        a = f.area * 100.0
-        if abs(n[2]) > 0.99:
-            if abs(fb.minPoint.z * 10.0 - z0) < tol and n[2] < 0:
-                boden = max(boden, a)
-            continue
-        if abs(n[0]) > 0.99:
-            seite = "rechts" if n[0] > 0 and abs(fb.minPoint.x * 10.0 - x1) < tol else "links" if n[0] < 0 and abs(fb.minPoint.x * 10.0 - x0) < tol else None
-        elif abs(n[1]) > 0.99:
-            seite = "oben" if n[1] > 0 and abs(fb.minPoint.y * 10.0 - y1) < tol else "unten" if n[1] < 0 and abs(fb.minPoint.y * 10.0 - y0) < tol else None
+def _kante_punkte(coedge, tol_cm=0.002):
+    """Punkte (mm) einer Schleifenkante in Schleifenrichtung; Kurven als Polygonzug (Pfeilhöhe ≤ tol). Nicht live geprüft."""
+    e = coedge.edge
+    ok, p0, p1 = e.evaluator.getParameterExtents()
+    if not ok:
+        raise AdapterFehler("Kantenverlauf nicht lesbar.")
+    ok, pts = e.evaluator.getStrokes(p0, p1, tol_cm)
+    if not ok or not pts:
+        raise AdapterFehler("Kante lässt sich nicht in Punkte zerlegen.")
+    liste = [(q.x * 10.0, q.y * 10.0, q.z * 10.0) for q in pts]
+    if coedge.isParamReversed:
+        liste.reverse()
+    return liste
+
+
+def _flaeche_modell(f, nr, body):
+    n = flaechennormale(f)
+    p = f.pointOnFace
+    try:
+        probe = adsk.core.Point3D.create(p.x + n[0] * 0.001, p.y + n[1] * 0.001, p.z + n[2] * 0.001)
+        if body.pointContainment(probe) == adsk.fusion.PointContainment.PointInsidePointContainment:
+            n = [-c for c in n]                                 # Normale zeigte ins Material → nach aussen drehen
+    except Exception:
+        pass
+    loops = []
+    for lp in f.loops:
+        pts = []
+        for ce in lp.coEdges:
+            teil = _kante_punkte(ce)
+            pts += teil[:-1]
+        if lp.isOuter:
+            loops.insert(0, pts)
         else:
-            raise AdapterFehler("Schräge Fläche am Blech – die eigene Abwicklung kennt nur gerade 90°-Aufkantungen.")
-        if seite:
-            waende[seite] = max(waende[seite], a)
-    if boden <= 0:
-        raise AdapterFehler("Keine ebene Unterseite (Normale -Z) gefunden – die eigene Abwicklung braucht ein Grundblech mit Aufkantungen nach +Z.")
-    ri, k = regel_werte(comp)
-    t = _regel_dicke_mm(getattr(comp, "activeSheetMetalRule", None)) if hasattr(comp, "activeSheetMetalRule") else None
-    if not t:
-        raise AdapterFehler("Blechdicke nicht lesbar (Blechregel).")
-    if ri is None or k is None:
-        raise AdapterFehler("Innenradius/K-Faktor der Blechregel nicht lesbar.")
-    h = z1 - z0
-    auf = {s: h for s, a in waende.items() if a > 0}
-    if not auf:
-        raise AdapterFehler("Keine Aufkantung erkannt.")
-    hinweise = []
-    ecken = []
-    if mit_falte:
-        for i in range(comp.bRepBodies.count):
-            d = quetschfalte_getrennt_attribut(comp.bRepBodies.item(i))
-            if not d:
-                continue
-            O = d["dreieck_mm"][0]
-            ecke = ("oben" if O[1] > (y0 + y1) / 2 else "unten") + "-" + ("rechts" if O[0] > (x0 + x1) / 2 else "links")
-            ecken.append(ecke)
-        if not ecken:
-            hinweise.append("Keine Quetschfalte am Teil gemerkt.")
-    return {"lx": x1 - x0, "ly": y1 - y0, "aufkantungen": auf, "dicke": t, "ri": ri, "k": k, "ecken": ecken, "hinweise": hinweise}
+            loops.append(pts)
+    return {"id": nr, "n": tuple(n), "loops": loops}
+
+
+def blech_modell_lesen(body):
+    """Blechkörper → allgemeines Modell für core/abwicklung_allgemein (ebene Flächen auf EINER Blechseite + Biegungen an Zylinderflächen). Ablauf: grösste
+    ebene Fläche als Start; über jede Kante zu einer Zylinderfläche (Biegung) und über deren zweite Geraden zur nächsten ebenen Fläche. Dicke, ri, k aus der
+    Blechregel. Alles andere (Kegel, Kugel, freie Flächen) wird abgelehnt. → (flaechen, biegungen, dicke, ri, k). Nicht live geprüft."""
+    comp = body.parentComponent
+    ri_regel, k = regel_werte(comp)
+    t = _regel_dicke_mm(getattr(comp, "activeSheetMetalRule", None))
+    if not t or ri_regel is None or k is None:
+        raise AdapterFehler("Blechdicke, Innenradius oder K-Faktor aus der Blechregel nicht lesbar.")
+    ebenen = [f for f in body.faces if isinstance(f.geometry, adsk.core.Plane)]
+    if not ebenen:
+        raise AdapterFehler("Keine ebenen Flächen am Blech.")
+    start = max(ebenen, key=lambda f: f.area)
+    nr, besucht, flaechen, biegungen, reihe = {}, {}, [], [], [start]
+
+    def schluessel(f):
+        return f.tempId
+
+    nr[schluessel(start)] = "F1"
+    besucht[schluessel(start)] = start
+    modelle = {}
+    while reihe:
+        a = reihe.pop(0)
+        ida = nr[schluessel(a)]
+        modelle[ida] = _flaeche_modell(a, ida, body)
+        na = modelle[ida]["n"]
+        for e in a.edges:
+            for c in e.faces:
+                if schluessel(c) == schluessel(a) or not isinstance(c.geometry, adsk.core.Cylinder):
+                    continue
+                geraden = [x for x in c.edges if isinstance(x.geometry, adsk.core.Line3D) and x.tempId != e.tempId]
+                if not geraden:
+                    raise AdapterFehler("Biegefläche ohne zweite Tangentenkante.")
+                e2 = geraden[0]
+                bs = [x for x in e2.faces if schluessel(x) != schluessel(c)]
+                if len(bs) != 1 or not isinstance(bs[0].geometry, adsk.core.Plane):
+                    raise AdapterFehler("Auf eine Biegung folgt keine ebene Fläche (Kegel/Freiform/Stirnfläche?) – nicht abwickelbar mit der eigenen Abwicklung.")
+                b = bs[0]
+                if schluessel(b) not in nr:
+                    nr[schluessel(b)] = "F%d" % (len(nr) + 1)
+                    besucht[schluessel(b)] = b
+                    reihe.append(b)
+                idb = nr[schluessel(b)]
+                if any((x["a"], x["b"]) in ((ida, idb), (idb, ida)) and x["_c"] == schluessel(c) for x in biegungen):
+                    continue
+                if idb not in modelle:
+                    modelle[idb] = _flaeche_modell(b, idb, body)
+                nb_ = modelle[idb]["n"]
+                alpha = math.acos(max(-1.0, min(1.0, sum(x * y for x, y in zip(na, nb_)))))
+                cyl = c.geometry
+                r = cyl.radius * 10.0
+                ap = e.startVertex.geometry
+                o = cyl.origin
+                zentrum_aussen = ((o.x - ap.x) * na[0] + (o.y - ap.y) * na[1] + (o.z - ap.z) * na[2]) > 0     # Zentrum vor der Fläche → innere Biegefläche
+                ri = r if zentrum_aussen else r - t
+                if ri < -1e-6:
+                    raise AdapterFehler("Biegeradius nicht plausibel (%.2f mm)." % ri)
+                kante = lambda x: ((x.startVertex.geometry.x * 10.0, x.startVertex.geometry.y * 10.0, x.startVertex.geometry.z * 10.0),
+                                   (x.endVertex.geometry.x * 10.0, x.endVertex.geometry.y * 10.0, x.endVertex.geometry.z * 10.0))
+                biegungen.append({"a": ida, "b": idb, "ea": kante(e), "eb": kante(e2), "bogen": (max(ri, 0.0) + k * t) * alpha, "_c": schluessel(c),
+                                  "_alpha": math.degrees(alpha), "_ri": ri})
+    n_ebene = len([f for f in ebenen if schluessel(f) in nr])
+    flaechen = [modelle[i] for i in sorted(modelle, key=lambda x: int(x[1:]))]
+    fehlen = [f for f in ebenen if schluessel(f) not in nr]
+    # Flächen der anderen Blechseite und Stirnflächen sind erwartet; eine EBENE Fläche, die weder Stirnfläche noch Gegenseite ist, würde hier nicht erfasst
+    return flaechen, biegungen, t, ri_regel, k, len(fehlen), n_ebene
 
 
 def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
-    """Eigene, vollständige Abwicklung (Kontur, Biegelinien, Quetschfalte) → dict mit Ergebnis (core), DXF-Pfad und flachem Körper (für eine Fusion-Zeichnung
-    in eigener Komponente «Abwicklung …»; Biegelinien teilen die Oberseite). Fusions Flat Pattern wird NICHT benutzt. Nicht live geprüft."""
+    """Eigene, vollständige Abwicklung (Kontur mit Ausschnitten, Biegelinien, Quetschfalte) → dict ergebnis, daten, dxf, koerper. Fusions Flat Pattern wird NICHT
+    benutzt. Der flache Körper liegt in eigener Komponente «Abwicklung …» (Biegelinien teilen die Oberseite → Zeichnung möglich). Nicht live geprüft."""
+    from ..core import abwicklung_allgemein as aa
     from ..core import abwicklung_blech as ab
+    from ..core import quetschfalte as qf
     from ..manufacturing import abwicklung_dxf as ad
-    m = blech_abwicklungsdaten(body)
+    flaechen, biegungen, t, ri, k, _, _ = blech_modell_lesen(body)
+    comp = body.parentComponent
+    flicken, ecken, hinweise = [], [], []
+    for i in range(comp.bRepBodies.count):
+        d = quetschfalte_getrennt_attribut(comp.bRepBodies.item(i))
+        if not d:
+            continue
+        try:
+            E = ab.biegung(d["h1"], t, ri, k, d.get("phi1", 90.0))["E"]
+            z = qf.zuschnitt(d["beta"], E, d.get("phi1", 90.0), d.get("phi2", 90.0))
+        except (ab.AbwicklungFehler, qf.QuetschfalteFehler) as e:
+            raise AdapterFehler("Quetschfalte nicht einrechenbar: %s" % e)
+        O, nb_ = d["O"], d["nb"]
+        basis = min(flaechen, key=lambda f: abs(sum((O[j] - f["loops"][0][0][j]) * f["n"][j] for j in range(3)))
+                    + 1000.0 * (1.0 - abs(sum(f["n"][j] * nb_[j] for j in range(3)))))
+        flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]),
+                        "polygon": [(0.0, 0.0), z["P1"], z["C"], z["P2"]],
+                        "linien": {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}})
+        ecken.append("Ecke bei (%.0f, %.0f, %.0f)" % tuple(O))
+        hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); ideale Faltlinien, Lagendicke nicht eingerechnet." % (E, d["h1"]))
     try:
-        r = ab.abwicklung(m["lx"], m["ly"], m["aufkantungen"], m["dicke"], m["ri"], m["k"], m["ecken"])
-    except ab.AbwicklungFehler as e:
+        r = aa.abwickeln(flaechen, biegungen, flicken)
+    except aa.AbwicklungFehler as e:
         raise AdapterFehler(str(e))
-    r["hinweise"] += m["hinweise"]
+    r["hinweise"] += hinweise
+    m = {"dicke": t, "ri": ri, "k": k, "ecken": ecken, "flaechen": len(flaechen), "biegungen": len(biegungen),
+         "winkel": sorted(round(b["_alpha"], 1) for b in biegungen)}
     out = {"ergebnis": r, "daten": m, "dxf": None, "koerper": None}
     if dateipfad:
-        ad.abwicklung_dxf(r, getattr(body, "name", "Abwicklung")).speichern(dateipfad)
+        ad.allgemein_dxf(r, getattr(body, "name", "Abwicklung")).speichern(dateipfad)
         out["dxf"] = dateipfad
     if koerper_bauen:
         root = design().rootComponent
         occ = root.occurrences.addNewComponent(adsk.core.Matrix3D.create())
         occ.component.name = "Abwicklung " + getattr(body, "name", "Blech")
-        kb, hin = abwicklung_koerper(occ.component, ad.zuschnitt_fuer_koerper(r), m["dicke"], "Abwicklung")
+        kb, hin = abwicklung_koerper(occ.component, ad.allgemein_zuschnitt(r), t, "Abwicklung")
         r["hinweise"] += hin
         out["koerper"] = kb
         out["komponente"] = occ

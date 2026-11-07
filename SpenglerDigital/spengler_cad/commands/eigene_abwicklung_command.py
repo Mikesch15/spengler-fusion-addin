@@ -24,8 +24,8 @@ def erstellt(args):
     s.addSelectionFilter("Bodies")
     s.setSelectionLimits(1, 1)
     inp.addBoolValueInput("koerperbauen", "Flachen Körper für eine Zeichnung erzeugen", True, "", True)
-    inp.addTextBoxCommandInput("info", "Hinweis", "Rechteck-Grundblech mit geraden 90°-Aufkantungen nach oben (+Z); Quetschfalten an Ecken zweier gleich hoher "
-                               "Aufkantungen. Fusions Abwicklung wird nicht benutzt.", 4, True)
+    inp.addTextBoxCommandInput("info", "Hinweis", "Beliebige Blechteile aus ebenen Flächen und Biegungen (jeder Winkel, mehrere Biegungen, Löcher und Ausschnitte); "
+                               "Quetschfalten werden an ihrer Ecke eingerechnet. Kegel/Freiformflächen nicht. Fusions Abwicklung wird nicht benutzt.", 4, True)
     base.handler(adsk.core.CommandEventHandler, cmd.execute, ausfuehren)
 
 
@@ -50,12 +50,13 @@ def _ausfuehren_innen(self, args):
     r, m = res["ergebnis"], res["daten"]
     zeilen = ["Abwicklung von «%s»: %.1f × %.1f mm, Fläche %.0f mm² (Dicke %.2f, ri %.2f, K %.2f)." % (
         body.name, r["breite"], r["hoehe"], r["flaeche"], m["dicke"], m["ri"], m["k"]),
-        "Aufkantungen: " + ", ".join("%s %.1f" % (s, h) for s, h in sorted(m["aufkantungen"].items())) + ("; Quetschfalten: " + ", ".join(m["ecken"]) if m["ecken"] else "") + ".",
-        "DXF (Kontur, Biegelinien, Ecklinien, Faltlinie): " + pfad]
+        "%d ebene Flächen, %d Biegungen (Winkel %s°)%s." % (m["flaechen"], m["biegungen"], ", ".join("%g" % w for w in m["winkel"]) or "–",
+                                                          "; Quetschfalten: " + ", ".join(m["ecken"]) if m["ecken"] else ""),
+        "DXF (Kontur mit Ausschnitten, Biegelinien, Faltlinien): " + pfad]
     if res["koerper"] is not None:
         zeilen.append("Flacher Körper in der Komponente «%s» – dort kann eine Fusion-Zeichnung erstellt werden (Biegelinien als Kanten der Oberseite)." % res["komponente"].component.name)
     zeilen += r["hinweise"]
-    zeilen.append("Nicht live geprüft. Biegezugabe und Lagendicke der Quetschfalte sind nicht eingerechnet.")
+    zeilen.append("Nicht live geprüft. Lagendicke der Quetschfalte ist nicht eingerechnet.")
     logger.info("Eigene Abwicklung", datei=os.path.basename(pfad), breite=r["breite"], hoehe=r["hoehe"])
     base.melden("Abwicklung (eigen)", "\n\n".join(zeilen))
 
