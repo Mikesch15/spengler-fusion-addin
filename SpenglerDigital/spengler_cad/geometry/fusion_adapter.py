@@ -3330,7 +3330,7 @@ def quetschfalte_bauen(a):
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
         a["hinweise_bau"] = hinweise + ["Falte und Eckfüllung (%d Körper) gehören zum Bauteil, getrennt vom Blech; Abwicklung: «Abwicklung (eigen)»" % len(neue)]
         daten = json.dumps({"O": [round(c, 4) for c in a["O"]], "e1": [round(c, 6) for c in a["e1"]], "e2": [round(c, 6) for c in a["e2"]],
-                            "nb": [round(c, 6) for c in a["nb"]], "phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
+                            "nb": [round(c, 6) for c in a["nb"]], "zugabe_t": float(a.get("zugabe_t") or 0.0), "phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
                             "dreieck_mm": [[round(c, 4) for c in p] for p in a["dreieck_mm"]], "abstand_lagen_mm": g,
                             "zuschnitt": {k: a["zuschnitt"][k] for k in ("ell", "psi", "t_spitze", "m")}})
         try:
@@ -3899,11 +3899,15 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         O, nb_ = d["O"], d["nb"]
         basis = min(flaechen, key=lambda f: abs(sum((O[j] - f["loops"][0][0][j]) * f["n"][j] for j in range(3)))
                     + 1000.0 * (1.0 - abs(sum(f["n"][j] * nb_[j] for j in range(3)))))
-        flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]),
-                        "polygon": [(0.0, 0.0), z["P1"], z["C"], z["P2"]],
-                        "linien": {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}})
+        poly = [(0.0, 0.0), z["P1"], z["C"], z["P2"]]
+        bz = aa.faltzone_breite(t, k, d.get("zugabe_t", 0.0))
+        linien = {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}
+        for nr_z, seg in enumerate(aa.faltzonen_linien(poly, (0.0, 0.0), z["C"], bz)):
+            linien["zone%d" % nr_z] = seg
+        flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]), "polygon": poly, "linien": linien})
         ecken.append("Ecke bei (%.0f, %.0f, %.0f)" % tuple(O))
-        hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); ideale Faltlinien, Lagendicke nicht eingerechnet." % (E, d["h1"]))
+        hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); Faltzone %.2f mm (%s), Kontur ideal (Spitzenlage bei Lagendicke nicht korrigiert)." % (
+            E, d["h1"], bz, "Vorgabe %.2f × Dicke" % d["zugabe_t"] if d.get("zugabe_t") else "π·K·t"))
     try:
         r = aa.abwickeln(flaechen, biegungen, flicken)
     except aa.AbwicklungFehler as e:

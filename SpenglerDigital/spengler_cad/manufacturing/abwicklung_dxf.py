@@ -43,7 +43,8 @@ def allgemein_dxf(r, titel="Abwicklung"):
         d.linie(a, b, "BIEGUNG", 5)
     for name, segs in r["faltlinien"].items():
         for a, b in segs:
-            d.linie(a, b, "BIEGUNG_" + ("QUETSCHFALTE" if name == "quetsch" else "ECKLINIE"), 1 if name == "quetsch" else 8)
+            layer = "BIEGUNG_QUETSCHFALTE" if name == "quetsch" else "BIEGUNG_QUETSCHFALTE_ZONE" if name.startswith("zone") else "BIEGUNG_ECKLINIE"
+            d.linie(a, b, layer, 1 if name == "quetsch" else 6 if name.startswith("zone") else 8)
     x0, y0, x1, y1 = r["bbox"]
     d.text((x0, y0 - 10.0), 4.0, "%s | %.1f x %.1f mm | Flaeche %.0f mm2" % (titel, r["breite"], r["hoehe"], r["flaeche"]), "TEXT")
     return d

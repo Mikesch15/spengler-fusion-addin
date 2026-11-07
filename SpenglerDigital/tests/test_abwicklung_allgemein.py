@@ -177,3 +177,39 @@ class Boegen(unittest.TestCase):
         self.assertIn("CIRCLE", t)
         z = ad.allgemein_zuschnitt(r)
         self.assertIn("kreis", [e[0] for e in z["kontur"]])
+
+
+class Faltzone(unittest.TestCase):
+    def test_breite(self):
+        self.assertAlmostEqual(aa.faltzone_breite(1.0, 0.33), math.pi * 0.33, 9)
+        self.assertAlmostEqual(aa.faltzone_breite(1.0, 0.33, 1.5), 1.5, 9)
+        with self.assertRaises(aa.AbwicklungFehler):
+            aa.faltzone_breite(0, 0.33)
+
+    def test_linien_im_eckfeld(self):
+        z = qf.zuschnitt(90.0, 42.0)
+        poly = [(0.0, 0.0), z["P1"], z["C"], z["P2"]]
+        l = aa.faltzonen_linien(poly, (0.0, 0.0), z["C"], 2.0)
+        self.assertEqual(len(l), 2)
+        for p, q in l:
+            self.assertTrue(aa._im_loop(((p[0] + q[0]) / 2, (p[1] + q[1]) / 2), poly))
+            # parallel zur Faltlinie (Diagonale), Abstand 1.0 zur Mitte
+            self.assertAlmostEqual(abs((q[0] - p[0]) - (q[1] - p[1])) , 0.0, 6)
+            dist = abs(p[0] - p[1]) / math.sqrt(2)
+            self.assertAlmostEqual(dist, 1.0, 6)
+
+    def test_in_dxf_ebene(self):
+        import tempfile
+        from spengler_cad.manufacturing import abwicklung_dxf as ad
+        boden = flach("b", (0, 0, -1), [(0, 0, 0), (0, 100, 0), (200, 100, 0), (200, 0, 0)])
+        z = qf.zuschnitt(90.0, 42.0)
+        poly = [(0.0, 0.0), z["P1"], z["C"], z["P2"]]
+        lin = {"quetsch": ((0.0, 0.0), z["C"])}
+        for i, sg in enumerate(aa.faltzonen_linien(poly, (0.0, 0.0), z["C"], 1.0)):
+            lin["zone%d" % i] = sg
+        r = aa.abwickeln([boden], [], [{"flaeche": "b", "o": (0, 0, 0), "e1": (1, 0, 0), "e2": (0, 1, 0), "polygon": poly, "linien": lin}])
+        p = os.path.join(tempfile.mkdtemp(), "z.dxf")
+        ad.allgemein_dxf(r).speichern(p)
+        with open(p, encoding="ascii") as f:
+            t = f.read()
+        self.assertIn("BIEGUNG_QUETSCHFALTE_ZONE", t)

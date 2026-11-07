@@ -1,6 +1,12 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.83)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.84)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.84 – Lagendicke der Quetschfalte als Faltzone (Anwender 7. 11. 2026):** Die 180°-Falte bekommt in der eigenen Abwicklung eine Zone der Breite Bz = π·K·t
+  (flachgedrückt, Innenradius 0) oder Bz = Faktor × Dicke (Eingabe «Faltzone» im Befehl Quetschfalte, 0 = Rechnung; wird im Merkzeichen gespeichert). Dargestellt als
+  zwei Begrenzungslinien (Layer BIEGUNG_QUETSCHFALTE_ZONE) um die Mittellinie (BIEGUNG_QUETSCHFALTE), auf das Eckfeld beschnitten; im flachen Körper als Kanten.
+  NICHT eingerechnet: Verschiebung der Spitze/Kontur durch die Lagendicke – sie braucht die Fertigungsregel des Betriebs (Zugabe/Abzug an der Falte) bzw. Messwerte
+  am echten Teil. Nicht live geprüft; 601 Tests.
 
 - **0.4.83 – Echte Bögen in der Abwicklung und Falte im Bauteil (Anwender 7. 11. 2026):** (1) `kontur_elemente`: Polygonzüge der Vereinigung werden wieder zu
   Linien/Bögen/Kreisen (Pfeilhöhe ≤ 0,004 mm, gleichmässige Sehnen, Knick ≤ 46°); DXF mit ARC/CIRCLE, flacher Körper mit Bögen/Kreisen. (2) Quetschfalte: Falte und

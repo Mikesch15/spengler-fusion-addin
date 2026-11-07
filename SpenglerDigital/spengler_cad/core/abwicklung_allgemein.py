@@ -414,3 +414,57 @@ def kontur_elemente(schleife, tol=0.004):
             out.append(("linie", p[i][0], p[i][1], p[i + 1][0], p[i + 1][1]))
             i += 1
     return out
+
+
+# ------------------------------------------------------------------ Faltzone der Quetschfalte (Lagendicke)
+def faltzone_breite(dicke, k, faktor=0.0):
+    """Breite der 180°-Faltzone (neutrale Faser einer flachgedrückten Falte, Innenradius 0): Bz = π·K·t. faktor > 0 → Bz = faktor·t (Erfahrungswert des
+    Betriebs überschreibt die Rechnung)."""
+    if dicke <= 0:
+        raise AbwicklungFehler("Blechdicke fehlt.")
+    return faktor * dicke if faktor and faktor > 0 else math.pi * max(k, 0.0) * dicke
+
+
+def linie_im_vieleck(a, b, poly, tol=1e-9):
+    """Teil der Strecke a–b innerhalb des (konvexen oder einfachen) Vielecks → (p, q) oder None."""
+    ts = [0.0, 1.0]
+    dx, dy = b[0] - a[0], b[1] - a[1]
+    n = len(poly)
+    for i in range(n):
+        c, d = poly[i], poly[(i + 1) % n]
+        ex, ey = d[0] - c[0], d[1] - c[1]
+        den = dx * ey - dy * ex
+        if abs(den) < 1e-12:
+            continue
+        t = ((c[0] - a[0]) * ey - (c[1] - a[1]) * ex) / den
+        u = ((c[0] - a[0]) * dy - (c[1] - a[1]) * dx) / den
+        if -tol <= u <= 1 + tol and 0 <= t <= 1:
+            ts.append(t)
+    ts = sorted(set(ts))
+    best = None
+    for t0, t1 in zip(ts, ts[1:]):
+        tm = (t0 + t1) / 2
+        m = (a[0] + dx * tm, a[1] + dy * tm)
+        if _im_loop(m, poly) and (best is None or t1 - t0 > best[1] - best[0]):
+            best = (t0, t1)
+    if not best or best[1] - best[0] < 1e-9:
+        return None
+    return ((a[0] + dx * best[0], a[1] + dy * best[0]), (a[0] + dx * best[1], a[1] + dy * best[1]))
+
+
+def faltzonen_linien(poly, o, c, breite):
+    """Zwei Begrenzungslinien der Faltzone (Breite) parallel zur Faltlinie o→c, auf das Eckfeld (poly) beschnitten → [(p, q), …]."""
+    dx, dy = c[0] - o[0], c[1] - o[1]
+    l = math.hypot(dx, dy)
+    if l < 1e-9 or breite <= 0:
+        return []
+    nx, ny = -dy / l, dx / l
+    out = []
+    for vz in (-1.0, 1.0):
+        off = vz * breite / 2.0
+        a = (o[0] + nx * off - dx * 0.5, o[1] + ny * off - dy * 0.5)
+        b = (c[0] + nx * off + dx * 0.5, c[1] + ny * off + dy * 0.5)
+        seg = linie_im_vieleck(a, b, poly)
+        if seg:
+            out.append(seg)
+    return out
