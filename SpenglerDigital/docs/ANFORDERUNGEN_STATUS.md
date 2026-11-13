@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.101 – Rundungen nach der Ecke scheiterten (Live 0.4.100: «Ecke am Eckpunkt abgerundet (3 Kanten, 0,33 mm)», aber «Faltkante nicht gerundet» und «Kante zum Blech nicht gerundet» –
+  Fusion: «… deaktivieren Sie Tangentenketten»):** Nach der Eckrundung hängen die Randkanten tangential um die Ecke herum zusammen, die Radien widersprechen sich. Jetzt: ALLE Rundungen
+  (Faltkante aussen, Kante zum Blech, Ecke am Eckpunkt) in EINEM Fillet-Vorgang ohne Tangentenketten (Fusion rechnet die Eckübergänge selbst). Misslingt das, Rückfall auf den Stand 0.4.98
+  (Faltkante, dann Kante zum Blech, dann die Ecke einzeln); der Hinweis nennt, was zusammen nicht ging. Nicht live geprüft.
 - **0.4.100 – Eckrundung scheiterte (Live 0.4.99: «Ecke am Eckpunkt nicht abgerundet (… Passen Sie die Größe an, oder verwenden Sie mehrere separate Vorgänge …; 3 Kanten gewählt)», sonst unverändert):**
   Die Randrundung A (Radius 1,14 mm = fast die ganze Stapelhöhe) hatte die senkrechten Kanten schon aufgebraucht. Jetzt werden die senkrechten Kanten am Eckpunkt ZUERST gerundet (direkt
   nach der Vereinigung, ohne Tangentenkette), danach Faltkante und Rand A – sie laufen tangential um die Ecke. Nicht live geprüft.

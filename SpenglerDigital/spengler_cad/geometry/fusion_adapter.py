@@ -3298,14 +3298,6 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         k1.name = "Quetschfalte Falte"
     except Exception:
         pass
-    # ZUERST die senkrechten Kanten am Eckpunkt runden (volle Höhe, Live 0.4.99: nach den Randrundungen blieb dafür keine Fläche übrig); die späteren Randrundungen
-    # laufen dann tangential um die Ecke herum
-    try:
-        ecke_text = _falte_ecke_runden(comp, k1, a, g, rb)
-    except Exception as e_ec:
-        if "Testfehler" in str(e_ec):
-            raise
-        ecke_text = "Ecke am Eckpunkt nicht abgerundet (%s)" % (str(e_ec).strip().splitlines() or ["?"])[-1][:100]
     vol0 = k1.volume
 
     u_ = [C[i] - O[i] for i in range(3)]
@@ -3337,6 +3329,7 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
                 continue
         return kanten
     ov = 0.2
+    kombi_hinweis = ""
     ziele_aussen = [(g, t), (2 * g + 2 * t, t)]
     ziele_innen = [(g + t, -ov), (2 * g + t, -ov)] if g > 1e-9 else []          # ohne Abstand gibt es keine Lücke und keine Innenkanten
     try:
@@ -3366,9 +3359,32 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
                 diag = "; Diagnose nicht möglich (%s)" % e_d
             if aussen.count < 1 or (ziele_innen and innen.count < 1):
                 raise AdapterFehler("Faltkanten nur teilweise gefunden (aussen %d, innen %d)%s" % (aussen.count, innen.count, diag))
+        r_aussen = 0.95 * (g + 2 * t) / 2.0                      # zwei Radien über die Höhe der Faltkante (g + 2t), knapp unter der Hälfte
+        # 1. Versuch: ALLE Rundungen in EINEM Vorgang (Ecke am Eckpunkt, Kante zum Blech, Faltkante), ohne Tangentenketten – Fusion berechnet die Eckübergänge selbst
+        #    (Live 0.4.100: nacheinander mit Tangentenkette scheiterte jede Rundung nach der Ecke an widersprüchlichen Radien)
+        try:
+            _testfehler("quetschfalte_rundung_gesamt")
+            ecke_k, r_e = _falte_ecke_runden(comp, k1, a, g, rb, nur_suchen=True)
+            rand_k, r_r = _falte_rand_runden(comp, k1, a, g, rb, nur_suchen=True)
+            ffk = comp.features.filletFeatures
+            fik = ffk.createInput()
+            sets = [(aussen, r_aussen), (innen, 0.45 * g), (rand_k, r_r), (ecke_k, r_e)]
+            for kk, rr in sets:
+                if kk.count:
+                    fik.addConstantRadiusEdgeSet(kk, adsk.core.ValueInput.createByReal(rr / 10.0), False)
+            vk = k1.volume
+            rb.merke(ffk.add(fik))
+            if k1.volume > vk + 1e-9:
+                raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
+            return ("Lagen zu einem Körper verbunden, alle Rundungen in einem Vorgang (Faltkante aussen %d / innen %d, Kante zum Blech %d, Ecke am Eckpunkt %d Kanten; "
+                    "Radien %.2f / %.2f / %.2f mm)" % (aussen.count, innen.count, rand_k.count, ecke_k.count, r_aussen, r_r, r_e)), True
+        except Exception as e_k:
+            if "Testfehler" in str(e_k):
+                raise
+            kombi_hinweis = " (alle Rundungen zusammen nicht möglich: %s)" % (str(e_k).strip().splitlines() or ["?"])[-1][:110]
+            logger.warnung("Gemeinsame Rundung nicht möglich", grund=(str(e_k).strip().splitlines() or ["?"])[-1][:160])
         ff = comp.features.filletFeatures
         fi = ff.createInput()
-        r_aussen = 0.95 * (g + 2 * t) / 2.0                      # zwei Radien über die Höhe der Faltkante (g + 2t), knapp unter der Hälfte
         if aussen.count:
             fi.addConstantRadiusEdgeSet(aussen, adsk.core.ValueInput.createByReal(r_aussen / 10.0), True)
         if innen.count:
@@ -3376,15 +3392,15 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         rb.merke(ff.add(fi))
         if k1.volume > vol0 + 1e-9:
             raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
-        return "Lagen zu einem Körper verbunden, %s, Faltkante gerundet (aussen %d, innen %d Kanten)" % (ecke_text, aussen.count, innen.count)
+        return "Lagen zu einem Körper verbunden, Faltkante gerundet (aussen %d, innen %d Kanten)%s" % (aussen.count, innen.count, kombi_hinweis), False
     except Exception as e:
         if "Testfehler" in str(e):
             raise
         logger.warnung("Haarnadel nicht gerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
-        return "Lagen zu einem Körper verbunden, %s; Faltkante nicht gerundet (%s)" % (ecke_text, (str(e).strip().splitlines() or ["?"])[-1][:100])
+        return "Lagen zu einem Körper verbunden; Faltkante nicht gerundet (%s)%s" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kombi_hinweis), False
 
 
-def _falte_rand_runden(comp, k1, a, g, rb):
+def _falte_rand_runden(comp, k1, a, g, rb, nur_suchen=False):
     """Nur die Seite ZUM BLECH (Ecklinie O–P, Kante A): die obere Kante des Lagenstapels wird mit dem Radius 0.95 × Stapelhöhe gerundet, sodass die Rundung bis auf
     die Wandfläche herabläuft («auf das Blech aufgeht»; Anwender 14. 11. 2026). Die Oberkante P–C (Kante B) bleibt scharf, die Unterkante an der Wand ebenfalls.
     Scheitert die Rundung, bleibt alles andere. → Text. Nicht live geprüft."""
@@ -3429,6 +3445,8 @@ def _falte_rand_runden(comp, k1, a, g, rb):
                     break
         except Exception:
             continue
+    if nur_suchen:
+        return kanten, 0.95 * (oben - unten)
     if kanten.count == 0:
         return "Kante zum Blech nicht gefunden – nicht gerundet"
     vol0 = k1.volume
@@ -3446,7 +3464,7 @@ def _falte_rand_runden(comp, k1, a, g, rb):
         return "Kante zum Blech nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
 
 
-def _falte_ecke_runden(comp, k1, a, g, rb):
+def _falte_ecke_runden(comp, k1, a, g, rb, nur_suchen=False):
     """Wird VOR den anderen Rundungen aufgerufen. Die Ecke des Lagenstapels am Eckpunkt O (dort läuft die gerundete Kante zum Blech aus) kugelig abrunden: alle senkrechten Kanten (parallel zur Wandnormalen)
     im Umkreis von 2.5 mm um O erhalten einen Radius von 0.55 × Blechdicke (kleiner als die halbe Breite der Faltkante). Anwender 14. 11. 2026: «diese Ecke sollte abgerundet
     sein, wie eine Kugel». Scheitert die Rundung, bleibt alles andere. → Text. Nicht live geprüft."""
@@ -3471,6 +3489,8 @@ def _falte_ecke_runden(comp, k1, a, g, rb):
                 kanten.add(e)
         except Exception:
             continue
+    if nur_suchen:
+        return kanten, 0.55 * t
     if kanten.count == 0:
         return "Ecke am Eckpunkt nicht gefunden – nicht abgerundet"
     vol0 = k1.volume
@@ -3591,13 +3611,16 @@ def quetschfalte_bauen(a):
         hinweise.append("Höhen über der Wand: Lage 1 %.2f…%.2f mm, Lage 2 %.2f…%.2f mm" % (lo1, hi1, lo2, hi2))
         _testfehler("quetschfalte_lage2")
         try:
-            hinweise.append(_falte_haarnadel(comp, k1, k2, a, g, rb))
-            try:
-                hinweise.append(_falte_rand_runden(comp, k1, a, g, rb))
-            except Exception as e_r:
-                if "Testfehler" in str(e_r):
-                    raise
-                hinweise.append("Kante zum Blech nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
+            text_h, alles_gerundet = _falte_haarnadel(comp, k1, k2, a, g, rb)
+            hinweise.append(text_h)
+            if not alles_gerundet:                      # Rückfall (Stand 0.4.98): Kante zum Blech einzeln, danach die Ecke
+                for fn, name in ((_falte_rand_runden, "Kante zum Blech"), (_falte_ecke_runden, "Ecke am Eckpunkt")):
+                    try:
+                        hinweise.append(fn(comp, k1, a, g, rb))
+                    except Exception as e_r:
+                        if "Testfehler" in str(e_r):
+                            raise
+                        hinweise.append("%s nicht gerundet (%s)" % (name, (str(e_r).strip().splitlines() or ["?"])[-1][:100]))
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise
