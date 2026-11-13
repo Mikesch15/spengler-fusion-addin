@@ -3258,6 +3258,58 @@ def _haarnadel_geometrie(O, P, C, n, t, g, ueberlapp=0.2):
     return {"flosse": flosse, "hoehe": h_oben - h_unten, "aussen": aussen, "innen": innen, "w": w}
 
 
+def _ecke_rund_schneiden(comp, body, a, rb):
+    """Die senkrechte Aussenecke des Füllstücks mit einer EXTRUSION (Ausschnitt) abrunden statt mit einer Rundung (Anwender 14. 11. 2026: «kannst du das nicht mit einer Extrusion
+    entfernen?»; Fillets scheiterten oder hinterliessen Keile): Skizze auf der Basis-Aussenfläche an der Aussenecke O – ein Eckstück zwischen den beiden Aussenflächen der Wände und einem
+    Viertelkreis (Radius = Blechdicke, tangential zu beiden Aussenflächen) – wird über die Aufkantungshöhe ausgeschnitten, nur aus den Körpern der Quetschfalte (Blech bleibt unberührt).
+    → Text. Nicht live geprüft."""
+    t = a["dicke"]
+    r = t
+    flaeche_b = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
+    if flaeche_b is None:
+        return "Aussenfläche der Basis nicht gefunden – Ecke des Füllstücks nicht abgerundet"
+    O, e1, y = a["O"], a["e1"], a["y"]
+    nutz = [b for b in comp.bRepBodies if b.name.startswith("Quetschfalte")]
+    if not nutz:
+        return "keine Körper der Quetschfalte – Ecke nicht abgerundet"
+    vol_vor = sum(b.volume for b in nutz)
+
+    def pt(u, v):
+        return tuple(O[i] + u * e1[i] + v * y[i] for i in range(3))
+    k45 = r - r / math.sqrt(2.0)
+    n0 = len(rb.objekte)
+    try:
+        sk = rb.merke(comp.sketches.add(flaeche_b))
+        P = lambda q: sk.modelToSketchSpace(adsk.core.Point3D.create(*(c / 10.0 for c in q)))
+        p0, p1, p2, pm = P(pt(0, 0)), P(pt(r, 0)), P(pt(0, r)), P(pt(k45, k45))
+        ln = sk.sketchCurves.sketchLines
+        ln.addByTwoPoints(p0, p1)
+        sk.sketchCurves.sketchArcs.addByThreePoints(p1, pm, p2)
+        ln.addByTwoPoints(p2, p0)
+        flaeche_mm2 = r * r * (1.0 - math.pi / 4.0)
+        prof = _profile_summe_waehlen(sk, flaeche_mm2)
+        hoch = tuple(-c for c in _einheit(a["nb"]))
+        vz = 1.0 if _skal(_skizzen_normale(sk), hoch) > 0 else -1.0
+        ef = comp.features.extrudeFeatures
+        ei = ef.createInput(prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        teile = adsk.core.ObjectCollection.create()
+        for b in nutz:
+            teile.add(b)
+        ei.participantBodies = [b for b in nutz]
+        ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * (a["h1"] + 1.0) / 10.0))
+        rb.merke(ef.add(ei))
+        vol_nach = sum(b.volume for b in comp.bRepBodies if b.name.startswith("Quetschfalte"))
+        if vol_nach > vol_vor + 1e-9:
+            raise AdapterFehler("Der Ausschnitt hat das Volumen vergrössert.")
+        if vol_vor - vol_nach < 1e-6:
+            raise AdapterFehler("Der Ausschnitt hat nichts entfernt (Eckstück liegt ausserhalb der Körper?)")
+        return "Aussenecke des Füllstücks per Ausschnitt abgerundet (Radius %.2f mm, %.2f mm³ entfernt)" % (r, (vol_vor - vol_nach) * 1000.0)
+    except Exception as e:
+        offen = entfernen_bericht(rb.objekte[n0:])
+        del rb.objekte[n0:]
+        return "Aussenecke des Füllstücks nicht abgerundet (%s)%s" % ((str(e).strip().splitlines() or ["?"])[-1][:110], "" if not offen else " – Rückbau unvollständig")
+
+
 def _fuellstueck_verbinden(comp, k1, rb):
     """Das Füllstück («Quetschfalte Ecke») mit der Falte zu EINEM Körper vereinigen (Anwender 14. 11. 2026: «das Füllstück soll zum selben Körper gehören wie die Falten»).
     Die Vereinigung wird nachgemessen (ein Combine mit einem Werkzeug, das den Körper nicht berührt, verbraucht es sonst wirkungslos – Live 0.4.92); bei Wirkungslosigkeit
@@ -3713,6 +3765,7 @@ def quetschfalte_bauen(a):
                 vt = _fuellstueck_verbinden(comp, k1, rb)
                 if vt:
                     hinweise.append(vt.lstrip(", "))
+                hinweise.append(_ecke_rund_schneiden(comp, body, a, rb))
             except Exception as e_fv:
                 if "Testfehler" in str(e_fv):
                     raise

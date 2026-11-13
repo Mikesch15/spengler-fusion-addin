@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.106 – Aussenecke des Füllstücks per Extrusion abgerundet (Live 0.4.105: ein Körper, Rundungen da, Ecke ohne Rundung; Anwender: «kannst du das nicht mit einer Extrusion entfernen?»):**
+  Statt einer Fillet-Rundung wird die senkrechte Aussenecke mit einem AUSSCHNITT abgerundet: Skizze auf der Basis-Aussenfläche an der Aussenecke O (Eckstück zwischen den beiden Aussenflächen
+  und einem Viertelkreis, Radius = Blechdicke, tangential zu beiden Aussenflächen), Extrusion «Ausschneiden» über die Aufkantungshöhe, nur an den Körpern der Quetschfalte (`_ecke_rund_schneiden`);
+  nachgemessen (Volumen muss sinken), bei Fehler zurückgenommen. Die obere Kante («Kugel») ist nicht abgerundet. Nicht live geprüft.
 - **0.4.105 – Keilförmige Absätze am Füllstück (Live 0.4.104: ein Körper, alle Rundungen gelungen – Faltkante 2, Kante zum Blech 1, Ecke 3 Kanten; Anwender: «Schon fast … diese beiden Absätze»,
   Bilder: keilförmiger Rest, wo die runde Faltkante auf die ebene Fläche des Füllstücks trifft):** Ursache vermutet: die Rundung der senkrechten Kanten am Eckpunkt (0,33 mm) – sie lässt am
   Füllstück einen Keil übrig. Entfernt: die Faltkante endet jetzt glatt an der Fläche des Füllstücks. Faltkante und Kante zum Blech bleiben gerundet. Die «Kugel» an der Ecke entfällt damit
