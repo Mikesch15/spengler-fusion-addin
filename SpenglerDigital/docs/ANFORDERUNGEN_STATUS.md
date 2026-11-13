@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.100 – Eckrundung scheiterte (Live 0.4.99: «Ecke am Eckpunkt nicht abgerundet (… Passen Sie die Größe an, oder verwenden Sie mehrere separate Vorgänge …; 3 Kanten gewählt)», sonst unverändert):**
+  Die Randrundung A (Radius 1,14 mm = fast die ganze Stapelhöhe) hatte die senkrechten Kanten schon aufgebraucht. Jetzt werden die senkrechten Kanten am Eckpunkt ZUERST gerundet (direkt
+  nach der Vereinigung, ohne Tangentenkette), danach Faltkante und Rand A – sie laufen tangential um die Ecke. Nicht live geprüft.
 - **0.4.99 – Ecke kugelig abrunden (Live 0.4.98: Kante A läuft auf das Blech aus, B scharf – «sehr gut»; Anwender: «diese Ecke sollte auch noch abgerundet sein, wie eine Kugel»):** Die senkrechten
   Kanten des Lagenstapels im Umkreis von 2,5 mm um den Eckpunkt O (dort endet die gerundete Kante zum Blech) werden mit Radius 0,55 × Blechdicke gerundet (`_falte_ecke_runden`, eigener
   Fillet-Schritt; der Hinweis nennt Anzahl und Radius oder den Grund des Scheiterns). Nicht live geprüft.

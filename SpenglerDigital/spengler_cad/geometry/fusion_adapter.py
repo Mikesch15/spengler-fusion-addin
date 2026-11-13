@@ -3298,6 +3298,14 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         k1.name = "Quetschfalte Falte"
     except Exception:
         pass
+    # ZUERST die senkrechten Kanten am Eckpunkt runden (volle Höhe, Live 0.4.99: nach den Randrundungen blieb dafür keine Fläche übrig); die späteren Randrundungen
+    # laufen dann tangential um die Ecke herum
+    try:
+        ecke_text = _falte_ecke_runden(comp, k1, a, g, rb)
+    except Exception as e_ec:
+        if "Testfehler" in str(e_ec):
+            raise
+        ecke_text = "Ecke am Eckpunkt nicht abgerundet (%s)" % (str(e_ec).strip().splitlines() or ["?"])[-1][:100]
     vol0 = k1.volume
 
     u_ = [C[i] - O[i] for i in range(3)]
@@ -3368,12 +3376,12 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         rb.merke(ff.add(fi))
         if k1.volume > vol0 + 1e-9:
             raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
-        return "Lagen zu einem Körper verbunden, Faltkante gerundet (aussen %d, innen %d Kanten)" % (aussen.count, innen.count)
+        return "Lagen zu einem Körper verbunden, %s, Faltkante gerundet (aussen %d, innen %d Kanten)" % (ecke_text, aussen.count, innen.count)
     except Exception as e:
         if "Testfehler" in str(e):
             raise
         logger.warnung("Haarnadel nicht gerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
-        return "Lagen zu einem Körper verbunden; Faltkante nicht gerundet (%s)" % (str(e).strip().splitlines() or ["?"])[-1][:100]
+        return "Lagen zu einem Körper verbunden, %s; Faltkante nicht gerundet (%s)" % (ecke_text, (str(e).strip().splitlines() or ["?"])[-1][:100])
 
 
 def _falte_rand_runden(comp, k1, a, g, rb):
@@ -3439,7 +3447,7 @@ def _falte_rand_runden(comp, k1, a, g, rb):
 
 
 def _falte_ecke_runden(comp, k1, a, g, rb):
-    """Die Ecke des Lagenstapels am Eckpunkt O (dort läuft die gerundete Kante zum Blech aus) kugelig abrunden: alle senkrechten Kanten (parallel zur Wandnormalen)
+    """Wird VOR den anderen Rundungen aufgerufen. Die Ecke des Lagenstapels am Eckpunkt O (dort läuft die gerundete Kante zum Blech aus) kugelig abrunden: alle senkrechten Kanten (parallel zur Wandnormalen)
     im Umkreis von 2.5 mm um O erhalten einen Radius von 0.55 × Blechdicke (kleiner als die halbe Breite der Faltkante). Anwender 14. 11. 2026: «diese Ecke sollte abgerundet
     sein, wie eine Kugel». Scheitert die Rundung, bleibt alles andere. → Text. Nicht live geprüft."""
     t = a["dicke"]
@@ -3470,7 +3478,7 @@ def _falte_ecke_runden(comp, k1, a, g, rb):
         ff = comp.features.filletFeatures
         fi = ff.createInput()
         r = 0.55 * t
-        fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), True)
+        fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), False)
         rb.merke(ff.add(fi))
         if k1.volume > vol0 + 1e-9:
             raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
@@ -3590,12 +3598,6 @@ def quetschfalte_bauen(a):
                 if "Testfehler" in str(e_r):
                     raise
                 hinweise.append("Kante zum Blech nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
-            try:
-                hinweise.append(_falte_ecke_runden(comp, k1, a, g, rb))
-            except Exception as e_r:
-                if "Testfehler" in str(e_r):
-                    raise
-                hinweise.append("Ecke am Eckpunkt nicht abgerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise
