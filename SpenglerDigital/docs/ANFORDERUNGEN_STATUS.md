@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.95 – Faltkante rund: innere Kanten nicht gefunden (Live 0.4.94: Lagen auf 0,60…1,20 / 1,80…2,40 mm, zu EINEM Körper verbunden (13 755 mm³), Rundung «aussen 2, innen 0»):**
+  Die inneren Kanten an der Flosse sind kürzer als die Faltlinie (das Dreieck läuft an den Enden schmal zu), der Endpunktvergleich fand sie nicht. Jetzt werden die Kanten parallel zur
+  Faltlinie nach Höhe und seitlichem Abstand gesucht (aussen: Höhe g und 2g+2t, Abstand t; innen: Höhe g+t und 2g+t, Abstand −0,2 mm). Nicht live geprüft.
 - **0.4.94 – Lage 1 und Lage 2 auf gleicher Höhe (Live 0.4.93: Vereinigung der Lage 2 «Zuwachs 0,0 mm³», Anwender: «Lage 1 und Lage 2 sind auf gleicher Höhe»):** Die Lagen über Versatzebenen
   (setByOffset) landeten auf derselben Höhe – die Ursache in Fusion ist offen. Jetzt: Skizze auf der Wandfläche, Extrusion mit Startabstand (`OffsetStartDefinition`) für Lage 1 (g),
   Lage 2 (2g+t) und die Flosse; die Höhe jedes Körpers wird nach dem Bau gemessen (Soll start…start+Dicke über der Wandebene), bei Abweichung mit umgekehrtem Vorzeichen des

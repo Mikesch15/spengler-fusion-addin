@@ -3300,23 +3300,40 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         pass
     vol0 = k1.volume
 
+    u_ = [C[i] - O[i] for i in range(3)]
+    lu_ = math.sqrt(sum(c * c for c in u_))
+    u_ = [c / lu_ for c in u_]
+    nn_ = _einheit(n_aussen)
+
     def finde(ziele):
+        """Kanten parallel zur Faltlinie nach HÖHE und seitlichem ABSTAND suchen (nicht nach den Endpunkten: innen sind die Kanten kürzer als die Faltlinie,
+        weil das Dreieck an den Enden schmal zuläuft – Live 0.4.94)."""
         kanten = adsk.core.ObjectCollection.create()
         for e in k1.edges:
             try:
                 if _kurventyp(e) != "linie":
                     continue
                 s_, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
-                for z0, z1 in ziele:
-                    for u, w in ((z0, z1), (z1, z0)):
-                        if max(abs(10.0 * s_[i] - u[i]) for i in range(3)) < 0.05 and max(abs(10.0 * en[i] - w[i]) for i in range(3)) < 0.05:
-                            kanten.add(e)
+                d_ = [10.0 * (en[i] - s_[i]) for i in range(3)]
+                ld = math.sqrt(sum(c * c for c in d_))
+                if ld < 1e-6 or abs(sum(d_[i] * u_[i] for i in range(3))) / ld < 0.999:
+                    continue
+                q = [10.0 * s_[i] - O[i] for i in range(3)]
+                h_ = sum(q[i] * nn_[i] for i in range(3))
+                seit = sum(q[i] * geo["w"][i] for i in range(3))
+                for hz, sz in ziele:
+                    if abs(h_ - hz) < 0.05 and abs(seit - sz) < 0.05:
+                        kanten.add(e)
+                        break
             except Exception:
                 continue
         return kanten
+    ov = 0.2
+    ziele_aussen = [(g, t), (2 * g + 2 * t, t)]
+    ziele_innen = [(g + t, -ov), (2 * g + t, -ov)]
     try:
         _testfehler("quetschfalte_rundung")
-        aussen, innen = finde(geo["aussen"]), finde(geo["innen"])
+        aussen, innen = finde(ziele_aussen), finde(ziele_innen)
         if aussen.count < 1 and innen.count < 1:
             raise AdapterFehler("Die Faltkanten für die Rundung wurden nicht gefunden.")
         if aussen.count < 2 or innen.count < 2:
