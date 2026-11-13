@@ -1,6 +1,12 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.88)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.89)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.89 – Faltlinien treffen die Biegelinien nicht (Anwender nach Live 0.4.88: «besser, aber sie treffen die Biegelinien der Flansche nicht»; Bild: Versatz ~0,1–0,2 mm
+  und die Biegelinien beginnen erst hinter der Ecke):** (1) Der Abstand Ecke O ↔ Tangentenkante wurde im Raum gemessen; O liegt in der Aussenebene, die Kante auf der Bezugsseite →
+  um die Blechdicke verfälscht (√(rv²+t²)). Jetzt in der Blechebene gemessen (`streifen_ausdehnung`). (2) Die Biegelinien der Flansche werden von ihrem Beginn (hinter der
+  Eckfreistellung der Stossecke) bis zum Schnittpunkt M weitergeführt (Linien «bieg1/bieg2», Layer BIEGUNG), damit Biegelinien, Ecklinien und Faltlinie durchgehend
+  zusammenlaufen. Nicht live geprüft; 606 Tests.
 
 - **0.4.88 – Faltlinien an den Biegelinien-Mitten (Anwender nach Live 0.4.87: Eckfeld ist jetzt da, «Skizzenlinien laufen im Eckpunkt nicht auf die Mitte der Biegelinien»):**
   Biegelinie = Mitte der Biegezone (neutrale Faser, `biegemitten`); die Grenzen der Zone liegen auf Layer BIEGEZONE. Im flachen Körper teilen nur die Biegelinien (Mitte) und die

@@ -333,15 +333,26 @@ class StreifenAusdehnung(unittest.TestCase):
     def test_gemessen_am_modell(self):
         fa = _fa()
         # Basis b; Wand 1 an y=0 (Tangentenkante 2 mm innerhalb, Biegung 2.09, Flanschfläche 36 hoch), Wand 2 ebenso an x=0
-        fl = [{"id": "w1", "loops": [[(0, 2, 0), (200, 2, 0), (200, 2, 36), (0, 2, 36)]]},
+        fl = [{"id": "b", "n": (0, 0, -1), "loops": [[(2, 2, 0), (2, 100, 0), (200, 100, 0), (200, 2, 0)]]},
+              {"id": "w1", "loops": [[(0, 2, 0), (200, 2, 0), (200, 2, 36), (0, 2, 36)]]},
               {"id": "w2", "loops": [[(2, 0, 0), (2, 100, 0), (2, 100, 36), (2, 0, 36)]]}]
         bi = [{"a": "b", "b": "w1", "ea": ((0, 2, 0), (200, 2, 0)), "eb": ((0, 2, 0), (200, 2, 0)), "bogen": 2.09},
               {"a": "b", "b": "w2", "ea": ((2, 0, 0), (2, 100, 0)), "eb": ((2, 0, 0), (2, 100, 0)), "bogen": 2.09}]
-        E1, w1, rv1, bg1 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (1, 0, 0))
-        E2, w2, rv2, bg2 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (0, 1, 0))
+        E1, w1, rv1, bg1, s01 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (1, 0, 0))
+        E2, w2, rv2, bg2, s02 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (0, 1, 0))
         self.assertAlmostEqual(rv1, 2.0, 6)
         self.assertEqual((w1, w2), ("w1", "w2"))
         self.assertAlmostEqual(E1, 2.09 + 36 - 2, 6)
         self.assertAlmostEqual(E2, E1, 6)
         with self.assertRaises(fa.AdapterFehler):
             fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (0, 0, 1))
+
+    def test_abstand_nur_in_der_blechebene(self):
+        fa = _fa()
+        # O liegt 0.6 mm ueber der Bezugsflaeche (Aussenebene): der Abstand zur Tangentenkante darf dadurch nicht wachsen
+        fl = [{"id": "b", "n": (0, 0, -1), "loops": [[(2, 2, 0), (2, 100, 0), (200, 100, 0), (200, 2, 0)]]},
+              {"id": "w1", "loops": [[(0, 2, 0), (200, 2, 0), (200, 2, 36), (0, 2, 36)]]}]
+        bi = [{"a": "b", "b": "w1", "ea": ((2, 2, 0), (200, 2, 0)), "eb": ((2, 2, 0), (200, 2, 0)), "bogen": 2.0}]
+        E, w, rv, bg, s0 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0.6), (1, 0, 0))
+        self.assertAlmostEqual(rv, 2.0, 6)
+        self.assertAlmostEqual(s0, 2.0, 6)               # Biegekante beginnt 2 mm hinter O (Eckfreistellung)

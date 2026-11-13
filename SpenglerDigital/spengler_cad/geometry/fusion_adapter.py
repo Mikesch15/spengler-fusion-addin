@@ -3888,8 +3888,14 @@ def _linien_abstand(p, a, b):
 
 def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
     """Wie weit reicht die abgewickelte Aufkantung (Biegung + Fläche) über die virtuelle Kante hinaus? Gemessen am echten Modell, nicht gerechnet:
-    E = Bogen + Höhe der Flanschfläche ab Tangentenkante − Abstand Tangentenkante↔virtuelle Ecke O. Wand = die Biegung der Basis, deren Tangentenkante parallel
-    zu e liegt und O am nächsten ist. → (E, Wand-ID, rv, Bogen). Nicht live geprüft."""
+    E = Bogen + Höhe der Flanschfläche ab Tangentenkante − Abstand Tangentenkante↔virtuelle Ecke O. Der Abstand zählt NUR IN DER BLECHEBENE (O liegt in der
+    Aussenebene, die Tangentenkante auf der Bezugsseite – der Abstand im Raum wäre um die Blechdicke verfälscht). Wand = die Biegung der Basis, deren
+    Tangentenkante parallel zu e liegt und O am nächsten ist.
+    → (E, Wand-ID, rv, Bogen, s0) mit s0 = Beginn der Biegekante entlang e (Abstand von O; zeigt die Eckfreistellung). Nicht live geprüft."""
+    basis = next((f for f in flaechen if f["id"] == basis_id), None)
+    nb = basis["n"] if basis else (0.0, 0.0, 1.0)
+    nl = math.sqrt(sum(c * c for c in nb)) or 1.0
+    nb = [c / nl for c in nb]
     kand = []
     for b in biegungen:
         if b["a"] == basis_id:
@@ -3902,13 +3908,19 @@ def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
         l = math.sqrt(sum(c * c for c in d))
         if l < 1e-9 or abs(sum(d[i] * e[i] for i in range(3))) / l < 0.99:
             continue
-        kand.append((_linien_abstand(O, kante[0], kante[1]), b, wand, wkante))
+        d = [c / l for c in d]
+        q = (nb[1] * d[2] - nb[2] * d[1], nb[2] * d[0] - nb[0] * d[2], nb[0] * d[1] - nb[1] * d[0])           # in der Ebene, senkrecht zur Kante
+        w = [O[i] - kante[0][i] for i in range(3)]
+        abstand = abs(sum(w[i] * q[i] for i in range(3)))
+        el = math.sqrt(sum(c * c for c in e)) or 1.0
+        s0 = min(sum((p[i] - O[i]) * e[i] / el for i in range(3)) for p in kante)
+        kand.append((abstand, b, wand, wkante, s0))
     if not kand:
         raise AdapterFehler("Zur Quetschfalte wurde keine Aufkantung (Biegung) an der Basis gefunden.")
-    rv, b, wand, wkante = min(kand, key=lambda x: x[0])
+    rv, b, wand, wkante, s0 = min(kand, key=lambda x: x[0])
     fl = next(f for f in flaechen if f["id"] == wand)
     hf = max(_linien_abstand(p, wkante[0], wkante[1]) for loop in fl["loops"] for p in loop)
-    return b["bogen"] + hf - rv, wand, rv, b["bogen"]
+    return b["bogen"] + hf - rv, wand, rv, b["bogen"], s0
 
 
 def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
@@ -3928,8 +3940,8 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         O, nb_ = d["O"], d["nb"]
         basis = min(flaechen, key=lambda f: abs(sum((O[j] - f["loops"][0][0][j]) * f["n"][j] for j in range(3)))
                     + 1000.0 * (1.0 - abs(sum(f["n"][j] * nb_[j] for j in range(3)))))
-        E1, _w1, rv1, bg1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
-        E2, _w2, rv2, bg2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
+        E1, _w1, rv1, bg1, s1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
+        E2, _w2, rv2, bg2, s2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
         if abs(E1 - E2) > 0.3:
             raise AdapterFehler("Die abgewickelten Aufkantungen an der Quetschfalte reichen unterschiedlich weit (%.2f / %.2f mm) – asymmetrische Ecke wird nicht "
                                 "unterstützt." % (E1, E2))
@@ -3946,6 +3958,11 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
             # Faltlinien laufen vom Schnittpunkt der Biegelinien-MITTEN aus (Mitte der Biegezonen), nicht von der virtuellen Ecke
             M = (rv2 - bg2 / 2.0, rv1 - bg1 / 2.0)
             linien = {"quetsch": (M, (-E, -E)), "eps1": (M, (M[0], -E)), "eps2": (M, (-E, M[1]))}
+            # Biegelinien der Flansche bis in die Ecke weiterführen (die Biegekanten beginnen erst hinter der Eckfreistellung der Stossecke)
+            if s1 > M[0] + 1e-6:
+                linien["bieg1"] = (M, (s1, M[1]))
+            if s2 > M[1] + 1e-6:
+                linien["bieg2"] = (M, (M[0], s2))
         else:
             M = (0.0, 0.0)
             linien = {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}
