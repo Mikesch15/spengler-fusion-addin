@@ -3160,7 +3160,7 @@ def _neuer_koerper(comp, vor, name):
     return neu[0]
 
 
-def _koerper_aus_vieleck(comp, skizzen_ziel, pts, hoehe_mm, richtung, rb, name):
+def _koerper_aus_vieleck(comp, skizzen_ziel, pts, hoehe_mm, richtung, rb, name, start_mm=0.0, start_vorzeichen=1.0):
     """Neuer Körper (NICHT mit dem Blech vereinigt) aus einem Vieleck (mm, Modellkoordinaten): Skizze auf `skizzen_ziel` (Fläche oder Konstruktionsebene),
     Extrusion um hoehe_mm in `richtung` (Einheitsvektor im Modellraum; die Richtung wird aus der Skizzennormalen bestimmt, nicht über das Volumen
     geraten). Fusion legt Zusatzkurven in die Skizze und zerschneidet das Vieleck → Teilprofile werden zusammen extrudiert. → Körper."""
@@ -3179,6 +3179,9 @@ def _koerper_aus_vieleck(comp, skizzen_ziel, pts, hoehe_mm, richtung, rb, name):
     vz = 1.0 if _skal(_skizzen_normale(sk), richtung) > 0 else -1.0
     ef = comp.features.extrudeFeatures
     ei = ef.createInput(prof, adsk.fusion.FeatureOperations.NewBodyFeatureOperation)
+    if start_mm:
+        # Start der Extrusion mit Abstand zur Skizzenebene (statt Versatzebene – Live 0.4.93: beide Lagen landeten auf derselben Höhe)
+        ei.startExtent = adsk.fusion.OffsetStartDefinition.create(adsk.core.ValueInput.createByReal(start_vorzeichen * vz * start_mm / 10.0))
     ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * hoehe_mm / 10.0))
     rb.merke(ef.add(ei))
     k = _neuer_koerper(comp, vor, name)
@@ -3187,6 +3190,33 @@ def _koerper_aus_vieleck(comp, skizzen_ziel, pts, hoehe_mm, richtung, rb, name):
     if abs(k.volume * 1000.0 - soll) > max(0.05, 2e-3 * soll):
         raise AdapterFehler("%s: Volumen %.2f mm³ statt %.2f mm³." % (name, k.volume * 1000.0, soll))
     return k
+
+
+def _hoehen_messen(body, p0_mm, n):
+    """Kleinste/grösste Höhe der Körperecken über der Ebene durch p0 entlang n (mm)."""
+    nn = _einheit(n)
+    h = []
+    for v in body.vertices:
+        g_ = v.geometry
+        h.append(sum((10.0 * (g_.x, g_.y, g_.z)[i] - p0_mm[i]) * nn[i] for i in range(3)))
+    return min(h), max(h)
+
+
+def _koerper_auf_wand(comp, wand, pts, start_mm, hoehe_mm, n_aussen, rb, name):
+    """Plattenkörper über der Wand: Skizze auf der Wandfläche, Extrusion mit Startabstand start_mm, Dicke hoehe_mm (entlang n_aussen). Die Höhe wird NACH dem Bau
+    gemessen (Soll: start … start+hoehe über der Wandebene); stimmt sie nicht, wird mit umgekehrtem Vorzeichen des Startabstands wiederholt. → (Körper, min, max)."""
+    p0 = [10.0 * c for c in (wand.pointOnFace.x, wand.pointOnFace.y, wand.pointOnFace.z)]
+    gemessen = []
+    for vzs in (1.0, -1.0):
+        n0 = len(rb.objekte)
+        k = _koerper_aus_vieleck(comp, wand, pts, hoehe_mm, n_aussen, rb, name, start_mm, vzs)
+        lo, hi = _hoehen_messen(k, p0, n_aussen)
+        if abs(lo - start_mm) <= 0.05 and abs(hi - (start_mm + hoehe_mm)) <= 0.05:
+            return k, lo, hi
+        gemessen.append((vzs, round(lo, 2), round(hi, 2)))
+        entfernen_bericht(rb.objekte[n0:])
+        del rb.objekte[n0:]
+    raise AdapterFehler("%s liegt auf der falschen Höhe: Soll %.2f…%.2f mm über der Wand, gemessen %s." % (name, start_mm, start_mm + hoehe_mm, gemessen))
 
 
 def _versatz_ebene(comp, flaeche, abstand_mm, n_aussen, rb):
@@ -3238,8 +3268,7 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
     geo = _haarnadel_geometrie(O, P, C, n_aussen, t, g)
     n0 = len(rb.objekte)
     try:
-        ebene = _versatz_ebene(comp, a["wand_flaeche"], g, n_aussen, rb)
-        flosse = _koerper_aus_vieleck(comp, ebene, geo["flosse"], geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
+        flosse, _lo, _hi = _koerper_auf_wand(comp, a["wand_flaeche"], geo["flosse"], g, geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
         _testfehler("quetschfalte_haarnadel")
         # Vereinigung in ZWEI Schritten: Lage 2 berührt Lage 1 nicht, nur die Flosse – ein Combine verlangt aber, dass jedes Werkzeug den Zielkörper schneidet
         for bez, werkzeug in (("Flosse", flosse), ("Lage 2", k2)):
@@ -3426,11 +3455,10 @@ def quetschfalte_bauen(a):
             hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
         _testfehler("quetschfalte_saeule")
         # 2. Falte: zwei Lagen auf Versatzebenen nach aussen
-        e1_ = _versatz_ebene(comp, wand, g, n_aussen, rb)
-        k1 = _koerper_aus_vieleck(comp, e1_, a["dreieck_mm"], t, n_aussen, rb, "Quetschfalte Lage 1")
+        k1, lo1, hi1 = _koerper_auf_wand(comp, wand, a["dreieck_mm"], g, t, n_aussen, rb, "Quetschfalte Lage 1")
         _testfehler("quetschfalte_lage1")
-        e2_ = _versatz_ebene(comp, wand, 2 * g + t, n_aussen, rb)
-        k2 = _koerper_aus_vieleck(comp, e2_, a["dreieck_mm"], t, n_aussen, rb, "Quetschfalte Lage 2")
+        k2, lo2, hi2 = _koerper_auf_wand(comp, wand, a["dreieck_mm"], 2 * g + t, t, n_aussen, rb, "Quetschfalte Lage 2")
+        hinweise.append("Höhen über der Wand: Lage 1 %.2f…%.2f mm, Lage 2 %.2f…%.2f mm" % (lo1, hi1, lo2, hi2))
         _testfehler("quetschfalte_lage2")
         try:
             hinweise.append(_falte_haarnadel(comp, k1, k2, a, g, rb))

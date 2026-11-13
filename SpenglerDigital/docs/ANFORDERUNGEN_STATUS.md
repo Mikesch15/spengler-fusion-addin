@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.94 – Lage 1 und Lage 2 auf gleicher Höhe (Live 0.4.93: Vereinigung der Lage 2 «Zuwachs 0,0 mm³», Anwender: «Lage 1 und Lage 2 sind auf gleicher Höhe»):** Die Lagen über Versatzebenen
+  (setByOffset) landeten auf derselben Höhe – die Ursache in Fusion ist offen. Jetzt: Skizze auf der Wandfläche, Extrusion mit Startabstand (`OffsetStartDefinition`) für Lage 1 (g),
+  Lage 2 (2g+t) und die Flosse; die Höhe jedes Körpers wird nach dem Bau gemessen (Soll start…start+Dicke über der Wandebene), bei Abweichung mit umgekehrtem Vorzeichen des
+  Startabstands wiederholt, sonst Fehler mit den gemessenen Werten; der Hinweis nennt die Höhen. Keine Versatzebenen mehr (weniger Konstruktionsobjekte). Nicht live geprüft.
 - **0.4.93 – Faltkante: zweite Lage verschwand (Live 0.4.92: Meldung «Lagen verbunden», aber «Quetschfalte Falte» = 7027 mm³ = eine Lage + Flosse, Rundung 0/1 Kanten):** Die Vereinigung
   war wirkungslos, ohne dass Fusion einen Fehler meldete (Lage 2 wurde als Werkzeug verbraucht). Jetzt wird nach jedem Combine nachgemessen (Gesundheitszustand der Funktion und
   Volumenzuwachs ≥ 30 % des Werkzeugs); bei Misserfolg wird der Schritt zurückgenommen (Lage 2 kommt zurück, getrennte Lagen wie in 0.4.90) und der Hinweis nennt Zuwachs und Werkzeug-
