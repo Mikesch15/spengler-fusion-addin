@@ -3242,13 +3242,24 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         flosse = _koerper_aus_vieleck(comp, ebene, geo["flosse"], geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
         _testfehler("quetschfalte_haarnadel")
         # Vereinigung in ZWEI Schritten: Lage 2 berührt Lage 1 nicht, nur die Flosse – ein Combine verlangt aber, dass jedes Werkzeug den Zielkörper schneidet
-        for werkzeug in (flosse, k2):
+        for bez, werkzeug in (("Flosse", flosse), ("Lage 2", k2)):
+            v_werkzeug, v_vorher = werkzeug.volume, k1.volume
             tools = adsk.core.ObjectCollection.create()
             tools.add(werkzeug)
             ci = comp.features.combineFeatures.createInput(k1, tools)
             ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
             ci.isKeepToolBodies = False
-            rb.merke(comp.features.combineFeatures.add(ci))
+            feat = rb.merke(comp.features.combineFeatures.add(ci))
+            # Fusion meldet eine wirkungslose Vereinigung nicht immer als Fehler (Live 0.4.92: Lage 2 verschwand, der Körper blieb gleich gross) → nachmessen
+            try:
+                gesund = feat.healthState == adsk.fusion.FeatureHealthStates.HealthyFeatureHealthState
+            except Exception:
+                gesund = True
+            zuwachs = (k1.volume - v_vorher) * 1000.0
+            if not gesund:
+                raise AdapterFehler("Vereinigung %s: Fusion meldet «%s»" % (bez, getattr(feat, "errorOrWarningMessage", "") or "Warnung"))
+            if zuwachs < 0.3 * v_werkzeug * 1000.0:
+                raise AdapterFehler("Vereinigung %s ohne Wirkung: Zuwachs %.1f mm³ bei %.1f mm³ Werkzeug (Werkzeug berührt den Körper nicht?)" % (bez, zuwachs, v_werkzeug * 1000.0))
     except Exception as e_v:
         # alles zurücknehmen, was dieser Schritt angelegt hat (die Flosse darf nicht als loser Körper im Modell bleiben)
         offen = entfernen_bericht(rb.objekte[n0:])
@@ -3279,6 +3290,28 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         aussen, innen = finde(geo["aussen"]), finde(geo["innen"])
         if aussen.count < 1 and innen.count < 1:
             raise AdapterFehler("Die Faltkanten für die Rundung wurden nicht gefunden.")
+        if aussen.count < 2 or innen.count < 2:
+            # Diagnose: Kanten parallel zur Faltlinie mit Höhe über der Wand und seitlichem Abstand (mm)
+            try:
+                u_ = [C[i] - O[i] for i in range(3)]
+                lu = math.sqrt(sum(c * c for c in u_))
+                u_ = [c / lu for c in u_]
+                nn_ = _einheit(n_aussen)
+                gef = set()
+                for e in k1.edges:
+                    d_ = [10.0 * (e.endVertex.geometry.asArray()[i] - e.startVertex.geometry.asArray()[i]) for i in range(3)]
+                    ld = math.sqrt(sum(c * c for c in d_))
+                    if ld > 1e-6 and abs(sum(d_[i] * u_[i] for i in range(3))) / ld > 0.999:
+                        q = [10.0 * e.startVertex.geometry.asArray()[i] - O[i] for i in range(3)]
+                        h_ = sum(q[i] * nn_[i] for i in range(3))
+                        seit = sum(q[i] * geo["w"][i] for i in range(3))
+                        gef.add((round(h_, 2), round(seit, 2)))
+                logger.warnung("Faltkanten: Kanten parallel zur Faltlinie (Höhe, Abstand)", kanten=str(sorted(gef)), erwartet_aussen=str(geo["aussen"][0][0]))
+                diag = "; Kanten parallel zur Faltlinie (Höhe/Abstand mm): " + ", ".join("%s/%s" % k for k in sorted(gef))
+            except Exception as e_d:
+                diag = "; Diagnose nicht möglich (%s)" % e_d
+            if aussen.count < 1 or innen.count < 1:
+                raise AdapterFehler("Faltkanten nur teilweise gefunden (aussen %d, innen %d)%s" % (aussen.count, innen.count, diag))
         ff = comp.features.filletFeatures
         fi = ff.createInput()
         if aussen.count:

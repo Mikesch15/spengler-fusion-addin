@@ -2,6 +2,11 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.93 – Faltkante: zweite Lage verschwand (Live 0.4.92: Meldung «Lagen verbunden», aber «Quetschfalte Falte» = 7027 mm³ = eine Lage + Flosse, Rundung 0/1 Kanten):** Die Vereinigung
+  war wirkungslos, ohne dass Fusion einen Fehler meldete (Lage 2 wurde als Werkzeug verbraucht). Jetzt wird nach jedem Combine nachgemessen (Gesundheitszustand der Funktion und
+  Volumenzuwachs ≥ 30 % des Werkzeugs); bei Misserfolg wird der Schritt zurückgenommen (Lage 2 kommt zurück, getrennte Lagen wie in 0.4.90) und der Hinweis nennt Zuwachs und Werkzeug-
+  volumen. Rundung: werden nicht alle Faltkanten gefunden, steht im Hinweis die Liste der Kanten parallel zur Faltlinie (Höhe/Abstand). Ursache der wirkungslosen Vereinigung noch
+  offen. Nicht live geprüft.
 - **0.4.92 – Faltkante: loser Körper nach Live 0.4.91 («keine Rundung, ein komischer neuer Körper»):** Ursache: Die Vereinigung scheiterte (ein Combine verlangt, dass jedes Werkzeug den
   Zielkörper schneidet – Lage 2 berührt Lage 1 nur über die Flosse), und die Flosse blieb als loser Körper stehen. Jetzt Vereinigung in zwei Schritten (Flosse, dann Lage 2); bei jedem
   Fehler wird alles, was der Schritt angelegt hat (Ebene, Skizze, Flosse), über den Rückbau entfernt; der Hinweis nennt die Körper mit Volumen. (Release 0.4.91 war veröffentlicht, nur das
