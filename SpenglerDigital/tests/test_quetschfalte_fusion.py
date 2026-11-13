@@ -356,3 +356,23 @@ class StreifenAusdehnung(unittest.TestCase):
         E, w, rv, bg, s0 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0.6), (1, 0, 0))
         self.assertAlmostEqual(rv, 2.0, 6)
         self.assertAlmostEqual(s0, 2.0, 6)               # Biegekante beginnt 2 mm hinter O (Eckfreistellung)
+
+
+class Haarnadel(unittest.TestCase):
+    def test_geometrie(self):
+        import math
+        fa = _fa()
+        t = g = 0.6
+        geo = fa._haarnadel_geometrie((0, 0, 0), (40, 0, 0), (40, 40, 0), (0, 0, 1), t, g)
+        self.assertAlmostEqual(geo["hoehe"], g + 2 * t, 9)
+        r2 = math.sqrt(2)
+        w = geo["w"]
+        self.assertAlmostEqual(w[0], -1 / r2, 9)                     # von P weg
+        self.assertAlmostEqual(w[1], 1 / r2, 9)
+        f = geo["flosse"]
+        self.assertAlmostEqual(math.dist(f[2], f[3]), math.dist((0, 0, 0), (40, 40, 0)), 9)      # so lang wie die Faltlinie
+        self.assertAlmostEqual(math.dist(f[0], f[3]), t + 0.2, 9)                                # Dicke + Überlappung
+        hoehen_aussen = sorted(round(p[2], 9) for k in geo["aussen"] for p in k)
+        self.assertEqual(sorted(set(hoehen_aussen)), [round(g, 9), round(2 * g + 2 * t, 9)])
+        hoehen_innen = sorted(set(round(p[2], 9) for k in geo["innen"] for p in k))
+        self.assertEqual(hoehen_innen, [round(g + t, 9), round(2 * g + t, 9)])

@@ -3199,6 +3199,103 @@ def _versatz_ebene(comp, flaeche, abstand_mm, n_aussen, rb):
     return rb.merke(comp.constructionPlanes.add(pi))
 
 
+def _haarnadel_geometrie(O, P, C, n, t, g, ueberlapp=0.2):
+    """Reine Rechnung (mm, Modellkoordinaten): Grundriss der Faltkante («Flosse») neben der Faltlinie O–C, ausserhalb des Dreiecks, und die Zielkanten für die
+    Rundung. Lagen: Lage 1 von g bis g+t, Lage 2 von 2g+t bis 2g+2t (Höhen über der Wandebene entlang n). → dict flosse (4 Punkte), hoehe, aussen, innen
+    (je Liste von Kantenpaaren), w (Einheitsvektor von der Falte weg)."""
+    def sub(a, b):
+        return tuple(a[i] - b[i] for i in range(3))
+
+    def add(a, b, f=1.0):
+        return tuple(a[i] + b[i] * f for i in range(3))
+
+    def unit(a):
+        l = math.sqrt(sum(c * c for c in a))
+        return tuple(c / l for c in a)
+    u = unit(sub(C, O))
+    pv = sub(P, O)
+    perp = unit(sub(pv, tuple(u[i] * sum(pv[j] * u[j] for j in range(3)) for i in range(3))))     # in der Wandebene, zum Dreieck hin
+    w = tuple(-c for c in perp)
+    flosse = [add(O, perp, ueberlapp), add(C, perp, ueberlapp), add(C, w, t), add(O, w, t)]
+    nn = unit(n)
+
+    def hoch(p, h):
+        return add(p, nn, h)
+    h_unten, h_oben = g, 2 * g + 2 * t
+    aussen = [(hoch(add(O, w, t), h_unten), hoch(add(C, w, t), h_unten)), (hoch(add(O, w, t), h_oben), hoch(add(C, w, t), h_oben))]
+    innen = [(hoch(add(O, perp, ueberlapp), g + t), hoch(add(C, perp, ueberlapp), g + t)),
+             (hoch(add(O, perp, ueberlapp), 2 * g + t), hoch(add(C, perp, ueberlapp), 2 * g + t))]
+    return {"flosse": flosse, "hoehe": h_oben - h_unten, "aussen": aussen, "innen": innen, "w": w}
+
+
+def _falte_haarnadel(comp, k1, k2, a, g, rb):
+    """Die zwei Lagen zu EINEM Körper verbinden und die Faltkante als gerundete Haarnadel ausbilden: eine «Flosse» (Dicke t) an der Faltlinie O–C über beide Lagen
+    (Vereinigung), danach Rundung: aussen 1.4·t, innen 0.45·t (zwei Radien um die Lücke g = t → halbrunde Faltung). Scheitert die Vereinigung, bleiben die zwei
+    Lagen getrennt (Ausnahme); scheitert nur die Rundung, bleibt die eckige Haarnadel. → Text. Nicht live geprüft."""
+    t = a["dicke"]
+    n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
+    O, P, C = a["dreieck_mm"]
+    geo = _haarnadel_geometrie(O, P, C, n_aussen, t, g)
+    ebene = _versatz_ebene(comp, a["wand_flaeche"], g, n_aussen, rb)
+    flosse = _koerper_aus_vieleck(comp, ebene, geo["flosse"], geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
+    try:
+        _testfehler("quetschfalte_haarnadel")
+        tools = adsk.core.ObjectCollection.create()
+        tools.add(flosse)
+        tools.add(k2)
+        ci = comp.features.combineFeatures.createInput(k1, tools)
+        ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+        ci.isKeepToolBodies = False
+        rb.merke(comp.features.combineFeatures.add(ci))
+    except Exception:
+        try:
+            if flosse.isValid:
+                flosse.deleteMe()
+        except Exception:
+            pass
+        raise
+    try:
+        k1.name = "Quetschfalte Falte"
+    except Exception:
+        pass
+    vol0 = k1.volume
+
+    def finde(ziele):
+        kanten = adsk.core.ObjectCollection.create()
+        for e in k1.edges:
+            try:
+                if _kurventyp(e) != "linie":
+                    continue
+                s_, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
+                for z0, z1 in ziele:
+                    for u, w in ((z0, z1), (z1, z0)):
+                        if max(abs(10.0 * s_[i] - u[i]) for i in range(3)) < 0.05 and max(abs(10.0 * en[i] - w[i]) for i in range(3)) < 0.05:
+                            kanten.add(e)
+            except Exception:
+                continue
+        return kanten
+    try:
+        _testfehler("quetschfalte_rundung")
+        aussen, innen = finde(geo["aussen"]), finde(geo["innen"])
+        if aussen.count < 1 and innen.count < 1:
+            raise AdapterFehler("Die Faltkanten für die Rundung wurden nicht gefunden.")
+        ff = comp.features.filletFeatures
+        fi = ff.createInput()
+        if aussen.count:
+            fi.addConstantRadiusEdgeSet(aussen, adsk.core.ValueInput.createByReal(1.4 * t / 10.0), True)
+        if innen.count:
+            fi.addConstantRadiusEdgeSet(innen, adsk.core.ValueInput.createByReal(0.45 * t / 10.0), True)
+        rb.merke(ff.add(fi))
+        if k1.volume > vol0 + 1e-9:
+            raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
+        return "Lagen zu einem Körper verbunden, Faltkante gerundet (aussen %d, innen %d Kanten)" % (aussen.count, innen.count)
+    except Exception as e:
+        if "Testfehler" in str(e):
+            raise
+        logger.warnung("Haarnadel nicht gerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
+        return "Lagen zu einem Körper verbunden; Faltkante nicht gerundet (%s)" % (str(e).strip().splitlines() or ["?"])[-1][:100]
+
+
 def _falte_runden(comp, koerper2, a, kappe_abstand_mm, rb):
     """Gerundete Faltkanten an der äusseren Lage (Lage 2): Faltlinie O–C und Ecklinie O–P bekommen einen Radius (0.9 × Blechdicke). Kosmetik: scheitert
     die Rundung, bleibt alles andere unverändert. → (Feature, Anzahl gerundeter Kanten)."""
@@ -3303,14 +3400,19 @@ def quetschfalte_bauen(a):
         k2 = _koerper_aus_vieleck(comp, e2_, a["dreieck_mm"], t, n_aussen, rb, "Quetschfalte Lage 2")
         _testfehler("quetschfalte_lage2")
         try:
-            _testfehler("quetschfalte_rundung")
-            _f, n_kanten = _falte_runden(comp, k2, a, 2 * g + 2 * t, rb)
-            hinweise.append("%d Faltkanten gerundet" % n_kanten)
-        except Exception as e_rund:
-            if "Testfehler" in str(e_rund):
+            hinweise.append(_falte_haarnadel(comp, k1, k2, a, g, rb))
+        except Exception as e_h:
+            if "Testfehler" in str(e_h):
                 raise
-            logger.warnung("Faltkanten nicht gerundet", grund=(str(e_rund).strip().splitlines() or ["?"])[-1][:160])
-            hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
+            logger.warnung("Faltkante nicht als Haarnadel gebaut", grund=(str(e_h).strip().splitlines() or ["?"])[-1][:160])
+            hinweise.append("Faltkante nicht verbunden (%s) – zwei getrennte Lagen" % (str(e_h).strip().splitlines() or ["?"])[-1][:100])
+            try:
+                _f, n_kanten = _falte_runden(comp, k2, a, 2 * g + 2 * t, rb)
+                hinweise.append("%d Faltkanten gerundet" % n_kanten)
+            except Exception as e_rund:
+                if "Testfehler" in str(e_rund):
+                    raise
+                hinweise.append("Faltkanten nicht gerundet (%s)" % (str(e_rund).strip().splitlines() or ["?"])[-1][:100])
         # 3. Die Körper der Falte bleiben im Bauteil (gehören zum Blech), getrennte Körper ohne Verbindung (das Blech bleibt unverändert);
         #    Fusions Abwicklung wird für das Teil gesperrt – die Abwicklung macht «Abwicklung (eigen)».
         neue = [b for b in comp.bRepBodies if b.entityToken not in vor0]          # alles, was neu entstand (die Kürzung kann die Ecke in Teile trennen)
