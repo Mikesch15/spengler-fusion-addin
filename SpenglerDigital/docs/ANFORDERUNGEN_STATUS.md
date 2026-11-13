@@ -1,6 +1,11 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.89)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.91 – Faltkante der Quetschfalte rund im Modell (Anwender 7. 11. 2026: «Biegungen auch rund dargestellt im Modell»; Abwicklung passt jetzt):** Lage 1 und Lage 2 werden mit einer
+  «Flosse» (Dicke t) an der Faltlinie O–C zu EINEM Körper «Quetschfalte Falte» vereinigt (weniger Einzelteile) und die Faltkante als Haarnadel gerundet (aussen 1,4·t, innen
+  0,45·t um die Lücke g = t → halbrund). Scheitert die Vereinigung, bleiben die getrennten Lagen (alte Rundung als Rückfall); scheitert nur die Rundung, bleibt die eckige
+  Haarnadel; der Befehl nennt das im Hinweis. Rechnung der Flosse/Zielkanten getestet (`_haarnadel_geometrie`), Fusion-Teil NICHT live geprüft. 607 Tests.
 
 - **0.4.89 – Faltlinien treffen die Biegelinien nicht (Anwender nach Live 0.4.88: «besser, aber sie treffen die Biegelinien der Flansche nicht»; Bild: Versatz ~0,1–0,2 mm
   und die Biegelinien beginnen erst hinter der Ecke):** (1) Der Abstand Ecke O ↔ Tangentenkante wurde im Raum gemessen; O liegt in der Aussenebene, die Kante auf der Bezugsseite →
