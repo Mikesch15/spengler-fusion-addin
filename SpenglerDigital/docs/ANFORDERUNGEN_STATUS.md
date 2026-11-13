@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.108 – Überstehende Ecken per Extrusion abschneiden (Anwender: Bild «von Hand in Fusion mit Extrusionen, die die überstehenden Ecken entfernen»):** Nach dem Vereinigen wird, wie von Hand,
+  ein Ausschnitt (Extrusion «Ausschneiden») über die Aufkantungshöhe gemacht: Rechteck (±5 mm) in der Basis-Aussenebene HINTER der Aussenebene der anderen Wand (Falte hinter Wand 2 → hinter
+  Wand 1, v < 0; Falte hinter Wand 1 → hinter Wand 2, u < 0), nur an den Körpern der Quetschfalte (`_ueberstand_schneiden`); der Hinweis nennt das entfernte Volumen. Welche Ecken der Anwender
+  von Hand genau wegschneidet, ist nur vermutet (Überstand von Faltkante/Wulst am Eckpunkt) – nach dem Live-Test mit Bild prüfen. Nicht live geprüft.
 - **0.4.107 – Aussenecke des Füllstücks wieder eckig (Anwender: «das ist nicht die Ecke, die ich markiert habe – dort habe ich bereits gesagt, dass keine Rundung sein soll»; Bild des gewünschten
   Ergebnisses):** Der Ausschnitt der senkrechten Aussenecke (0.4.106) wird nicht mehr ausgeführt (Funktion `_ecke_rund_schneiden` bleibt ungenutzt). Gewünscht ist das Ergebnis wie auf dem Bild des
   Anwenders (Wulst läuft rund auf die Ecke aus, Faltkante endet in kleiner Spitze) – OFFEN, Rückfrage an den Anwender (Bild von Hand erstellt? Fusion-Funktion/Kanten/Radius). Nicht live geprüft.

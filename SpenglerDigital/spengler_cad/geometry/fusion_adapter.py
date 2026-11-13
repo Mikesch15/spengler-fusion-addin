@@ -3258,6 +3258,50 @@ def _haarnadel_geometrie(O, P, C, n, t, g, ueberlapp=0.2):
     return {"flosse": flosse, "hoehe": h_oben - h_unten, "aussen": aussen, "innen": innen, "w": w}
 
 
+def _ueberstand_schneiden(comp, body, a, rb):
+    """Überstehende Ecken der Falte am Eckpunkt per EXTRUSION (Ausschnitt) abschneiden – so wie der Anwender es von Hand macht (14. 11. 2026: «von hand in fusion mit extrusionen, die die
+    überstehenden ecken entfernen»). Die Falte liegt an der Aussenfläche der Wand, der Wulst/die Faltkante ragt am Eckpunkt über die Aussenebene der ANDEREN Wand hinaus (Keile, Absätze).
+    Ausschnitt: Rechteck in der Basis-Aussenebene hinter dieser Ebene (±5 mm um den Eckpunkt), über die ganze Aufkantungshöhe, nur an den Körpern der Quetschfalte (Blech unberührt).
+    Rahmen wie `_eckfuellung_punkte`: Wand 1 liegt entlang e1 (Aussenebene v = 0), Wand 2 entlang y (Aussenebene u = 0); die Falte hinter Wand 2 braucht den Schnitt hinter Wand 1 (v < 0),
+    die Falte hinter Wand 1 den Schnitt hinter Wand 2 (u < 0). → Text. Nicht live geprüft."""
+    flaeche_b = _flaeche_in_ebene(body, a["nb"], a["pb_cm"])
+    if flaeche_b is None:
+        return "Aussenfläche der Basis nicht gefunden – überstehende Ecken nicht abgeschnitten"
+    O, e1, y = a["O"], a["e1"], a["y"]
+    nutz = [b for b in comp.bRepBodies if b.name.startswith("Quetschfalte")]
+    if not nutz:
+        return "keine Körper der Quetschfalte – nichts abgeschnitten"
+    vol_vor = sum(b.volume for b in nutz)
+    g_ = 5.0
+    if a["wand"] == "wand2":
+        ecken = [(-g_, -g_), (g_, -g_), (g_, 0.0), (-g_, 0.0)]            # (u, v): hinter Wand 1 (v < 0)
+    else:
+        ecken = [(-g_, -g_), (0.0, -g_), (0.0, g_), (-g_, g_)]            # hinter Wand 2 (u < 0)
+    n0 = len(rb.objekte)
+    try:
+        sk = rb.merke(comp.sketches.add(flaeche_b))
+        pts = [sk.modelToSketchSpace(adsk.core.Point3D.create(*((O[i] + u * e1[i] + v * y[i]) / 10.0 for i in range(3)))) for u, v in ecken]
+        for i in range(4):
+            sk.sketchCurves.sketchLines.addByTwoPoints(pts[i], pts[(i + 1) % 4])
+        prof = _profile_summe_waehlen(sk, (2 * g_) * g_ if a["wand"] == "wand2" else g_ * (2 * g_))
+        hoch = tuple(-c for c in _einheit(a["nb"]))
+        vz = 1.0 if _skal(_skizzen_normale(sk), hoch) > 0 else -1.0
+        ef = comp.features.extrudeFeatures
+        ei = ef.createInput(prof, adsk.fusion.FeatureOperations.CutFeatureOperation)
+        ei.participantBodies = [b for b in nutz]
+        ei.setDistanceExtent(False, adsk.core.ValueInput.createByReal(vz * (a["h1"] + 1.0) / 10.0))
+        rb.merke(ef.add(ei))
+        vol_nach = sum(b.volume for b in comp.bRepBodies if b.name.startswith("Quetschfalte"))
+        if vol_nach > vol_vor + 1e-9:
+            raise AdapterFehler("Der Ausschnitt hat das Volumen vergrössert.")
+        abg = (vol_vor - vol_nach) * 1000.0
+        return "Überstehende Ecken per Ausschnitt abgeschnitten (%.2f mm³ entfernt)" % abg if abg > 1e-3 else "Nichts steht über (Ausschnitt ohne Wirkung)"
+    except Exception as e:
+        offen = entfernen_bericht(rb.objekte[n0:])
+        del rb.objekte[n0:]
+        return "Überstehende Ecken nicht abgeschnitten (%s)%s" % ((str(e).strip().splitlines() or ["?"])[-1][:110], "" if not offen else " – Rückbau unvollständig")
+
+
 def _ecke_rund_schneiden(comp, body, a, rb):
     """Die senkrechte Aussenecke des Füllstücks mit einer EXTRUSION (Ausschnitt) abrunden statt mit einer Rundung (Anwender 14. 11. 2026: «kannst du das nicht mit einer Extrusion
     entfernen?»; Fillets scheiterten oder hinterliessen Keile): Skizze auf der Basis-Aussenfläche an der Aussenecke O – ein Eckstück zwischen den beiden Aussenflächen der Wände und einem
@@ -3766,6 +3810,7 @@ def quetschfalte_bauen(a):
                 if vt:
                     hinweise.append(vt.lstrip(", "))
                 # Aussenecke des Füllstücks bleibt eckig (Anwender 14. 11. 2026: dort keine Rundung); _ecke_rund_schneiden bleibt ungenutzt
+                hinweise.append(_ueberstand_schneiden(comp, body, a, rb))
             except Exception as e_fv:
                 if "Testfehler" in str(e_fv):
                     raise
