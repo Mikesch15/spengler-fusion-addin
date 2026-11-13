@@ -3464,6 +3464,62 @@ def _falte_rand_runden(comp, k1, a, g, rb, nur_suchen=False):
         return "Kante zum Blech nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
 
 
+def _fuellstueck_ecke_runden(comp, vor0, a, rb):
+    """Die Aussenecke des Füllstücks (Körper «Quetschfalte Ecke») passend zur Falte abrunden (Anwender 14. 11. 2026: «es muss auch die Ecke vom Füllstück passend abgerundet
+    werden»): die senkrechte Kante (parallel zur Basisnormalen), die dem Eckpunkt O am nächsten liegt, mit demselben Radius wie die Ecke der Falte (0.55 × Blechdicke).
+    Scheitert die Rundung, bleibt das Füllstück eckig (Hinweis). → Text. Nicht live geprüft."""
+    t = a["dicke"]
+    O = a["O"]
+    nb = _einheit(a["nb"])
+    r = 0.55 * t
+    ok, fehler, n_koerper = 0, [], 0
+    for b in list(comp.bRepBodies):
+        try:
+            if b.entityToken in vor0 or not b.name.startswith("Quetschfalte Ecke") or not b.isValid:
+                continue
+        except Exception:
+            continue
+        n_koerper += 1
+        besten = None
+        for e in b.edges:
+            try:
+                if _kurventyp(e) != "linie":
+                    continue
+                s_, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
+                d = [10.0 * (en[i] - s_[i]) for i in range(3)]
+                ld = math.sqrt(sum(c * c for c in d))
+                if ld < 0.05 or abs(sum(d[i] * nb[i] for i in range(3))) / ld < 0.999:
+                    continue
+                q = [10.0 * s_[i] - O[i] for i in range(3)]
+                h = sum(q[i] * nb[i] for i in range(3))
+                quer = math.sqrt(max(0.0, sum(c * c for c in q) - h * h))
+                if quer <= 3.0 and (besten is None or quer < besten[0]):
+                    besten = (quer, e)
+            except Exception:
+                continue
+        if besten is None:
+            fehler.append("keine senkrechte Kante am Eckpunkt")
+            continue
+        vol0 = b.volume
+        try:
+            kanten = adsk.core.ObjectCollection.create()
+            kanten.add(besten[1])
+            ff = comp.features.filletFeatures
+            fi = ff.createInput()
+            fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), False)
+            rb.merke(ff.add(fi))
+            if b.volume > vol0 + 1e-9:
+                raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
+            ok += 1
+        except Exception as e_f:
+            fehler.append((str(e_f).strip().splitlines() or ["?"])[-1][:90])
+    if n_koerper == 0:
+        return "Füllstück der Ecke nicht gefunden – nicht abgerundet"
+    if ok and not fehler:
+        return "Ecke des Füllstücks abgerundet (Radius %.2f mm)" % r
+    return "Ecke des Füllstücks %s (%s)" % ("teilweise abgerundet" if ok else "nicht abgerundet", "; ".join(fehler) or "?")
+
+
 def _falte_ecke_runden(comp, k1, a, g, rb, nur_suchen=False):
     """Wird VOR den anderen Rundungen aufgerufen. Die Ecke des Lagenstapels am Eckpunkt O (dort läuft die gerundete Kante zum Blech aus) kugelig abrunden: alle senkrechten Kanten (parallel zur Wandnormalen)
     im Umkreis von 2.5 mm um O erhalten einen Radius von 0.55 × Blechdicke (kleiner als die halbe Breite der Faltkante). Anwender 14. 11. 2026: «diese Ecke sollte abgerundet
@@ -3601,6 +3657,12 @@ def quetschfalte_bauen(a):
                 hinweise.append("Ecke bis zum Wandende gefüllt (%.1f mm³ fehlendes Material)" % (k_ecke.volume * 1000.0))
             else:
                 hinweise.append("Ecke schliesst bereits (nichts zu füllen)")
+            try:
+                hinweise.append(_fuellstueck_ecke_runden(comp, vor0, a, rb))
+            except Exception as e_fe:
+                if "Testfehler" in str(e_fe):
+                    raise
+                hinweise.append("Ecke des Füllstücks nicht abgerundet (%s)" % (str(e_fe).strip().splitlines() or ["?"])[-1][:90])
         else:
             hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
         _testfehler("quetschfalte_saeule")

@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.102 – Ecke des Füllstücks abrunden (Anwender 14. 11. 2026: «es muss auch die Ecke vom Füllstück passend abgerundet werden»):** Das Füllstück («Quetschfalte Ecke») bekommt an der
+  senkrechten Aussenkante, die dem Eckpunkt O am nächsten liegt, denselben Radius wie die Ecke der Falte (0,55 × Blechdicke; `_fuellstueck_ecke_runden`, eigener Fillet-Schritt nach dem Bau
+  des Füllstücks, Hinweis nennt Erfolg oder Grund). Nicht live geprüft.
 - **0.4.101 – Rundungen nach der Ecke scheiterten (Live 0.4.100: «Ecke am Eckpunkt abgerundet (3 Kanten, 0,33 mm)», aber «Faltkante nicht gerundet» und «Kante zum Blech nicht gerundet» –
   Fusion: «… deaktivieren Sie Tangentenketten»):** Nach der Eckrundung hängen die Randkanten tangential um die Ecke herum zusammen, die Radien widersprechen sich. Jetzt: ALLE Rundungen
   (Faltkante aussen, Kante zum Blech, Ecke am Eckpunkt) in EINEM Fillet-Vorgang ohne Tangentenketten (Fusion rechnet die Eckübergänge selbst). Misslingt das, Rückfall auf den Stand 0.4.98
