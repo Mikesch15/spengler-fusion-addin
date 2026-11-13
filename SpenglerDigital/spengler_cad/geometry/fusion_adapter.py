@@ -3438,6 +3438,48 @@ def _falte_rand_runden(comp, k1, a, g, rb):
         return "Kante zum Blech nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
 
 
+def _falte_ecke_runden(comp, k1, a, g, rb):
+    """Die Ecke des Lagenstapels am Eckpunkt O (dort läuft die gerundete Kante zum Blech aus) kugelig abrunden: alle senkrechten Kanten (parallel zur Wandnormalen)
+    im Umkreis von 2.5 mm um O erhalten einen Radius von 0.55 × Blechdicke (kleiner als die halbe Breite der Faltkante). Anwender 14. 11. 2026: «diese Ecke sollte abgerundet
+    sein, wie eine Kugel». Scheitert die Rundung, bleibt alles andere. → Text. Nicht live geprüft."""
+    t = a["dicke"]
+    n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
+    O = a["dreieck_mm"][0]
+    nn = _einheit(n_aussen)
+    kanten = adsk.core.ObjectCollection.create()
+    for e in k1.edges:
+        try:
+            if _kurventyp(e) != "linie":
+                continue
+            s_, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
+            d = [10.0 * (en[i] - s_[i]) for i in range(3)]
+            ld = math.sqrt(sum(c * c for c in d))
+            if ld < 0.05 or abs(sum(d[i] * nn[i] for i in range(3))) / ld < 0.999:
+                continue                                           # nur senkrechte Kanten (parallel zur Wandnormalen)
+            q = [10.0 * s_[i] - O[i] for i in range(3)]
+            h = sum(q[i] * nn[i] for i in range(3))
+            quer = math.sqrt(max(0.0, sum(c * c for c in q) - h * h))
+            if quer <= 2.5:
+                kanten.add(e)
+        except Exception:
+            continue
+    if kanten.count == 0:
+        return "Ecke am Eckpunkt nicht gefunden – nicht abgerundet"
+    vol0 = k1.volume
+    try:
+        ff = comp.features.filletFeatures
+        fi = ff.createInput()
+        r = 0.55 * t
+        fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), True)
+        rb.merke(ff.add(fi))
+        if k1.volume > vol0 + 1e-9:
+            raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
+        return "Ecke am Eckpunkt abgerundet (%d Kanten, Radius %.2f mm)" % (kanten.count, r)
+    except Exception as e:
+        logger.warnung("Ecke am Eckpunkt nicht abgerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
+        return "Ecke am Eckpunkt nicht abgerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
+
+
 def _falte_runden(comp, koerper2, a, kappe_abstand_mm, rb):
     """Gerundete Faltkanten an der äusseren Lage (Lage 2): Faltlinie O–C und Ecklinie O–P bekommen einen Radius (0.9 × Blechdicke). Kosmetik: scheitert
     die Rundung, bleibt alles andere unverändert. → (Feature, Anzahl gerundeter Kanten)."""
@@ -3548,6 +3590,12 @@ def quetschfalte_bauen(a):
                 if "Testfehler" in str(e_r):
                     raise
                 hinweise.append("Kante zum Blech nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
+            try:
+                hinweise.append(_falte_ecke_runden(comp, k1, a, g, rb))
+            except Exception as e_r:
+                if "Testfehler" in str(e_r):
+                    raise
+                hinweise.append("Ecke am Eckpunkt nicht abgerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise

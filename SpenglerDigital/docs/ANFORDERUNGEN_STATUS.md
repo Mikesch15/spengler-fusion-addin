@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.99 – Ecke kugelig abrunden (Live 0.4.98: Kante A läuft auf das Blech aus, B scharf – «sehr gut»; Anwender: «diese Ecke sollte auch noch abgerundet sein, wie eine Kugel»):** Die senkrechten
+  Kanten des Lagenstapels im Umkreis von 2,5 mm um den Eckpunkt O (dort endet die gerundete Kante zum Blech) werden mit Radius 0,55 × Blechdicke gerundet (`_falte_ecke_runden`, eigener
+  Fillet-Schritt; der Hinweis nennt Anzahl und Radius oder den Grund des Scheiterns). Nicht live geprüft.
 - **0.4.98 – Rundung nur an Kante A (Live 0.4.97: «Ränder der Falte gerundet (6 Kanten, Radius 0,57 mm)»; Anwender mit Bild: Kante A = Seite zum Blech: die Rundung soll auf das Blech
   aufgehen, Kante B: keine Rundung):** Jetzt wird nur die obere Kante des Lagenstapels an der Ecklinie O–P gerundet, mit dem Radius 0,95 × Stapelhöhe (läuft bis auf die Wandfläche herab); die
   Oberkante P–C (B) und die Unterkanten bleiben scharf. Die Faltkante O–C bleibt wie in 0.4.96. Nicht live geprüft.
