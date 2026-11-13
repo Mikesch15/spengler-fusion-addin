@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.104 – Rundungen scheiterten nach der Füllstück-Vereinigung (Live 0.4.103: gemeinsame Rundung «ASM_BL_CHG_PT_COMPLEX_EDGE», Faltkante nicht gerundet, Ecke 8 Kanten – zu viele;
+  Anwender: die abgerundete Ecke des Füllstücks soll nicht sein, die Übergänge von der Rundung zum Füllstück müssen weg):** Reihenfolge geändert: ZUERST alle Rundungen an der Falte (wie
+  0.4.102, dort gelungen), DANN das Füllstück vereinigen; die eigene Rundung der Füllstück-Ecke (`_fuellstueck_ecke_runden`) entfällt (Funktion bleibt ungenutzt). Die Übergänge/Absätze
+  zwischen Rundung und Füllstück sind damit noch nicht gezielt behandelt – offen, braucht ein Bild des Übergangs. Nicht live geprüft.
 - **0.4.103 – Füllstück zum selben Körper (Live 0.4.102: alle Rundungen in einem Vorgang gelungen – Faltkante 2, Kante zum Blech 1, Ecke 3 Kanten, Füllstück-Ecke r 0,33; Anwender: «noch nicht»,
   Füllstück soll zum selben Körper wie die Falten gehören, die Ecke des Füllstücks als Kugel, keine Absätze zum Blech):** Das Füllstück wird nach der Faltenvereinigung mit der Falte zu EINEM
   Körper vereinigt (`_fuellstueck_verbinden`, nachgemessen; bei Wirkungslosigkeit zurückgenommen) und liegt damit vor den Rundungen im selben Körper. «Kugel» an der Füllstück-Ecke und die

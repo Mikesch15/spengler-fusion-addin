@@ -3329,12 +3329,7 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         k1.name = "Quetschfalte Falte"
     except Exception:
         pass
-    try:
-        verb_text = _fuellstueck_verbinden(comp, k1, rb)
-    except Exception as e_fv:
-        if "Testfehler" in str(e_fv):
-            raise
-        verb_text = ", Füllstück nicht vereinigt (%s)" % (str(e_fv).strip().splitlines() or ["?"])[-1][:90]
+    verb_text = ""                                  # das Füllstück wird erst NACH den Rundungen vereinigt (sonst «komplexe Kanten», Live 0.4.103)
     vol0 = k1.volume
 
     u_ = [C[i] - O[i] for i in range(3)]
@@ -3694,12 +3689,6 @@ def quetschfalte_bauen(a):
                 hinweise.append("Ecke bis zum Wandende gefüllt (%.1f mm³ fehlendes Material)" % (k_ecke.volume * 1000.0))
             else:
                 hinweise.append("Ecke schliesst bereits (nichts zu füllen)")
-            try:
-                hinweise.append(_fuellstueck_ecke_runden(comp, vor0, a, rb))
-            except Exception as e_fe:
-                if "Testfehler" in str(e_fe):
-                    raise
-                hinweise.append("Ecke des Füllstücks nicht abgerundet (%s)" % (str(e_fe).strip().splitlines() or ["?"])[-1][:90])
         else:
             hinweise.append("Ecke nicht verschlossen: nur bei senkrechten Aufkantungen (90°) umgesetzt")
         _testfehler("quetschfalte_saeule")
@@ -3720,6 +3709,14 @@ def quetschfalte_bauen(a):
                         if "Testfehler" in str(e_r):
                             raise
                         hinweise.append("%s nicht gerundet (%s)" % (name, (str(e_r).strip().splitlines() or ["?"])[-1][:100]))
+            try:
+                vt = _fuellstueck_verbinden(comp, k1, rb)
+                if vt:
+                    hinweise.append(vt.lstrip(", "))
+            except Exception as e_fv:
+                if "Testfehler" in str(e_fv):
+                    raise
+                hinweise.append("Füllstück nicht vereinigt (%s)" % (str(e_fv).strip().splitlines() or ["?"])[-1][:90])
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise
