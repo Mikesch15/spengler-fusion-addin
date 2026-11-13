@@ -39,8 +39,10 @@ def allgemein_dxf(r, titel="Abwicklung"):
                 d.bogen((e[1], e[2]), e[3], e[4], e[5], "KONTUR", 7)
             else:
                 d.kreis((e[1], e[2]), e[3], "KONTUR", 7)
+    for a, b in _paare(r.get("biegemitten", [])):
+        d.linie(a, b, "BIEGUNG", 5)                         # Biegelinie = Mitte der Biegezone
     for a, b in _paare(r["biegelinien"]):
-        d.linie(a, b, "BIEGUNG", 5)
+        d.linie(a, b, "BIEGEZONE", 4)                       # Grenzen der Biegezone (Beginn/Ende)
     for name, segs in r["faltlinien"].items():
         for a, b in segs:
             layer = "BIEGUNG_QUETSCHFALTE" if name == "quetsch" else "BIEGUNG_QUETSCHFALTE_ZONE" if name.startswith("zone") else "BIEGUNG_ECKLINIE"
@@ -58,7 +60,7 @@ def allgemein_zuschnitt(r):
     """Format für fusion_adapter.abwicklung_koerper."""
     from ..core import abwicklung_allgemein as aa
     kontur = [e for s in r["kontur"] for e in aa.kontur_elemente(s)]
-    inner = [("linie", a[0], a[1], b[0], b[1]) for a, b in _paare(r["biegelinien"])]
+    inner = [("linie", a[0], a[1], b[0], b[1]) for a, b in _paare(r.get("biegemitten") or r["biegelinien"])]      # nur die Biegelinien (Mitte) teilen die Fläche
     for segs in r["faltlinien"].values():
         inner += [("linie", a[0], a[1], b[0], b[1]) for a, b in segs]
     return {"kontur": kontur, "biegelinien": inner}

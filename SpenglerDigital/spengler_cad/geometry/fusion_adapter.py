@@ -3889,7 +3889,7 @@ def _linien_abstand(p, a, b):
 def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
     """Wie weit reicht die abgewickelte Aufkantung (Biegung + Fläche) über die virtuelle Kante hinaus? Gemessen am echten Modell, nicht gerechnet:
     E = Bogen + Höhe der Flanschfläche ab Tangentenkante − Abstand Tangentenkante↔virtuelle Ecke O. Wand = die Biegung der Basis, deren Tangentenkante parallel
-    zu e liegt und O am nächsten ist. → (E, Wand-ID, rv). Nicht live geprüft."""
+    zu e liegt und O am nächsten ist. → (E, Wand-ID, rv, Bogen). Nicht live geprüft."""
     kand = []
     for b in biegungen:
         if b["a"] == basis_id:
@@ -3908,7 +3908,7 @@ def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
     rv, b, wand, wkante = min(kand, key=lambda x: x[0])
     fl = next(f for f in flaechen if f["id"] == wand)
     hf = max(_linien_abstand(p, wkante[0], wkante[1]) for loop in fl["loops"] for p in loop)
-    return b["bogen"] + hf - rv, wand, rv
+    return b["bogen"] + hf - rv, wand, rv, b["bogen"]
 
 
 def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
@@ -3928,8 +3928,8 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         O, nb_ = d["O"], d["nb"]
         basis = min(flaechen, key=lambda f: abs(sum((O[j] - f["loops"][0][0][j]) * f["n"][j] for j in range(3)))
                     + 1000.0 * (1.0 - abs(sum(f["n"][j] * nb_[j] for j in range(3)))))
-        E1, _w1, rv1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
-        E2, _w2, rv2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
+        E1, _w1, rv1, bg1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
+        E2, _w2, rv2, bg2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
         if abs(E1 - E2) > 0.3:
             raise AdapterFehler("Die abgewickelten Aufkantungen an der Quetschfalte reichen unterschiedlich weit (%.2f / %.2f mm) – asymmetrische Ecke wird nicht "
                                 "unterstützt." % (E1, E2))
@@ -3943,9 +3943,14 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
             # 90°-Ecke: das Eckfeld ist ein volles Quadrat bis zu den Tangentenkanten (R = Rückversatz) – füllt auch die Eckfreistellung der Stossecke
             R = max(rv1, rv2)
             poly = [(-E, -E), (R, -E), (R, R), (-E, R)]
+            # Faltlinien laufen vom Schnittpunkt der Biegelinien-MITTEN aus (Mitte der Biegezonen), nicht von der virtuellen Ecke
+            M = (rv2 - bg2 / 2.0, rv1 - bg1 / 2.0)
+            linien = {"quetsch": (M, (-E, -E)), "eps1": (M, (M[0], -E)), "eps2": (M, (-E, M[1]))}
+        else:
+            M = (0.0, 0.0)
+            linien = {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}
         bz = aa.faltzone_breite(t, k, d.get("zugabe_t", 0.0))
-        linien = {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}
-        for nr_z, seg in enumerate(aa.faltzonen_linien(poly, (0.0, 0.0), z["C"], bz)):
+        for nr_z, seg in enumerate(aa.faltzonen_linien(poly, M, linien["quetsch"][1], bz)):
             linien["zone%d" % nr_z] = seg
         flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]), "polygon": poly, "linien": linien, "_e": E})
         ecken.append("Ecke bei (%.0f, %.0f, %.0f)" % tuple(O))

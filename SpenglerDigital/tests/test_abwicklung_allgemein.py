@@ -123,7 +123,7 @@ class AllgemeinDxf(unittest.TestCase):
             self.assertIn(layer, t)
         z = ad.allgemein_zuschnitt(r)
         self.assertGreaterEqual(len(z["kontur"]), 4)
-        self.assertEqual(len(z["biegelinien"]), 2 + 1)
+        self.assertEqual(len(z["biegelinien"]), 1 + 1)          # Biegelinie (Mitte) + Faltlinie
 
     def test_flicken_gespiegelt_gleiche_flaeche(self):
         boden = flach("b", (0, 0, -1), [(0, 0, 0), (0, 100, 0), (200, 100, 0), (200, 0, 0)])
@@ -250,3 +250,27 @@ class Eckfreistellung(unittest.TestCase):
         r = aa.abwickeln([boden, f1, f2], bi, [fl])
         self.assertEqual(len(r["kontur"]), 1)
         self.assertEqual(len(r["kontur"][0]), 4)          # Rechteck ohne Kerbe
+
+
+class Mitten(unittest.TestCase):
+    def test_biegemitten_und_faltlinien_treffen_sich(self):
+        boden = flach("b", (0, 0, -1), [(2, 2, 0), (2, 100, 0), (200, 100, 0), (200, 2, 0)])
+        f1 = flach("f1", (0, -1, 0), [(2, 2, 0), (200, 2, 0), (200, 2, 36), (2, 2, 36)])
+        f2 = flach("f2", (-1, 0, 0), [(2, 2, 0), (2, 2, 36), (2, 100, 36), (2, 100, 0)])
+        bi = [{"a": "b", "b": "f1", "ea": ((2, 2, 0), (200, 2, 0)), "eb": ((2, 2, 0), (200, 2, 0)), "bogen": 2.0},
+              {"a": "b", "b": "f2", "ea": ((2, 2, 0), (2, 100, 0)), "eb": ((2, 2, 0), (2, 100, 0)), "bogen": 2.0}]
+        r = aa.abwickeln([boden, f1, f2], bi)
+        self.assertEqual(len(r["biegemitten"]), 2)
+        # Mitte der Biegezone: Tangentenkante bei 2, Bogen 2 nach aussen → Mitte bei 1
+        horiz = next(m for m in r["biegemitten"] if abs(m[0][1] - m[1][1]) < 1e-9)
+        vert = next(m for m in r["biegemitten"] if abs(m[0][0] - m[1][0]) < 1e-9)
+        schn = (vert[0][0], horiz[0][1])
+        self.assertAlmostEqual(abs(schn[0]), 1.0, 6)
+        self.assertAlmostEqual(abs(schn[1]), 1.0, 6)
+        z = ad_zuschnitt(r)
+        self.assertEqual(len([e for e in z["biegelinien"]]), 2)
+
+
+def ad_zuschnitt(r):
+    from spengler_cad.manufacturing import abwicklung_dxf as ad
+    return ad.allgemein_zuschnitt(r)

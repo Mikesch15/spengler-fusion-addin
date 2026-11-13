@@ -1,6 +1,11 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.87)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.88)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.88 – Faltlinien an den Biegelinien-Mitten (Anwender nach Live 0.4.87: Eckfeld ist jetzt da, «Skizzenlinien laufen im Eckpunkt nicht auf die Mitte der Biegelinien»):**
+  Biegelinie = Mitte der Biegezone (neutrale Faser, `biegemitten`); die Grenzen der Zone liegen auf Layer BIEGEZONE. Im flachen Körper teilen nur die Biegelinien (Mitte) und die
+  Faltlinien die Oberseite. Faltlinie (180°) und Ecklinien beginnen im Schnittpunkt der beiden Biegelinien-Mitten (statt an der virtuellen Ecke); die Ecklinien sind die
+  Verlängerungen der Biegelinien in das Eckfeld. Nicht live geprüft; 605 Tests.
 
 - **0.4.87 – Eckfeld der Quetschfalte fehlt weiter (Live 0.4.86 «immernoch dasselbe»):** Ursache ohne echte Daten nicht sicher reproduzierbar. Änderungen: (1) das Eckfeld einer
   90°-Ecke ist jetzt ein volles Quadrat von den Aussenkanten bis zu den Tangentenkanten (füllt auch die Eckfreistellung der Stossecke, die sonst eine Lücke lässt);

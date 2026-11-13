@@ -99,7 +99,7 @@ def abwickeln(flaechen, biegungen, flicken=(), wurzel=None, toleranz=3e-3):
         nach[b["b"]].append((b, False))
     wurzel = wurzel if wurzel is not None else max(F.values(), key=lambda f: _flaeche_loops(f.loops)).id
     F[wurzel].pose = (0.0, 0.0, 0.0)
-    biegelinien, streifen = [], []
+    biegelinien, streifen, mitten = [], [], []
     todo = [wurzel]
     benutzt = set()
     while todo:
@@ -112,7 +112,7 @@ def abwickeln(flaechen, biegungen, flicken=(), wurzel=None, toleranz=3e-3):
             if ziel.pose is not None:
                 raise AbwicklungFehler("Die Biegungen bilden eine Schleife (Fläche «%s» doppelt erreicht) – ein geschlossener Ring ist nicht abwickelbar." % ziel.id)
             benutzt.add(id(b))
-            _anlegen(a, ziel, ea, eb, b["bogen"], biegelinien, streifen)
+            _anlegen(a, ziel, ea, eb, b["bogen"], biegelinien, streifen, mitten)
             todo.append(ziel.id)
     for f in F.values():
         if f.pose is None:
@@ -134,7 +134,7 @@ def abwickeln(flaechen, biegungen, flicken=(), wurzel=None, toleranz=3e-3):
     xs = [p[0] for s in schleifen for p in s]
     ys = [p[1] for s in schleifen for p in s]
     flaeche = sum(_schnuer(s) for s in schleifen)
-    return {"kontur": schleifen, "biegelinien": biegelinien, "faltlinien": falt, "flaeche": flaeche, "bbox": (min(xs), min(ys), max(xs), max(ys)),
+    return {"kontur": schleifen, "biegelinien": biegelinien, "biegemitten": mitten, "faltlinien": falt, "flaeche": flaeche, "bbox": (min(xs), min(ys), max(xs), max(ys)),
             "breite": max(xs) - min(xs), "hoehe": max(ys) - min(ys), "hinweise": hinweise}
 
 
@@ -146,7 +146,7 @@ def _schnuer(s):
     return sum(s[i][0] * s[(i + 1) % len(s)][1] - s[(i + 1) % len(s)][0] * s[i][1] for i in range(len(s))) / 2.0
 
 
-def _anlegen(a, ziel, ea, eb, bogen, biegelinien, streifen):
+def _anlegen(a, ziel, ea, eb, bogen, biegelinien, streifen, mitten):
     d = _unit(_sub(ea[1], ea[0]))
     if abs(_dot(d, _unit(_sub(eb[1], eb[0])))) < 0.999:
         raise AbwicklungFehler("Die Tangentenkanten der Biegung zwischen «%s» und «%s» sind nicht parallel (Kegel/Doppelkrümmung?) – nicht abwickelbar." % (a.id, ziel.id))
@@ -182,6 +182,8 @@ def _anlegen(a, ziel, ea, eb, bogen, biegelinien, streifen):
                                "Blechseite." % (a.id, ziel.id))
     biegelinien.append((pa[0], pa[1]))
     biegelinien.append((qa[0], qa[1]))
+    # Biegelinie = Mitte der Biegezone (neutrale Faser)
+    mitten.append((((pa[0][0] + qa[0][0]) / 2, (pa[0][1] + qa[0][1]) / 2), ((pa[1][0] + qa[1][0]) / 2, (pa[1][1] + qa[1][1]) / 2)))
     streifen.append([pa[0], pa[1], qa[1], qa[0]])
 
 
