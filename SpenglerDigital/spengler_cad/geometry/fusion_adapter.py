@@ -3260,7 +3260,7 @@ def _haarnadel_geometrie(O, P, C, n, t, g, ueberlapp=0.2):
 
 def _falte_haarnadel(comp, k1, k2, a, g, rb):
     """Die zwei Lagen zu EINEM Körper verbinden und die Faltkante als gerundete Haarnadel ausbilden: eine «Flosse» (Dicke t) an der Faltlinie O–C über beide Lagen
-    (Vereinigung), danach Rundung: aussen 1.4·t, innen 0.45·t (zwei Radien um die Lücke g = t → halbrunde Faltung). Scheitert die Vereinigung, bleiben die zwei
+    (Vereinigung), danach Rundung: aussen 0.95·(g+2t)/2, innen 0.45·g (nur bei Lücke g > 0). Scheitert die Vereinigung, bleiben die zwei
     Lagen getrennt (Ausnahme); scheitert nur die Rundung, bleibt die eckige Haarnadel. → Text. Nicht live geprüft."""
     t = a["dicke"]
     n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
@@ -3330,13 +3330,13 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         return kanten
     ov = 0.2
     ziele_aussen = [(g, t), (2 * g + 2 * t, t)]
-    ziele_innen = [(g + t, -ov), (2 * g + t, -ov)]
+    ziele_innen = [(g + t, -ov), (2 * g + t, -ov)] if g > 1e-9 else []          # ohne Abstand gibt es keine Lücke und keine Innenkanten
     try:
         _testfehler("quetschfalte_rundung")
         aussen, innen = finde(ziele_aussen), finde(ziele_innen)
         if aussen.count < 1 and innen.count < 1:
             raise AdapterFehler("Die Faltkanten für die Rundung wurden nicht gefunden.")
-        if aussen.count < 2 or innen.count < 2:
+        if aussen.count < 2 or (ziele_innen and innen.count < 2):
             # Diagnose: Kanten parallel zur Faltlinie mit Höhe über der Wand und seitlichem Abstand (mm)
             try:
                 u_ = [C[i] - O[i] for i in range(3)]
@@ -3356,14 +3356,15 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
                 diag = "; Kanten parallel zur Faltlinie (Höhe/Abstand mm): " + ", ".join("%s/%s" % k for k in sorted(gef))
             except Exception as e_d:
                 diag = "; Diagnose nicht möglich (%s)" % e_d
-            if aussen.count < 1 or innen.count < 1:
+            if aussen.count < 1 or (ziele_innen and innen.count < 1):
                 raise AdapterFehler("Faltkanten nur teilweise gefunden (aussen %d, innen %d)%s" % (aussen.count, innen.count, diag))
         ff = comp.features.filletFeatures
         fi = ff.createInput()
+        r_aussen = 0.95 * (g + 2 * t) / 2.0                      # zwei Radien über die Höhe der Faltkante (g + 2t), knapp unter der Hälfte
         if aussen.count:
-            fi.addConstantRadiusEdgeSet(aussen, adsk.core.ValueInput.createByReal(1.4 * t / 10.0), True)
+            fi.addConstantRadiusEdgeSet(aussen, adsk.core.ValueInput.createByReal(r_aussen / 10.0), True)
         if innen.count:
-            fi.addConstantRadiusEdgeSet(innen, adsk.core.ValueInput.createByReal(0.45 * t / 10.0), True)
+            fi.addConstantRadiusEdgeSet(innen, adsk.core.ValueInput.createByReal(0.45 * g / 10.0), True)
         rb.merke(ff.add(fi))
         if k1.volume > vol0 + 1e-9:
             raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
@@ -3420,7 +3421,7 @@ def quetschfalte_getrennt_attribut(body):
 
 def quetschfalte_bauen(a):
     """Quetschfalte bauen – das Blech bleibt UNVERÄNDERT (Anwender 6. 11. 2026: Extrusionen am Blech verbinden sich damit, die Abwicklung scheitert):
-    Falte (zwei Lagen mit Abstand = «Tasche geöffnet», Variante B) und Eckfüllung (L-Grundriss + Block am Boden, abzüglich des Blechs) entstehen als eigene
+    Falte (zwei Lagen, Abstand g; ab 0.4.96 g = 0: direkt aufeinander) und Eckfüllung (L-Grundriss + Block am Boden, abzüglich des Blechs) entstehen als eigene
     Körper und werden in eine EIGENE KOMPONENTE «Quetschfalte» verschoben. Fusions Abwicklung des Blechs funktioniert damit wie vorher.
     Lage 2 mit gerundeten Faltkanten. Atomar mit Rückbau. → erzeugte Objekte. Nicht live geprüft."""
     body = a["koerper"]
@@ -3431,7 +3432,7 @@ def quetschfalte_bauen(a):
     wand = a["wand_flaeche"]
     n_aussen = _einheit(flaechennormale(wand))
     p_aussen = _v(wand.pointOnFace)
-    g = t                                                   # Abstand der Lagen (Variante B: Tasche geöffnet): eine Blechdicke Luft
+    g = 0.0                                                 # Abstand der Lagen: 0 = direkt aufeinander (Anwender 13. 11. 2026: «dürfen direkt aufeinander liegen»; flachgedrückte Falte)
     rb = Rueckbau("Quetschfalte")
     token = body.entityToken
     n0 = comp.bRepBodies.count

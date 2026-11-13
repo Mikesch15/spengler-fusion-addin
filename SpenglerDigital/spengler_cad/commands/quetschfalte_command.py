@@ -107,7 +107,7 @@ def _ausfuehren_innen(self, args):
                     "\n\nACHTUNG: Der Rückbau war unvollständig – bitte mit Strg+Z zurücknehmen."), True)
         return
     fa.zeitleiste_gruppieren(von, "Spengler: Quetschfalte")
-    zeilen = ["Quetschfalte gebaut (%d Objekte, zwei Lagen als «Tasche» mit Abstand), Teil «%s»." % (len(objekte), name), fa.quetschfalte_text(a)]
+    zeilen = ["Quetschfalte gebaut (%d Objekte, zwei Lagen direkt aufeinander), Teil «%s»." % (len(objekte), name), fa.quetschfalte_text(a)]
     if a.get("hinweise_bau"):
         zeilen.append("Ecke: " + "; ".join(a["hinweise_bau"]) + ".")
     if inp.itemById("dxf").value:
