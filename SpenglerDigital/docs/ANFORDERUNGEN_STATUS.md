@@ -1,6 +1,12 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.86)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.87)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.87 – Eckfeld der Quetschfalte fehlt weiter (Live 0.4.86 «immernoch dasselbe»):** Ursache ohne echte Daten nicht sicher reproduzierbar. Änderungen: (1) das Eckfeld einer
+  90°-Ecke ist jetzt ein volles Quadrat von den Aussenkanten bis zu den Tangentenkanten (füllt auch die Eckfreistellung der Stossecke, die sonst eine Lücke lässt);
+  (2) Selbstdiagnose: Der Befehl «Abwicklung (eigen)» meldet Add-in-Version, Zahl der Konturschleifen, gerechnete Fläche, Fläche des flachen Körpers und den Flächengewinn des
+  Eckfelds und warnt («ACHTUNG»), wenn das Feld oder der Körper nicht übereinstimmen; (3) neben der DXF liegt «….dxf.modell.json» mit dem vollständig gelesenen Modell
+  (Flächen, Biegungen, Eckfeld, Ergebnis) zur Fehlersuche. 604 Tests, nicht live geprüft.
 
 - **0.4.86 – Quetschfalte fehlte im Zuschnitt (Live 0.4.85, Bild des Anwenders: nur die Faltlinie als Skizze, das Eckfeld nicht in der Kontur):** Ursache: Rechenrauschen
   (Fusion-Koordinaten) liess die Vereinigung der Teile an den gemeinsamen Kanten scheitern (im Test bei 1e-7 mm Rauschen reproduziert: Eckfeld fiel aus der Kontur).

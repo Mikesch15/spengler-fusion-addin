@@ -337,8 +337,9 @@ class StreifenAusdehnung(unittest.TestCase):
               {"id": "w2", "loops": [[(2, 0, 0), (2, 100, 0), (2, 100, 36), (2, 0, 36)]]}]
         bi = [{"a": "b", "b": "w1", "ea": ((0, 2, 0), (200, 2, 0)), "eb": ((0, 2, 0), (200, 2, 0)), "bogen": 2.09},
               {"a": "b", "b": "w2", "ea": ((2, 0, 0), (2, 100, 0)), "eb": ((2, 0, 0), (2, 100, 0)), "bogen": 2.09}]
-        E1, w1 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (1, 0, 0))
-        E2, w2 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (0, 1, 0))
+        E1, w1, rv1 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (1, 0, 0))
+        E2, w2, rv2 = fa.streifen_ausdehnung(fl, bi, "b", (0, 0, 0), (0, 1, 0))
+        self.assertAlmostEqual(rv1, 2.0, 6)
         self.assertEqual((w1, w2), ("w1", "w2"))
         self.assertAlmostEqual(E1, 2.09 + 36 - 2, 6)
         self.assertAlmostEqual(E2, E1, 6)

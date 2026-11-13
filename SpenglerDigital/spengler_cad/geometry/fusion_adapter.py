@@ -3889,7 +3889,7 @@ def _linien_abstand(p, a, b):
 def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
     """Wie weit reicht die abgewickelte Aufkantung (Biegung + Fläche) über die virtuelle Kante hinaus? Gemessen am echten Modell, nicht gerechnet:
     E = Bogen + Höhe der Flanschfläche ab Tangentenkante − Abstand Tangentenkante↔virtuelle Ecke O. Wand = die Biegung der Basis, deren Tangentenkante parallel
-    zu e liegt und O am nächsten ist. → (E, Wand-ID). Nicht live geprüft."""
+    zu e liegt und O am nächsten ist. → (E, Wand-ID, rv). Nicht live geprüft."""
     kand = []
     for b in biegungen:
         if b["a"] == basis_id:
@@ -3908,7 +3908,7 @@ def streifen_ausdehnung(flaechen, biegungen, basis_id, O, e):
     rv, b, wand, wkante = min(kand, key=lambda x: x[0])
     fl = next(f for f in flaechen if f["id"] == wand)
     hf = max(_linien_abstand(p, wkante[0], wkante[1]) for loop in fl["loops"] for p in loop)
-    return b["bogen"] + hf - rv, wand
+    return b["bogen"] + hf - rv, wand, rv
 
 
 def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
@@ -3928,8 +3928,8 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         O, nb_ = d["O"], d["nb"]
         basis = min(flaechen, key=lambda f: abs(sum((O[j] - f["loops"][0][0][j]) * f["n"][j] for j in range(3)))
                     + 1000.0 * (1.0 - abs(sum(f["n"][j] * nb_[j] for j in range(3)))))
-        E1, _w1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
-        E2, _w2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
+        E1, _w1, rv1 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e1"])
+        E2, _w2, rv2 = streifen_ausdehnung(flaechen, biegungen, basis["id"], O, d["e2"])
         if abs(E1 - E2) > 0.3:
             raise AdapterFehler("Die abgewickelten Aufkantungen an der Quetschfalte reichen unterschiedlich weit (%.2f / %.2f mm) – asymmetrische Ecke wird nicht "
                                 "unterstützt." % (E1, E2))
@@ -3939,11 +3939,15 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         except qf.QuetschfalteFehler as e:
             raise AdapterFehler("Quetschfalte nicht einrechenbar: %s" % e)
         poly = [(0.0, 0.0), z["P1"], z["C"], z["P2"]]
+        if abs(d["beta"] - 90.0) < 0.5 and abs(d.get("phi1", 90.0) - 90.0) < 0.5 and abs(d.get("phi2", 90.0) - 90.0) < 0.5:
+            # 90°-Ecke: das Eckfeld ist ein volles Quadrat bis zu den Tangentenkanten (R = Rückversatz) – füllt auch die Eckfreistellung der Stossecke
+            R = max(rv1, rv2)
+            poly = [(-E, -E), (R, -E), (R, R), (-E, R)]
         bz = aa.faltzone_breite(t, k, d.get("zugabe_t", 0.0))
         linien = {"quetsch": ((0.0, 0.0), z["C"]), "eps1": ((0.0, 0.0), z["P1"]), "eps2": ((0.0, 0.0), z["P2"])}
         for nr_z, seg in enumerate(aa.faltzonen_linien(poly, (0.0, 0.0), z["C"], bz)):
             linien["zone%d" % nr_z] = seg
-        flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]), "polygon": poly, "linien": linien})
+        flicken.append({"flaeche": basis["id"], "o": tuple(O), "e1": tuple(d["e1"]), "e2": tuple(d["e2"]), "polygon": poly, "linien": linien, "_e": E})
         ecken.append("Ecke bei (%.0f, %.0f, %.0f)" % tuple(O))
         hinweise.append("Quetschfalte: Eckfeld mit Ersatzhöhe E = %.2f mm (Aufkantung %.1f); %s; ohne Zugabe/Abzug für die Lagendicke (Betriebsregel)." % (
             E, d["h1"], "Faltzone %.2f mm" % bz if bz > 0 else "keine Faltzone"))
@@ -3954,6 +3958,30 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
     r["hinweise"] += hinweise
     m = {"dicke": t, "ri": ri, "k": k, "ecken": ecken, "flaechen": len(flaechen), "biegungen": len(biegungen),
          "winkel": sorted(round(b["_alpha"], 1) for b in biegungen)}
+    # Selbstdiagnose: wie viel Fläche bringt das Eckfeld wirklich in die Kontur?
+    m["felder"] = []
+    if flicken:
+        try:
+            r0 = aa.abwickeln(flaechen, biegungen)
+            soll = sum(f.get("_e", 0.0) ** 2 for f in flicken)
+            m["felder"] = [{"soll_mm2": round(soll, 2), "gewinn_mm2": round(r["flaeche"] - r0["flaeche"], 2), "schleifen": len(r["kontur"]),
+                            "ohne_feld_schleifen": len(r0["kontur"])}]
+            if r["flaeche"] - r0["flaeche"] < 0.5 * soll:
+                r["hinweise"].append("ACHTUNG: Das Eckfeld der Quetschfalte (%.0f mm²) liegt nur zu %.0f mm² in der Kontur – siehe Modelldatei." % (
+                    soll, r["flaeche"] - r0["flaeche"]))
+        except Exception as e_diag:
+            m["felder"] = [{"fehler": str(e_diag)}]
+    try:
+        import json as _json
+        modell = {"version": __import__("spengler_cad").VERSION, "dicke": t, "ri": ri, "k": k, "flaechen": flaechen,
+                  "biegungen": [{kk: vv for kk, vv in b.items() if not kk.startswith("_c")} for b in biegungen], "flicken": flicken,
+                  "ergebnis": {"flaeche": r["flaeche"], "bbox": r["bbox"], "kontur": r["kontur"], "faltlinien": r["faltlinien"], "biegelinien": r["biegelinien"]}}
+        if dateipfad:
+            with open(dateipfad + ".modell.json", "w", encoding="utf-8") as f_:
+                _json.dump(modell, f_)
+            m["modelldatei"] = dateipfad + ".modell.json"
+    except Exception:
+        logger.warnung("Modelldatei der Abwicklung nicht geschrieben")
     out = {"ergebnis": r, "daten": m, "dxf": None, "koerper": None}
     if dateipfad:
         ad.allgemein_dxf(r, getattr(body, "name", "Abwicklung")).speichern(dateipfad)
@@ -3966,6 +3994,14 @@ def eigene_blech_abwicklung(body, dateipfad=None, koerper_bauen=True):
         r["hinweise"] += hin
         out["koerper"] = kb
         out["komponente"] = occ
+        try:
+            kfl = kb.volume * 1000.0 / t                         # cm³ → mm³ / Dicke = Fläche in mm²
+            m["koerperflaeche_mm2"] = round(kfl, 1)
+            if abs(kfl - r["flaeche"]) > 0.01 * r["flaeche"]:
+                r["hinweise"].append("ACHTUNG: Der flache Körper hat %.0f mm², gerechnet sind %.0f mm² – die Kontur wurde in Fusion nicht vollständig übernommen." % (
+                    kfl, r["flaeche"]))
+        except Exception:
+            pass
     return out
 
 

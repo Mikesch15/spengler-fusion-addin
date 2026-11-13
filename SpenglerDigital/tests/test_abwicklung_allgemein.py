@@ -235,3 +235,18 @@ class Rauschen(unittest.TestCase):
             r = aa.abwickeln([boden, f1, f2], bi, [fl])
             self.assertAlmostEqual(r["flaeche"] - r0["flaeche"], 38.0 * 38.0, 1)
             self.assertEqual(len(r["kontur"]), 1)
+
+
+class Eckfreistellung(unittest.TestCase):
+    def test_quadrat_fuellt_die_freistellung(self):
+        # Basis mit herausgeschnittener Ecke (Freistellung 2x2 an O), Streifen beginnen erst hinter der Freistellung
+        boden = flach("b", (0, 0, -1), [(2, 2, 0), (2, 100, 0), (200, 100, 0), (200, 2, 0)])
+        boden["loops"] = [[(2, 0, 0), (2, 100, 0), (200, 100, 0), (200, 0, 0)]]
+        f1 = flach("f1", (0, -1, 0), [(2, 2, 0), (200, 2, 0), (200, 2, 36), (2, 2, 36)])
+        f2 = flach("f2", (-1, 0, 0), [(2, 2, 0), (2, 2, 36), (2, 100, 36), (2, 100, 0)])
+        bi = [{"a": "b", "b": "f1", "ea": ((2, 2, 0), (200, 2, 0)), "eb": ((2, 2, 0), (200, 2, 0)), "bogen": 2.0},
+              {"a": "b", "b": "f2", "ea": ((2, 2, 0), (2, 100, 0)), "eb": ((2, 2, 0), (2, 100, 0)), "bogen": 2.0}]
+        fl = {"flaeche": "b", "o": (0, 0, 0), "e1": (1, 0, 0), "e2": (0, 1, 0), "polygon": [(-36, -36), (2, -36), (2, 2), (-36, 2)]}
+        r = aa.abwickeln([boden, f1, f2], bi, [fl])
+        self.assertEqual(len(r["kontur"]), 1)
+        self.assertEqual(len(r["kontur"][0]), 4)          # Rechteck ohne Kerbe

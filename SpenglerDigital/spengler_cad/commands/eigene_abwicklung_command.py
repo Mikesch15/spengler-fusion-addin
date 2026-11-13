@@ -55,6 +55,12 @@ def _ausfuehren_innen(self, args):
         "DXF (Kontur mit Ausschnitten, Biegelinien, Faltlinien): " + pfad]
     if res["koerper"] is not None:
         zeilen.append("Flacher Körper in der Komponente «%s» – dort kann eine Fusion-Zeichnung erstellt werden (Biegelinien als Kanten der Oberseite)." % res["komponente"].component.name)
+    from .. import VERSION
+    zeilen.append("Add-in %s; Kontur: %d Schleife(n), Fläche gerechnet %.0f mm²%s%s." % (
+        VERSION, len(r["kontur"]), r["flaeche"], ", flacher Körper %.0f mm²" % m["koerperflaeche_mm2"] if "koerperflaeche_mm2" in m else "",
+        "; Eckfeld: " + "; ".join("%s" % f for f in m["felder"]) if m.get("felder") else ""))
+    if m.get("modelldatei"):
+        zeilen.append("Modelldatei (für die Fehlersuche): " + m["modelldatei"])
     zeilen += r["hinweise"]
     zeilen.append("Nicht live geprüft. Lagendicke der Quetschfalte ist nicht eingerechnet.")
     logger.info("Eigene Abwicklung", datei=os.path.basename(pfad), breite=r["breite"], hoehe=r["hoehe"])
