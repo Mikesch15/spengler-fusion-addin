@@ -3258,6 +3258,37 @@ def _haarnadel_geometrie(O, P, C, n, t, g, ueberlapp=0.2):
     return {"flosse": flosse, "hoehe": h_oben - h_unten, "aussen": aussen, "innen": innen, "w": w}
 
 
+def _fuellstueck_verbinden(comp, k1, rb):
+    """Das Füllstück («Quetschfalte Ecke») mit der Falte zu EINEM Körper vereinigen (Anwender 14. 11. 2026: «das Füllstück soll zum selben Körper gehören wie die Falten»).
+    Die Vereinigung wird nachgemessen (ein Combine mit einem Werkzeug, das den Körper nicht berührt, verbraucht es sonst wirkungslos – Live 0.4.92); bei Wirkungslosigkeit
+    wird dieser Schritt zurückgenommen und das Füllstück bleibt eigener Körper. → Text. Nicht live geprüft."""
+    teile = [b for b in comp.bRepBodies if b.name.startswith("Quetschfalte Ecke") and b.entityToken != k1.entityToken]
+    if not teile:
+        return ""
+    ok, fehler = 0, []
+    for b in teile:
+        v_tool, v_vor = b.volume, k1.volume
+        n0 = len(rb.objekte)
+        try:
+            tools = adsk.core.ObjectCollection.create()
+            tools.add(b)
+            ci = comp.features.combineFeatures.createInput(k1, tools)
+            ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+            ci.isKeepToolBodies = False
+            feat = rb.merke(comp.features.combineFeatures.add(ci))
+            zuwachs = (k1.volume - v_vor) * 1000.0
+            if zuwachs < 0.3 * v_tool * 1000.0:
+                raise AdapterFehler("Zuwachs %.1f mm³ bei %.1f mm³ Füllstück (berührt die Falte nicht?)" % (zuwachs, v_tool * 1000.0))
+            ok += 1
+        except Exception as e:
+            offen = entfernen_bericht(rb.objekte[n0:])
+            del rb.objekte[n0:]
+            fehler.append((str(e).strip().splitlines() or ["?"])[-1][:100] + ("" if not offen else " – Rückbau unvollständig"))
+    if ok and not fehler:
+        return ", Füllstück mit der Falte zu einem Körper vereinigt"
+    return ", Füllstück %s (%s)" % ("teilweise vereinigt" if ok else "nicht vereinigt", "; ".join(fehler))
+
+
 def _falte_haarnadel(comp, k1, k2, a, g, rb):
     """Die zwei Lagen zu EINEM Körper verbinden und die Faltkante als gerundete Haarnadel ausbilden: eine «Flosse» (Dicke t) an der Faltlinie O–C über beide Lagen
     (Vereinigung), danach Rundung: aussen 0.95·(g+2t)/2, innen 0.45·g (nur bei Lücke g > 0). Scheitert die Vereinigung, bleiben die zwei
@@ -3298,6 +3329,12 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         k1.name = "Quetschfalte Falte"
     except Exception:
         pass
+    try:
+        verb_text = _fuellstueck_verbinden(comp, k1, rb)
+    except Exception as e_fv:
+        if "Testfehler" in str(e_fv):
+            raise
+        verb_text = ", Füllstück nicht vereinigt (%s)" % (str(e_fv).strip().splitlines() or ["?"])[-1][:90]
     vol0 = k1.volume
 
     u_ = [C[i] - O[i] for i in range(3)]
@@ -3329,7 +3366,7 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
                 continue
         return kanten
     ov = 0.2
-    kombi_hinweis = ""
+    kombi_hinweis = verb_text
     ziele_aussen = [(g, t), (2 * g + 2 * t, t)]
     ziele_innen = [(g + t, -ov), (2 * g + t, -ov)] if g > 1e-9 else []          # ohne Abstand gibt es keine Lücke und keine Innenkanten
     try:
@@ -3376,8 +3413,8 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
             rb.merke(ffk.add(fik))
             if k1.volume > vk + 1e-9:
                 raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
-            return ("Lagen zu einem Körper verbunden, alle Rundungen in einem Vorgang (Faltkante aussen %d / innen %d, Kante zum Blech %d, Ecke am Eckpunkt %d Kanten; "
-                    "Radien %.2f / %.2f / %.2f mm)" % (aussen.count, innen.count, rand_k.count, ecke_k.count, r_aussen, r_r, r_e)), True
+            return ("Lagen zu einem Körper verbunden%s, alle Rundungen in einem Vorgang (Faltkante aussen %d / innen %d, Kante zum Blech %d, Ecke am Eckpunkt %d Kanten; "
+                    "Radien %.2f / %.2f / %.2f mm)" % (verb_text, aussen.count, innen.count, rand_k.count, ecke_k.count, r_aussen, r_r, r_e)), True
         except Exception as e_k:
             if "Testfehler" in str(e_k):
                 raise

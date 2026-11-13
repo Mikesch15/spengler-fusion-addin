@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.103 – Füllstück zum selben Körper (Live 0.4.102: alle Rundungen in einem Vorgang gelungen – Faltkante 2, Kante zum Blech 1, Ecke 3 Kanten, Füllstück-Ecke r 0,33; Anwender: «noch nicht»,
+  Füllstück soll zum selben Körper wie die Falten gehören, die Ecke des Füllstücks als Kugel, keine Absätze zum Blech):** Das Füllstück wird nach der Faltenvereinigung mit der Falte zu EINEM
+  Körper vereinigt (`_fuellstueck_verbinden`, nachgemessen; bei Wirkungslosigkeit zurückgenommen) und liegt damit vor den Rundungen im selben Körper. «Kugel» an der Füllstück-Ecke und die
+  «Absätze zum Blech» sind OFFEN (Ursache der Absätze noch nicht geklärt: Rückfrage an den Anwender). Nicht live geprüft.
 - **0.4.102 – Ecke des Füllstücks abrunden (Anwender 14. 11. 2026: «es muss auch die Ecke vom Füllstück passend abgerundet werden»):** Das Füllstück («Quetschfalte Ecke») bekommt an der
   senkrechten Aussenkante, die dem Eckpunkt O am nächsten liegt, denselben Radius wie die Ecke der Falte (0,55 × Blechdicke; `_fuellstueck_ecke_runden`, eigener Fillet-Schritt nach dem Bau
   des Füllstücks, Hinweis nennt Erfolg oder Grund). Nicht live geprüft.
