@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.97 – Rundung zum Blech (Live 0.4.96: Höhen 0…0,6 / 0,6…1,2 mm, ein Körper 13 623 mm³, Faltkante aussen gerundet – bestätigt; Anwender: «die Rundung zum Fusion Blech ist noch nicht da»,
+  Bild: der eckige Rand des Lagenstapels entlang der Wand):** Die zwei Aussenränder der Falte (Ecklinie O–P und Oberkante P–C) werden oben und unten am Stapel gerundet, Radius 0,95 × halbe
+  Stapelhöhe (`_falte_rand_runden`; Kanten nach Höhe und Lage auf der Seite gesucht); scheitert die Rundung, bleibt die Falte wie sie ist, der Hinweis nennt es. Nicht live geprüft.
 - **0.4.96 – Lagen der Quetschfalte direkt aufeinander (Anwender 13. 11. 2026: «dürfen direkt aufeinander liegen», «ja umstellen»):** Abstand der Lagen g = 0 (statt eine Blechdicke Luft): Lage 1 auf
   0…t, Lage 2 auf t…2t über der Wand; die Faltkante (Flosse) hat die Höhe 2t, gerundet aussen mit 0,95·t (zwei Radien, knapp unter der halben Höhe); Innenkanten und Innenrundung entfallen (keine
   Lücke). Die Vereinigung (Flosse, dann Lage 2) wird weiter nachgemessen; der Fusion-Teil ist NICHT live geprüft.

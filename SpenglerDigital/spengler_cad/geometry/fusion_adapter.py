@@ -3376,6 +3376,68 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         return "Lagen zu einem Körper verbunden; Faltkante nicht gerundet (%s)" % (str(e).strip().splitlines() or ["?"])[-1][:100]
 
 
+def _falte_rand_runden(comp, k1, a, g, rb):
+    """Die zwei Aussenränder der Falte (Ecklinie O–P und Oberkante P–C, oben und unten am Lagenstapel) runden, damit die Falte wie eine Biegung vom Blech
+    ausläuft (Anwender 14. 11. 2026: «die Rundung zum Fusion Blech»). Radius = 0.95 × halbe Stapelhöhe. Scheitert die Rundung, bleibt alles andere.
+    → Text. Nicht live geprüft."""
+    t = a["dicke"]
+    n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
+    O, P, C = a["dreieck_mm"]
+    nn = _einheit(n_aussen)
+    unten, oben = g, 2 * g + 2 * t
+
+    def in_ebene(v):
+        h = sum(v[i] * nn[i] for i in range(3))
+        return [v[i] - h * nn[i] for i in range(3)], h
+    seiten = []
+    for A_, B_ in ((O, P), (P, C)):
+        d = [B_[i] - A_[i] for i in range(3)]
+        dl, _ = in_ebene(d)
+        ln = math.sqrt(sum(c * c for c in dl))
+        seiten.append((A_, [c / ln for c in dl], ln))
+    kanten = adsk.core.ObjectCollection.create()
+    for e in k1.edges:
+        try:
+            if _kurventyp(e) != "linie":
+                continue
+            s_, en = _v(e.startVertex.geometry), _v(e.endVertex.geometry)
+            ps = [10.0 * c for c in s_]
+            pe = [10.0 * c for c in en]
+            qs, hs = in_ebene([ps[i] - O[i] for i in range(3)])
+            qe, he = in_ebene([pe[i] - O[i] for i in range(3)])
+            if abs(hs - he) > 0.05 or not (abs(hs - unten) < 0.05 or abs(hs - oben) < 0.05):
+                continue
+            for A_, ud, ln in seiten:
+                aa_, _h = in_ebene([A_[i] - O[i] for i in range(3)])
+                ok = True
+                for q in (qs, qe):
+                    w = [q[i] - aa_[i] for i in range(3)]
+                    along = sum(w[i] * ud[i] for i in range(3))
+                    quer = math.sqrt(max(0.0, sum(c * c for c in w) - along * along))
+                    if quer > 0.05 or along < -0.05 or along > ln + 0.05:
+                        ok = False
+                if ok:
+                    kanten.add(e)
+                    break
+        except Exception:
+            continue
+    if kanten.count == 0:
+        return "Ränder der Falte nicht gefunden – nicht gerundet"
+    vol0 = k1.volume
+    try:
+        ff = comp.features.filletFeatures
+        fi = ff.createInput()
+        r = 0.95 * (oben - unten) / 2.0
+        fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), True)
+        rb.merke(ff.add(fi))
+        if k1.volume > vol0 + 1e-9:
+            raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
+        return "Ränder der Falte gerundet (%d Kanten, Radius %.2f mm)" % (kanten.count, r)
+    except Exception as e:
+        logger.warnung("Ränder der Falte nicht gerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
+        return "Ränder der Falte nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
+
+
 def _falte_runden(comp, koerper2, a, kappe_abstand_mm, rb):
     """Gerundete Faltkanten an der äusseren Lage (Lage 2): Faltlinie O–C und Ecklinie O–P bekommen einen Radius (0.9 × Blechdicke). Kosmetik: scheitert
     die Rundung, bleibt alles andere unverändert. → (Feature, Anzahl gerundeter Kanten)."""
@@ -3480,6 +3542,12 @@ def quetschfalte_bauen(a):
         _testfehler("quetschfalte_lage2")
         try:
             hinweise.append(_falte_haarnadel(comp, k1, k2, a, g, rb))
+            try:
+                hinweise.append(_falte_rand_runden(comp, k1, a, g, rb))
+            except Exception as e_r:
+                if "Testfehler" in str(e_r):
+                    raise
+                hinweise.append("Ränder der Falte nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise
