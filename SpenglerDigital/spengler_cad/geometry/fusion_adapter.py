@@ -3377,9 +3377,9 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
 
 
 def _falte_rand_runden(comp, k1, a, g, rb):
-    """Die zwei Aussenränder der Falte (Ecklinie O–P und Oberkante P–C, oben und unten am Lagenstapel) runden, damit die Falte wie eine Biegung vom Blech
-    ausläuft (Anwender 14. 11. 2026: «die Rundung zum Fusion Blech»). Radius = 0.95 × halbe Stapelhöhe. Scheitert die Rundung, bleibt alles andere.
-    → Text. Nicht live geprüft."""
+    """Nur die Seite ZUM BLECH (Ecklinie O–P, Kante A): die obere Kante des Lagenstapels wird mit dem Radius 0.95 × Stapelhöhe gerundet, sodass die Rundung bis auf
+    die Wandfläche herabläuft («auf das Blech aufgeht»; Anwender 14. 11. 2026). Die Oberkante P–C (Kante B) bleibt scharf, die Unterkante an der Wand ebenfalls.
+    Scheitert die Rundung, bleibt alles andere. → Text. Nicht live geprüft."""
     t = a["dicke"]
     n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
     O, P, C = a["dreieck_mm"]
@@ -3390,7 +3390,7 @@ def _falte_rand_runden(comp, k1, a, g, rb):
         h = sum(v[i] * nn[i] for i in range(3))
         return [v[i] - h * nn[i] for i in range(3)], h
     seiten = []
-    for A_, B_ in ((O, P), (P, C)):
+    for A_, B_ in ((O, P),):                                     # nur Ecklinie O–P (Kante A); P–C (Kante B) bleibt scharf
         d = [B_[i] - A_[i] for i in range(3)]
         dl, _ = in_ebene(d)
         ln = math.sqrt(sum(c * c for c in dl))
@@ -3405,7 +3405,7 @@ def _falte_rand_runden(comp, k1, a, g, rb):
             pe = [10.0 * c for c in en]
             qs, hs = in_ebene([ps[i] - O[i] for i in range(3)])
             qe, he = in_ebene([pe[i] - O[i] for i in range(3)])
-            if abs(hs - he) > 0.05 or not (abs(hs - unten) < 0.05 or abs(hs - oben) < 0.05):
+            if abs(hs - he) > 0.05 or abs(hs - oben) > 0.05:                  # nur die obere Kante des Stapels
                 continue
             for A_, ud, ln in seiten:
                 aa_, _h = in_ebene([A_[i] - O[i] for i in range(3)])
@@ -3422,20 +3422,20 @@ def _falte_rand_runden(comp, k1, a, g, rb):
         except Exception:
             continue
     if kanten.count == 0:
-        return "Ränder der Falte nicht gefunden – nicht gerundet"
+        return "Kante zum Blech nicht gefunden – nicht gerundet"
     vol0 = k1.volume
     try:
         ff = comp.features.filletFeatures
         fi = ff.createInput()
-        r = 0.95 * (oben - unten) / 2.0
+        r = 0.95 * (oben - unten)                       # volle Stapelhöhe: die Rundung läuft bis auf die Wand herab
         fi.addConstantRadiusEdgeSet(kanten, adsk.core.ValueInput.createByReal(r / 10.0), True)
         rb.merke(ff.add(fi))
         if k1.volume > vol0 + 1e-9:
             raise AdapterFehler("Die Rundung hat das Volumen vergrössert.")
-        return "Ränder der Falte gerundet (%d Kanten, Radius %.2f mm)" % (kanten.count, r)
+        return "Kante zum Blech gerundet (%d Kanten, Radius %.2f mm)" % (kanten.count, r)
     except Exception as e:
         logger.warnung("Ränder der Falte nicht gerundet", grund=(str(e).strip().splitlines() or ["?"])[-1][:160])
-        return "Ränder der Falte nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
+        return "Kante zum Blech nicht gerundet (%s; %d Kanten gewählt)" % ((str(e).strip().splitlines() or ["?"])[-1][:100], kanten.count)
 
 
 def _falte_runden(comp, koerper2, a, kappe_abstand_mm, rb):
@@ -3547,7 +3547,7 @@ def quetschfalte_bauen(a):
             except Exception as e_r:
                 if "Testfehler" in str(e_r):
                     raise
-                hinweise.append("Ränder der Falte nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
+                hinweise.append("Kante zum Blech nicht gerundet (%s)" % (str(e_r).strip().splitlines() or ["?"])[-1][:100])
         except Exception as e_h:
             if "Testfehler" in str(e_h):
                 raise
