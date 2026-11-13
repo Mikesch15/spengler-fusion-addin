@@ -214,3 +214,24 @@ class Faltzone(unittest.TestCase):
         with open(p, encoding="ascii") as f:
             t = f.read()
         self.assertIn("BIEGUNG_QUETSCHFALTE_ZONE", t)
+
+
+class Rauschen(unittest.TestCase):
+    def test_eckfeld_bleibt_in_der_kontur_trotz_rechenrauschen(self):
+        import random
+        random.seed(3)
+
+        def nz(p, e):
+            return tuple(c + random.uniform(-e, e) for c in p)
+        for e in (1e-7, 1e-5, 5e-4):
+            boden = {"id": "b", "n": (0, 0, -1), "loops": [[nz(p, e) for p in [(0, 0, 0), (0, 100, 0), (200, 100, 0), (200, 0, 0)]]]}
+            f1 = {"id": "f1", "n": (0, -1, 0), "loops": [[nz(p, e) for p in [(0, 0, 0), (200, 0, 0), (200, 0, 36), (0, 0, 36)]]]}
+            f2 = {"id": "f2", "n": (-1, 0, 0), "loops": [[nz(p, e) for p in [(0, 0, 0), (0, 0, 36), (0, 100, 36), (0, 100, 0)]]]}
+            bi = [{"a": "b", "b": "f1", "ea": ((0, 0, 0), (200, 0, 0)), "eb": ((0, 0, 0), (200, 0, 0)), "bogen": 2.0},
+                  {"a": "b", "b": "f2", "ea": ((0, 0, 0), (0, 100, 0)), "eb": ((0, 0, 0), (0, 100, 0)), "bogen": 2.0}]
+            z = qf.zuschnitt(90.0, 38.0)
+            fl = {"flaeche": "b", "o": (0, 0, 0), "e1": (1, 0, 0), "e2": (0, 1, 0), "polygon": [(0, 0), z["P1"], z["C"], z["P2"]]}
+            r0 = aa.abwickeln([boden, f1, f2], bi)
+            r = aa.abwickeln([boden, f1, f2], bi, [fl])
+            self.assertAlmostEqual(r["flaeche"] - r0["flaeche"], 38.0 * 38.0, 1)
+            self.assertEqual(len(r["kontur"]), 1)

@@ -1,6 +1,12 @@
 # Spengler Digital CAD – Anforderungsliste mit Status
 
-**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.85)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+**Aktueller Stand: Abschnitt «AKTUELLER STAND – Spengler-Kantenwerkzeug (Version 0.4.86)» ganz am Ende; alle Abschnitte davor sind HISTORISCH (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`, nach 0.4.49, NICHT veröffentlicht).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
+
+- **0.4.86 – Quetschfalte fehlte im Zuschnitt (Live 0.4.85, Bild des Anwenders: nur die Faltlinie als Skizze, das Eckfeld nicht in der Kontur):** Ursache: Rechenrauschen
+  (Fusion-Koordinaten) liess die Vereinigung der Teile an den gemeinsamen Kanten scheitern (im Test bei 1e-7 mm Rauschen reproduziert: Eckfeld fiel aus der Kontur).
+  Behoben: Punkte unter 3 µm Abstand werden vor der Vereinigung zusammengelegt (Test bis 5e-4 mm Rauschen). Zusätzlich: die Grösse des Eckfelds wird am echten Modell
+  gemessen (`streifen_ausdehnung`: Bogen + Flanschhöhe ab Tangentenkante − Abstand zur virtuellen Ecke) statt aus der Höhe gerechnet; ungleiche Aufkantungen werden
+  abgelehnt. Nicht live geprüft; 603 Tests.
 
 - **0.4.85 – Quetschfalte ohne Zugabe/Abzug (Anwender 7. 11. 2026: «wird ohne Abzug oder Zugabe gerechnet, 10tel-mm-Bereich, nicht relevant»):** Die Faltzone ist
   standardmässig AUS (Feld «Faltzone» = 0), nur auf Wunsch Faktor × Dicke; Kontur und Spitze bleiben ideal – das ist die Betriebsregel, kein offener Punkt mehr.

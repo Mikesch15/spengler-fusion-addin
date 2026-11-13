@@ -77,7 +77,7 @@ class _Flaeche(object):
         return (sum(p[0] for p in L) / len(L), sum(p[1] for p in L) / len(L))
 
 
-def abwickeln(flaechen, biegungen, flicken=(), wurzel=None, toleranz=1e-4):
+def abwickeln(flaechen, biegungen, flicken=(), wurzel=None, toleranz=3e-3):
     """flaechen: [{id, n, loops: [[(x,y,z)…] aussen, [..] Loch …]}]; biegungen: [{a, b, ea: (P0,P1), eb: (Q0,Q1), bogen}];
     flicken: [{flaeche, o (3D), e1 (3D), e2 (3D), polygon [(x,y) im Flickenrahmen: e1 = (1,0), e2 = Winkel β gegen e1], linien: {name: ((x,y),(x,y))}}].
     → dict kontur (Liste von Schleifen [(x,y)…], aussen gegen den Uhrzeigersinn, Löcher im Uhrzeigersinn), biegelinien, faltlinien {name: [...]}, flaeche, bbox, hinweise."""
@@ -223,6 +223,8 @@ def _im_teil(p, teil):
 
 def vereinigung(teile, tol=1e-4):
     """teile: [[aussen, loch…], …] (Vielecke als Punktlisten). → Schleifen der Vereinigung (Aussen gegen, Löcher mit dem Uhrzeigersinn)."""
+    teile = _punkte_zusammenfuehren(teile, tol)    # Rechenrauschen (Fusion, Drehungen) darf Kanten nicht auseinanderziehen
+    teile = [[_ohne_doppelte(loop) for loop in t] for t in teile]
     segs = []
     for t in teile:
         for loop in t:
@@ -283,6 +285,36 @@ def vereinigung(teile, tol=1e-4):
             q0, q1 = (p0, p1) if links else (p1, p0)             # Inneres liegt links der Richtung
             teilstuecke[(round(q0[0] / tol), round(q0[1] / tol), round(q1[0] / tol), round(q1[1] / tol))] = (q0, q1)
     return _ketten(list(teilstuecke.values()), tol)
+
+
+def _punkte_zusammenfuehren(teile, tol):
+    """Alle Punkte, die weniger als tol voneinander entfernt liegen, auf einen gemeinsamen Punkt legen (Raster-Hash, Nachbarzellen)."""
+    zellen = {}
+    rep = {}
+
+    def finde(p):
+        cx, cy = int(math.floor(p[0] / tol)), int(math.floor(p[1] / tol))
+        for dx in (-1, 0, 1):
+            for dy in (-1, 0, 1):
+                for q in zellen.get((cx + dx, cy + dy), ()):
+                    if math.hypot(q[0] - p[0], q[1] - p[1]) <= tol:
+                        return q
+        zellen.setdefault((cx, cy), []).append(p)
+        return p
+    out = []
+    for t in teile:
+        out.append([[finde(p) for p in loop] for loop in t])
+    return out
+
+
+def _ohne_doppelte(loop):
+    out = []
+    for p in loop:
+        if not out or p != out[-1]:
+            out.append(p)
+    if len(out) > 1 and out[0] == out[-1]:
+        out.pop()
+    return out
 
 
 def _ketten(segs, tol):
