@@ -3765,7 +3765,7 @@ def quetschfalte_bauen(a):
                 vt = _fuellstueck_verbinden(comp, k1, rb)
                 if vt:
                     hinweise.append(vt.lstrip(", "))
-                hinweise.append(_ecke_rund_schneiden(comp, body, a, rb))
+                # Aussenecke des Füllstücks bleibt eckig (Anwender 14. 11. 2026: dort keine Rundung); _ecke_rund_schneiden bleibt ungenutzt
             except Exception as e_fv:
                 if "Testfehler" in str(e_fv):
                     raise

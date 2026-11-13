@@ -2,6 +2,9 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.107 – Aussenecke des Füllstücks wieder eckig (Anwender: «das ist nicht die Ecke, die ich markiert habe – dort habe ich bereits gesagt, dass keine Rundung sein soll»; Bild des gewünschten
+  Ergebnisses):** Der Ausschnitt der senkrechten Aussenecke (0.4.106) wird nicht mehr ausgeführt (Funktion `_ecke_rund_schneiden` bleibt ungenutzt). Gewünscht ist das Ergebnis wie auf dem Bild des
+  Anwenders (Wulst läuft rund auf die Ecke aus, Faltkante endet in kleiner Spitze) – OFFEN, Rückfrage an den Anwender (Bild von Hand erstellt? Fusion-Funktion/Kanten/Radius). Nicht live geprüft.
 - **0.4.106 – Aussenecke des Füllstücks per Extrusion abgerundet (Live 0.4.105: ein Körper, Rundungen da, Ecke ohne Rundung; Anwender: «kannst du das nicht mit einer Extrusion entfernen?»):**
   Statt einer Fillet-Rundung wird die senkrechte Aussenecke mit einem AUSSCHNITT abgerundet: Skizze auf der Basis-Aussenfläche an der Aussenecke O (Eckstück zwischen den beiden Aussenflächen
   und einem Viertelkreis, Radius = Blechdicke, tangential zu beiden Aussenflächen), Extrusion «Ausschneiden» über die Aufkantungshöhe, nur an den Körpern der Quetschfalte (`_ecke_rund_schneiden`);
