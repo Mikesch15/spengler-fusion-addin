@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.92 – Faltkante: loser Körper nach Live 0.4.91 («keine Rundung, ein komischer neuer Körper»):** Ursache: Die Vereinigung scheiterte (ein Combine verlangt, dass jedes Werkzeug den
+  Zielkörper schneidet – Lage 2 berührt Lage 1 nur über die Flosse), und die Flosse blieb als loser Körper stehen. Jetzt Vereinigung in zwei Schritten (Flosse, dann Lage 2); bei jedem
+  Fehler wird alles, was der Schritt angelegt hat (Ebene, Skizze, Flosse), über den Rückbau entfernt; der Hinweis nennt die Körper mit Volumen. (Release 0.4.91 war veröffentlicht, nur das
+  Speichern der Versionsnummer im Repository scheiterte, weil ein Commit während des Laufs kam – nie während eines Release-Laufs pushen.) Nicht live geprüft.
 - **0.4.91 – Faltkante der Quetschfalte rund im Modell (Anwender 7. 11. 2026: «Biegungen auch rund dargestellt im Modell»; Abwicklung passt jetzt):** Lage 1 und Lage 2 werden mit einer
   «Flosse» (Dicke t) an der Faltlinie O–C zu EINEM Körper «Quetschfalte Falte» vereinigt (weniger Einzelteile) und die Faltkante als Haarnadel gerundet (aussen 1,4·t, innen
   0,45·t um die Lücke g = t → halbrund). Scheitert die Vereinigung, bleiben die getrennten Lagen (alte Rundung als Rückfall); scheitert nur die Rundung, bleibt die eckige

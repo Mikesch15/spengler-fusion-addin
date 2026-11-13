@@ -3236,24 +3236,24 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
     n_aussen = tuple(a["n2_aussen"] if a["wand"] == "wand2" else a["n1_aussen"])
     O, P, C = a["dreieck_mm"]
     geo = _haarnadel_geometrie(O, P, C, n_aussen, t, g)
-    ebene = _versatz_ebene(comp, a["wand_flaeche"], g, n_aussen, rb)
-    flosse = _koerper_aus_vieleck(comp, ebene, geo["flosse"], geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
+    n0 = len(rb.objekte)
     try:
+        ebene = _versatz_ebene(comp, a["wand_flaeche"], g, n_aussen, rb)
+        flosse = _koerper_aus_vieleck(comp, ebene, geo["flosse"], geo["hoehe"], n_aussen, rb, "Quetschfalte Faltkante")
         _testfehler("quetschfalte_haarnadel")
-        tools = adsk.core.ObjectCollection.create()
-        tools.add(flosse)
-        tools.add(k2)
-        ci = comp.features.combineFeatures.createInput(k1, tools)
-        ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
-        ci.isKeepToolBodies = False
-        rb.merke(comp.features.combineFeatures.add(ci))
-    except Exception:
-        try:
-            if flosse.isValid:
-                flosse.deleteMe()
-        except Exception:
-            pass
-        raise
+        # Vereinigung in ZWEI Schritten: Lage 2 berührt Lage 1 nicht, nur die Flosse – ein Combine verlangt aber, dass jedes Werkzeug den Zielkörper schneidet
+        for werkzeug in (flosse, k2):
+            tools = adsk.core.ObjectCollection.create()
+            tools.add(werkzeug)
+            ci = comp.features.combineFeatures.createInput(k1, tools)
+            ci.operation = adsk.fusion.FeatureOperations.JoinFeatureOperation
+            ci.isKeepToolBodies = False
+            rb.merke(comp.features.combineFeatures.add(ci))
+    except Exception as e_v:
+        # alles zurücknehmen, was dieser Schritt angelegt hat (die Flosse darf nicht als loser Körper im Modell bleiben)
+        offen = entfernen_bericht(rb.objekte[n0:])
+        del rb.objekte[n0:]
+        raise AdapterFehler("%s%s" % ((str(e_v).strip().splitlines() or ["?"])[-1][:160], "" if not offen else " – ACHTUNG: die Faltkante konnte nicht vollständig zurückgenommen werden"))
     try:
         k1.name = "Quetschfalte Falte"
     except Exception:
@@ -3430,6 +3430,7 @@ def quetschfalte_bauen(a):
             probleme.append("%d Körper im Bauteil statt %d" % (comp.bRepBodies.count, n0 + len(neue)))
         if probleme:
             raise AdapterFehler("Ergebnis der Quetschfalte fehlerhaft: " + "; ".join(probleme))
+        hinweise.append("Körper: " + "; ".join("%s %.0f mm³" % (getattr(k, "name", "?"), k.volume * 1000.0) for k in comp.bRepBodies if k.entityToken in {x.entityToken for x in neue}))
         a["hinweise_bau"] = hinweise + ["Falte und Eckfüllung (%d Körper) gehören zum Bauteil, getrennt vom Blech; Abwicklung: «Abwicklung (eigen)»" % len(neue)]
         daten = json.dumps({"O": [round(c, 4) for c in a["O"]], "e1": [round(c, 6) for c in a["e1"]], "e2": [round(c, 6) for c in a["e2"]],
                             "nb": [round(c, 6) for c in a["nb"]], "zugabe_t": float(a.get("zugabe_t") or 0.0), "phi1": a["phi1"], "phi2": a["phi2"], "beta": round(a["beta"], 4), "h1": round(a["h1"], 3), "h2": round(a["h2"], 3), "dicke": t, "richtung": a["richtung"], "wand": a["wand"],
