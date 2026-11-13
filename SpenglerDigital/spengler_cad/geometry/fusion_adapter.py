@@ -3396,7 +3396,7 @@ def _falte_haarnadel(comp, k1, k2, a, g, rb):
         #    (Live 0.4.100: nacheinander mit Tangentenkette scheiterte jede Rundung nach der Ecke an widersprüchlichen Radien)
         try:
             _testfehler("quetschfalte_rundung_gesamt")
-            ecke_k, r_e = _falte_ecke_runden(comp, k1, a, g, rb, nur_suchen=True)
+            ecke_k, r_e = adsk.core.ObjectCollection.create(), 0.0          # KEINE Rundung der senkrechten Kanten am Eckpunkt mehr (Live 0.4.104: sie liess am Füllstück keilförmige Absätze)
             rand_k, r_r = _falte_rand_runden(comp, k1, a, g, rb, nur_suchen=True)
             ffk = comp.features.filletFeatures
             fik = ffk.createInput()
@@ -3702,7 +3702,7 @@ def quetschfalte_bauen(a):
             text_h, alles_gerundet = _falte_haarnadel(comp, k1, k2, a, g, rb)
             hinweise.append(text_h)
             if not alles_gerundet:                      # Rückfall (Stand 0.4.98): Kante zum Blech einzeln, danach die Ecke
-                for fn, name in ((_falte_rand_runden, "Kante zum Blech"), (_falte_ecke_runden, "Ecke am Eckpunkt")):
+                for fn, name in ((_falte_rand_runden, "Kante zum Blech"),):
                     try:
                         hinweise.append(fn(comp, k1, a, g, rb))
                     except Exception as e_r:

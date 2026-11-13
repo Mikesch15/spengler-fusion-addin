@@ -2,6 +2,10 @@
 
 **Aktueller Stand: die Einträge 0.4.80 ff. direkt unter dieser Zeile (neueste zuerst; Version 0.4.91); darunter bis zum Abschnitt «AKTUELLER STAND … (Version 0.4.79)» ganz am Ende ist der ältere Verlauf (5. 11. 2026, Branch `ccr-26e82854-8ygnzg`).** Die älteren Abschnitte (auch «Nachtauftrag») sind Verlauf.
 
+- **0.4.105 – Keilförmige Absätze am Füllstück (Live 0.4.104: ein Körper, alle Rundungen gelungen – Faltkante 2, Kante zum Blech 1, Ecke 3 Kanten; Anwender: «Schon fast … diese beiden Absätze»,
+  Bilder: keilförmiger Rest, wo die runde Faltkante auf die ebene Fläche des Füllstücks trifft):** Ursache vermutet: die Rundung der senkrechten Kanten am Eckpunkt (0,33 mm) – sie lässt am
+  Füllstück einen Keil übrig. Entfernt: die Faltkante endet jetzt glatt an der Fläche des Füllstücks. Faltkante und Kante zum Blech bleiben gerundet. Die «Kugel» an der Ecke entfällt damit
+  (Anwender hat sie zuerst gewünscht, dann die Übergänge beanstandet – abgesprochen, falls sie doch wieder gewollt ist). Nicht live geprüft.
 - **0.4.104 – Rundungen scheiterten nach der Füllstück-Vereinigung (Live 0.4.103: gemeinsame Rundung «ASM_BL_CHG_PT_COMPLEX_EDGE», Faltkante nicht gerundet, Ecke 8 Kanten – zu viele;
   Anwender: die abgerundete Ecke des Füllstücks soll nicht sein, die Übergänge von der Rundung zum Füllstück müssen weg):** Reihenfolge geändert: ZUERST alle Rundungen an der Falte (wie
   0.4.102, dort gelungen), DANN das Füllstück vereinigen; die eigene Rundung der Füllstück-Ecke (`_fuellstueck_ecke_runden`) entfällt (Funktion bleibt ungenutzt). Die Übergänge/Absätze
